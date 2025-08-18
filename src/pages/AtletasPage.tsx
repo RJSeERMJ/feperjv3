@@ -14,12 +14,13 @@ import {
   Badge,
   Dropdown
 } from 'react-bootstrap';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload, FaPaperclip } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { atletaService, equipeService, categoriaService, logService } from '../services/firebaseService';
 import { Atleta, Equipe, Categoria } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useCPFValidation } from '../hooks/useCPFValidation';
+import DocumentUploadModal from '../components/DocumentUploadModal';
 
 const AtletasPage: React.FC = () => {
   const [atletas, setAtletas] = useState<Atleta[]>([]);
@@ -28,6 +29,8 @@ const AtletasPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedAtleta, setSelectedAtleta] = useState<Atleta | null>(null);
   const [editingAtleta, setEditingAtleta] = useState<Atleta | null>(null);
   const [formData, setFormData] = useState({
     nome: '',
@@ -229,6 +232,11 @@ const AtletasPage: React.FC = () => {
     }
   };
 
+  const handleOpenDocumentModal = (atleta: Atleta) => {
+    setSelectedAtleta(atleta);
+    setShowDocumentModal(true);
+  };
+
   const resetForm = () => {
     setFormData({
       nome: '',
@@ -345,6 +353,10 @@ const AtletasPage: React.FC = () => {
                         <Dropdown.Item onClick={() => handleEdit(atleta)}>
                           <FaEdit className="me-2" />
                           Editar
+                        </Dropdown.Item>
+                        <Dropdown.Item onClick={() => handleOpenDocumentModal(atleta)}>
+                          <FaPaperclip className="me-2" />
+                          Anexar Documentos
                         </Dropdown.Item>
                         <Dropdown.Item onClick={() => handleDelete(atleta)}>
                           <FaTrash className="me-2" />
@@ -573,6 +585,16 @@ const AtletasPage: React.FC = () => {
           </Modal.Footer>
         </Form>
       </Modal>
+
+      {/* Modal de Upload de Documentos */}
+      <DocumentUploadModal
+        show={showDocumentModal}
+        onHide={() => {
+          setShowDocumentModal(false);
+          setSelectedAtleta(null);
+        }}
+        atleta={selectedAtleta}
+      />
     </div>
   );
 };
