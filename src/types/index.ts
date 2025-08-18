@@ -1,0 +1,146 @@
+export interface Usuario {
+  id?: string;
+  login: string;
+  nome: string;
+  senha?: string;
+  tipo: 'admin' | 'usuario';
+  dataCriacao?: Date;
+}
+
+export interface Equipe {
+  id?: string;
+  nomeEquipe: string;
+  cidade: string;
+  tecnico?: string;
+  telefone?: string;
+  email?: string;
+  dataCriacao?: Date;
+}
+
+export interface Categoria {
+  id?: string;
+  nomeCategoria: string;
+  pesoMinimo?: number;
+  pesoMaximo?: number;
+  sexo: 'M' | 'F';
+  descricao?: string;
+}
+
+export interface Atleta {
+  id?: string;
+  nome: string;
+  cpf: string;
+  sexo: 'M' | 'F';
+  email: string;
+  telefone?: string;
+  dataNascimento?: Date;
+  dataFiliacao: Date;
+  dataDesfiliacao?: Date;
+  peso?: number;
+  altura?: number;
+  maiorTotal?: number;
+  status: 'ATIVO' | 'INATIVO';
+  idCategoria?: string;
+  idEquipe?: string;
+  endereco?: string;
+  observacoes?: string;
+  comprovanteResidencia?: string;
+  carteirinha?: string;
+  foto3x4?: string;
+  dataCriacao?: Date;
+  categoria?: Categoria;
+  equipe?: Equipe;
+}
+
+export interface HistoricoTotal {
+  id?: string;
+  idAtleta: string;
+  totalAnterior?: number;
+  totalNovo: number;
+  dataAlteracao?: Date;
+  competicao?: string;
+}
+
+export interface Competicao {
+  id?: string;
+  nomeCompeticao: string;
+  dataCompeticao: Date;
+  valorInscricao: number;
+  valorDobra?: number;
+  dataInicioInscricao: Date;
+  dataFimInscricao: Date;
+  dataNominacaoPreliminar?: Date;
+  dataNominacaoFinal?: Date;
+  local?: string;
+  descricao?: string;
+  status: 'AGENDADA' | 'REALIZADA' | 'CANCELADA';
+  permiteDobraCategoria?: boolean;
+  dataCriacao?: Date;
+}
+
+export interface InscricaoCompeticao {
+  id?: string;
+  idAtleta: string;
+  idCompeticao: string;
+  dataInscricao?: Date;
+  statusInscricao: 'INSCRITO' | 'CANCELADO';
+  observacoes?: string;
+  valorIndividual?: number;
+  temDobra?: boolean;
+  atleta?: Atleta;
+  competicao?: Competicao;
+}
+
+export interface ResultadoCompeticao {
+  id?: string;
+  idAtleta: string;
+  idCompeticao: string;
+  agachamento?: number;
+  supino?: number;
+  terra?: number;
+  total?: number;
+  posicao?: number;
+  dataRegistro?: Date;
+  atleta?: Atleta;
+  competicao?: Competicao;
+}
+
+export interface LogAtividade {
+  id?: string;
+  dataHora: Date;
+  usuario: string;
+  acao: string;
+  detalhes?: string;
+  tipoUsuario?: string;
+}
+
+export interface CategoriaInscricao {
+  id?: string;
+  idInscricao: string;
+  idCategoria: string;
+  peso?: number;
+  categoria?: Categoria;
+}
+
+export interface DashboardStats {
+  totalAtletas: number;
+  totalEquipes: number;
+  totalCompeticoes: number;
+  atletasAtivos: number;
+  atletasInativos: number;
+  atletasPorSexo: { masculino: number; feminino: number };
+  atletasPorEquipe: Array<{ equipe: string; quantidade: number }>;
+  maioresTotais: Array<{ atleta: string; total: number }>;
+}
+
+export interface LoginCredentials {
+  login: string;
+  senha: string;
+}
+
+export interface AuthContextType {
+  user: Usuario | null;
+  login: (credentials: LoginCredentials) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
+}
