@@ -351,6 +351,7 @@ export const atletaService = {
     const docRef = await addDoc(collection(db, 'atletas'), {
       ...atleta,
       cpf: cpfLimpo, // Salvar CPF limpo (apenas números)
+      status: 'ATIVO', // Status padrão para novos atletas
       dataNascimento: convertToTimestamp(atleta.dataNascimento),
       dataFiliacao: convertToTimestamp(atleta.dataFiliacao),
       dataCriacao: Timestamp.now()

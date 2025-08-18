@@ -44,8 +44,6 @@ export interface Atleta {
   dataNascimento?: Date;
   dataFiliacao: Date;
 
-  peso?: number;
-  altura?: number;
   maiorTotal?: number;
   status: 'ATIVO' | 'INATIVO';
   idCategoria?: string;

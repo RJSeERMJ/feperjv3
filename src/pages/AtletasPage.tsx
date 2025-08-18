@@ -37,8 +37,6 @@ const AtletasPage: React.FC = () => {
     telefone: '',
     dataNascimento: '',
     dataFiliacao: '',
-    peso: '',
-    altura: '',
     maiorTotal: '',
     status: 'ATIVO' as 'ATIVO' | 'INATIVO',
     idEquipe: '',
@@ -126,13 +124,17 @@ const AtletasPage: React.FC = () => {
       return;
     }
     
+    // Verificar se usuário não-admin está tentando alterar status
+    if (user?.tipo !== 'admin' && editingAtleta && formData.status !== editingAtleta.status) {
+      toast.error('Apenas administradores podem alterar o status do atleta');
+      return;
+    }
+    
     try {
       const atletaData = {
         ...formData,
         dataNascimento: formData.dataNascimento ? new Date(formData.dataNascimento) : undefined,
         dataFiliacao: new Date(formData.dataFiliacao),
-        peso: formData.peso ? parseFloat(formData.peso) : undefined,
-        altura: formData.altura ? parseFloat(formData.altura) : undefined,
         maiorTotal: formData.maiorTotal ? parseFloat(formData.maiorTotal) : undefined,
         idEquipe: formData.idEquipe || undefined
       };
@@ -189,8 +191,6 @@ const AtletasPage: React.FC = () => {
       telefone: atleta.telefone || '',
       dataNascimento: atleta.dataNascimento ? atleta.dataNascimento.toISOString().split('T')[0] : '',
       dataFiliacao: atleta.dataFiliacao.toISOString().split('T')[0],
-      peso: atleta.peso?.toString() || '',
-      altura: atleta.altura?.toString() || '',
       maiorTotal: atleta.maiorTotal?.toString() || '',
       status: atleta.status,
       idEquipe: atleta.idEquipe || '',
@@ -238,8 +238,7 @@ const AtletasPage: React.FC = () => {
       telefone: '',
       dataNascimento: '',
       dataFiliacao: new Date().toISOString().split('T')[0],
-      peso: '',
-      altura: '',
+
       maiorTotal: '',
       status: 'ATIVO',
       idEquipe: user?.tipo === 'admin' ? '' : (user?.idEquipe || ''),
@@ -514,29 +513,7 @@ const AtletasPage: React.FC = () => {
             </Row>
 
             <Row>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Peso (kg)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    step="0.1"
-                    value={formData.peso}
-                    onChange={(e) => setFormData({...formData, peso: e.target.value})}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Altura (cm)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    step="0.1"
-                    value={formData.altura}
-                    onChange={(e) => setFormData({...formData, altura: e.target.value})}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={4}>
+              <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Maior Total (kg)</Form.Label>
                   <Form.Control
@@ -547,21 +524,23 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
-            </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Status</Form.Label>
-                  <Form.Select
-                    value={formData.status}
-                    onChange={(e) => setFormData({...formData, status: e.target.value as 'ATIVO' | 'INATIVO'})}
-                  >
-                    <option value="ATIVO">Ativo</option>
-                    <option value="INATIVO">Inativo</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
+              {user?.tipo === 'admin' && (
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Status</Form.Label>
+                    <Form.Select
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value as 'ATIVO' | 'INATIVO'})}
+                    >
+                      <option value="ATIVO">Ativo</option>
+                      <option value="INATIVO">Inativo</option>
+                    </Form.Select>
+                    <Form.Text className="text-muted">
+                      Apenas administradores podem alterar o status
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+              )}
             </Row>
 
             <Form.Group className="mb-3">
