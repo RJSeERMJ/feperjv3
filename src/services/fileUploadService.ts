@@ -21,6 +21,21 @@ export class FileUploadService {
   private static readonly ALLOWED_PDF_TYPES = ['application/pdf'];
   private static readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+  // Teste de conexão com Firebase Storage
+  static async testFirebaseConnection(): Promise<boolean> {
+    try {
+      console.log('Testando conexão com Firebase Storage...');
+      const testRef = ref(storage, 'test-connection.txt');
+      const testBlob = new Blob(['test'], { type: 'text/plain' });
+      await uploadBytes(testRef, testBlob);
+      console.log('✅ Conexão com Firebase Storage OK');
+      return true;
+    } catch (error) {
+      console.error('❌ Erro na conexão com Firebase Storage:', error);
+      return false;
+    }
+  }
+
   // Validar tipo de arquivo
   static validateFile(file: File, allowedTypes: string[]): string | null {
     if (!allowedTypes.includes(file.type)) {
@@ -41,20 +56,35 @@ export class FileUploadService {
     fileType: 'comprovanteResidencia' | 'foto3x4' | 'identidade' | 'certificadoAdel',
     onProgress?: (progress: FileUploadProgress) => void
   ): Promise<UploadedFile> {
+    console.log('FileUploadService.uploadFile iniciado:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      atletaId,
+      documentType: fileType
+    });
+
     try {
       // Validar arquivo
       const allowedTypes = (fileType === 'comprovanteResidencia' || fileType === 'identidade' || fileType === 'certificadoAdel')
         ? this.ALLOWED_PDF_TYPES 
         : this.ALLOWED_IMAGE_TYPES;
 
+      console.log('Tipos permitidos para', fileType, ':', allowedTypes);
+
       const validationError = this.validateFile(file, allowedTypes);
       if (validationError) {
+        console.error('Erro de validação:', validationError);
         throw new Error(validationError);
       }
+
+      console.log('Arquivo validado com sucesso');
 
       // Criar referência no storage
       const fileName = `${atletaId}_${fileType}_${Date.now()}_${file.name}`;
       const storageRef = ref(storage, `atletas/${atletaId}/${fileType}/${fileName}`);
+      
+      console.log('Referência do storage criada:', storageRef.fullPath);
 
       // Simular progresso (Firebase não fornece progresso nativo)
       onProgress?.({
@@ -63,8 +93,12 @@ export class FileUploadService {
         status: 'uploading'
       });
 
+      console.log('Iniciando upload para Firebase Storage...');
+
       // Upload do arquivo
       const snapshot = await uploadBytes(storageRef, file);
+      
+      console.log('Upload concluído, snapshot:', snapshot);
       
       onProgress?.({
         progress: 50,
@@ -72,8 +106,12 @@ export class FileUploadService {
         status: 'uploading'
       });
 
+      console.log('Obtendo URL de download...');
+
       // Obter URL de download
       const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      console.log('URL de download obtida:', downloadURL);
 
       onProgress?.({
         progress: 100,
@@ -81,7 +119,7 @@ export class FileUploadService {
         status: 'success'
       });
 
-      return {
+      const result = {
         name: file.name,
         url: downloadURL,
         type: file.type,
@@ -89,7 +127,12 @@ export class FileUploadService {
         uploadedAt: new Date()
       };
 
+      console.log('Upload finalizado com sucesso:', result);
+      return result;
+
     } catch (error) {
+      console.error('Erro no FileUploadService.uploadFile:', error);
+      
       onProgress?.({
         progress: 0,
         fileName: file.name,

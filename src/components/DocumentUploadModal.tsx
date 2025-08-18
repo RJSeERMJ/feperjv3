@@ -52,6 +52,13 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         identidade: [],
         certificadoAdel: []
       });
+      
+      // Testar conexão com Firebase Storage
+      FileUploadService.testFirebaseConnection().then(isConnected => {
+        if (!isConnected) {
+          toast.error('Erro de conexão com o servidor de arquivos');
+        }
+      });
     }
   }, [show, atleta]);
 
@@ -59,16 +66,28 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     file: File,
     fileType: 'comprovanteResidencia' | 'foto3x4' | 'identidade' | 'certificadoAdel'
   ) => {
-    if (!atleta?.id) return;
+    if (!atleta?.id) {
+      toast.error('Atleta não identificado');
+      return;
+    }
+
+    console.log('Iniciando upload:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      atletaId: atleta.id,
+      documentType: fileType
+    });
 
     try {
       setUploading(true);
       
-      await FileUploadService.uploadFile(
+      const result = await FileUploadService.uploadFile(
         file,
         atleta.id,
         fileType,
         (progress) => {
+          console.log('Progresso do upload:', progress);
           setUploadProgress(progress);
           if (progress.status === 'error') {
             toast.error(progress.error || 'Erro no upload');
@@ -76,12 +95,13 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         }
       );
 
-      toast.success('Arquivo enviado com sucesso!');
-      // TODO: Recarregar lista de arquivos quando implementar listagem
+      console.log('Upload concluído com sucesso:', result);
+      toast.success(`Arquivo "${file.name}" enviado com sucesso!`);
       
     } catch (error) {
-      console.error('Erro no upload:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro no upload');
+      console.error('Erro detalhado no upload:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido no upload';
+      toast.error(`Falha no upload: ${errorMessage}`);
     } finally {
       setUploading(false);
       setUploadProgress(null);
