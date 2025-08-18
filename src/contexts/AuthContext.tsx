@@ -37,17 +37,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há usuário salvo no localStorage
-    const savedUser = localStorage.getItem('feperj_user');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-      } catch (error) {
-        console.error('Erro ao carregar usuário do localStorage:', error);
-        localStorage.removeItem('feperj_user');
-      }
-    }
+    // Não carregar usuário automaticamente do localStorage
+    // O usuário deve fazer login explicitamente
     setLoading(false);
   }, []);
 
@@ -118,26 +109,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (user) {
         // Registrar log de logout
-        await logService.create({
-          dataHora: new Date(),
-          usuario: user.nome,
-          acao: 'Logout realizado',
-          detalhes: `Logout do usuário ${user.nome}`,
-          tipoUsuario: user.tipo
-        });
+        try {
+          await logService.create({
+            dataHora: new Date(),
+            usuario: user.nome,
+            acao: 'Logout realizado',
+            detalhes: `Logout do usuário ${user.nome}`,
+            tipoUsuario: user.tipo
+          });
+        } catch (logError) {
+          console.warn('Erro ao registrar log de logout:', logError);
+        }
       }
     } catch (error) {
-      console.error('Erro ao registrar logout:', error);
+      console.error('Erro ao fazer logout:', error);
     } finally {
       setUser(null);
       localStorage.removeItem('feperj_user');
+      sessionStorage.removeItem('feperj_user');
     }
+  };
+
+  // Função para limpar dados de autenticação
+  const clearAuthData = () => {
+    setUser(null);
+    localStorage.removeItem('feperj_user');
+    sessionStorage.removeItem('feperj_user');
   };
 
   const value: AuthContextType = {
     user,
     login,
     logout,
+    clearAuthData,
     loading
   };
 

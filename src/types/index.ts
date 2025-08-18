@@ -142,5 +142,6 @@ export interface AuthContextType {
   user: Usuario | null;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
+  clearAuthData: () => void;
   loading: boolean;
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { FaDumbbell, FaSignInAlt } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +11,12 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, clearAuthData } = useAuth();
+
+  // Limpar dados de autenticação ao carregar a página de login
+  useEffect(() => {
+    clearAuthData();
+  }, [clearAuthData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
