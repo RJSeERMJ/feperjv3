@@ -1,31 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Row, 
-  Col, 
-  Card, 
-  Button, 
-  Table, 
-  Form, 
-  InputGroup,
-  Modal,
-  Alert,
-  Spinner,
-  Badge,
-  Dropdown
-} from 'react-bootstrap';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload } from 'react-icons/fa';
+import { Card, Button, Table, Form, Modal, Alert, Spinner, Badge, Row, Col } from 'react-bootstrap';
+import { FaPlus, FaEdit, FaTrash, FaEye, FaDownload, FaUpload } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { atletaService, equipeService, categoriaService, logService } from '../services/firebaseService';
-import { Atleta, Equipe, Categoria } from '../types';
+import { atletaService, categoriaService, equipeService, logService } from '../services/firebaseService';
+import { Atleta, Categoria, Equipe } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useAccessControl } from '../hooks/useAccessControl';
 
 const AtletasPage: React.FC = () => {
   const [atletas, setAtletas] = useState<Atleta[]>([]);
-  const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingAtleta, setEditingAtleta] = useState<Atleta | null>(null);
   const [formData, setFormData] = useState({
@@ -40,11 +26,14 @@ const AtletasPage: React.FC = () => {
     altura: '',
     maiorTotal: '',
     status: 'ATIVO' as 'ATIVO' | 'INATIVO',
+    idCategoria: '',
     idEquipe: '',
     endereco: '',
     observacoes: ''
   });
+  const [cpfError, setCpfError] = useState('');
   const { user } = useAuth();
+  const { isAdmin, getUserTeamId, canModify, canDelete, getAccessInfo } = useAccessControl();
 
   useEffect(() => {
     loadData();
@@ -53,53 +42,129 @@ const AtletasPage: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [atletasData, equipesData, categoriasData] = await Promise.all([
-        atletaService.getAll(),
-        equipeService.getAll(),
-        categoriaService.getAll()
-      ]);
+      
+      // Carregar atletas baseado no acesso do usuário
+      const userTeamId = getUserTeamId();
+      const atletasData = await atletaService.getAll(userTeamId);
       setAtletas(atletasData);
-      setEquipes(equipesData);
+
+      // Carregar categorias
+      const categoriasData = await categoriaService.getAll();
       setCategorias(categoriasData);
+
+      // Carregar equipes baseado no acesso do usuário
+      const equipesData = await equipeService.getAll(userTeamId);
+      setEquipes(equipesData);
     } catch (error) {
       toast.error('Erro ao carregar dados');
-      console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para validar CPF
+  const validateCPF = (cpf: string): boolean => {
+    // Remover caracteres não numéricos
+    const cleanCPF = cpf.replace(/\D/g, '');
+    
+    // Verificar se tem 11 dígitos
+    if (cleanCPF.length !== 11) {
+      setCpfError('CPF deve ter exatamente 11 números');
+      return false;
+    }
+    
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1{10}$/.test(cleanCPF)) {
+      setCpfError('CPF inválido');
+      return false;
+    }
+    
+    // Validar CPF usando algoritmo oficial
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
+    }
+    let remainder = 11 - (sum % 11);
+    let digit1 = remainder < 2 ? 0 : remainder;
+    
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
+    }
+    remainder = 11 - (sum % 11);
+    let digit2 = remainder < 2 ? 0 : remainder;
+    
+    if (parseInt(cleanCPF.charAt(9)) !== digit1 || parseInt(cleanCPF.charAt(10)) !== digit2) {
+      setCpfError('CPF inválido');
+      return false;
+    }
+    
+    setCpfError('');
+    return true;
+  };
+
+  // Função para verificar se CPF já existe
+  const checkCPFExists = async (cpf: string, excludeId?: string): Promise<boolean> => {
+    try {
+      const existingAtleta = await atletaService.getByCpf(cpf);
+      if (existingAtleta && existingAtleta.id !== excludeId) {
+        setCpfError('CPF já cadastrado no sistema');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validar CPF
+    if (!validateCPF(formData.cpf)) {
+      return;
+    }
+    
+    // Verificar se CPF já existe
+    const cpfExists = await checkCPFExists(formData.cpf, editingAtleta?.id);
+    if (cpfExists) {
+      return;
+    }
+    
+    // Verificar se o usuário pode modificar
+    if (!canModify(formData.idEquipe)) {
+      toast.error('Você não tem permissão para modificar dados desta equipe');
+      return;
+    }
+    
     try {
+      // Preparar dados do atleta
       const atletaData = {
         ...formData,
         dataNascimento: formData.dataNascimento ? new Date(formData.dataNascimento) : undefined,
-        dataFiliacao: new Date(formData.dataFiliacao),
+        dataFiliacao: formData.dataFiliacao ? new Date(formData.dataFiliacao) : undefined,
         peso: formData.peso ? parseFloat(formData.peso) : undefined,
         altura: formData.altura ? parseFloat(formData.altura) : undefined,
         maiorTotal: formData.maiorTotal ? parseFloat(formData.maiorTotal) : undefined,
-        idEquipe: formData.idEquipe || undefined
+        // Para usuários, sempre definir como ATIVO
+        status: isAdmin() ? formData.status : 'ATIVO'
       };
 
       if (editingAtleta) {
         await atletaService.update(editingAtleta.id!, atletaData);
         toast.success('Atleta atualizado com sucesso!');
         
-        // Registrar log
         await logService.create({
           dataHora: new Date(),
           usuario: user?.nome || 'Sistema',
           acao: 'Atualizou atleta',
-          detalhes: `Atualizou dados do atleta ${formData.nome}`,
+          detalhes: `Atualizou atleta: ${formData.nome}`,
           tipoUsuario: user?.tipo || 'usuario'
         });
       } else {
         await atletaService.create(atletaData);
         toast.success('Atleta cadastrado com sucesso!');
         
-        // Registrar log
         await logService.create({
           dataHora: new Date(),
           usuario: user?.nome || 'Sistema',
@@ -115,11 +180,16 @@ const AtletasPage: React.FC = () => {
       loadData();
     } catch (error) {
       toast.error('Erro ao salvar atleta');
-      console.error(error);
     }
   };
 
   const handleEdit = (atleta: Atleta) => {
+    // Verificar se o usuário pode modificar este atleta
+    if (!canModify(atleta.idEquipe)) {
+      toast.error('Você não tem permissão para editar este atleta');
+      return;
+    }
+
     setEditingAtleta(atleta);
     setFormData({
       nome: atleta.nome,
@@ -127,26 +197,33 @@ const AtletasPage: React.FC = () => {
       sexo: atleta.sexo,
       email: atleta.email,
       telefone: atleta.telefone || '',
-      dataNascimento: atleta.dataNascimento ? atleta.dataNascimento.toISOString().split('T')[0] : '',
-      dataFiliacao: atleta.dataFiliacao.toISOString().split('T')[0],
+      dataNascimento: atleta.dataNascimento ? new Date(atleta.dataNascimento).toISOString().split('T')[0] : '',
+      dataFiliacao: atleta.dataFiliacao ? new Date(atleta.dataFiliacao).toISOString().split('T')[0] : '',
       peso: atleta.peso?.toString() || '',
       altura: atleta.altura?.toString() || '',
       maiorTotal: atleta.maiorTotal?.toString() || '',
       status: atleta.status,
+      idCategoria: atleta.idCategoria || '',
       idEquipe: atleta.idEquipe || '',
       endereco: atleta.endereco || '',
       observacoes: atleta.observacoes || ''
     });
+    setCpfError('');
     setShowModal(true);
   };
 
   const handleDelete = async (atleta: Atleta) => {
+    // Verificar se o usuário pode excluir este atleta
+    if (!canDelete(atleta.idEquipe)) {
+      toast.error('Você não tem permissão para excluir este atleta');
+      return;
+    }
+
     if (window.confirm(`Tem certeza que deseja excluir o atleta ${atleta.nome}?`)) {
       try {
         await atletaService.delete(atleta.id!);
         toast.success('Atleta excluído com sucesso!');
         
-        // Registrar log
         await logService.create({
           dataHora: new Date(),
           usuario: user?.nome || 'Sistema',
@@ -158,7 +235,6 @@ const AtletasPage: React.FC = () => {
         loadData();
       } catch (error) {
         toast.error('Erro ao excluir atleta');
-        console.error(error);
       }
     }
   };
@@ -171,22 +247,33 @@ const AtletasPage: React.FC = () => {
       email: '',
       telefone: '',
       dataNascimento: '',
-      dataFiliacao: new Date().toISOString().split('T')[0],
+      dataFiliacao: '',
       peso: '',
       altura: '',
       maiorTotal: '',
       status: 'ATIVO',
-      idEquipe: '',
+      idCategoria: '',
+      idEquipe: getUserTeamId() || '',
       endereco: '',
       observacoes: ''
     });
+    setCpfError('');
   };
 
-  const filteredAtletas = atletas.filter(atleta =>
-    atleta.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    atleta.cpf.includes(searchTerm) ||
-    atleta.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Função para formatar CPF
+  const formatCPF = (cpf: string) => {
+    const cleanCPF = cpf.replace(/\D/g, '');
+    return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
+
+  // Função para lidar com mudança no CPF
+  const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, ''); // Remove caracteres não numéricos
+    if (value.length <= 11) {
+      setFormData({...formData, cpf: value});
+      setCpfError('');
+    }
+  };
 
   if (loading) {
     return (
@@ -198,10 +285,17 @@ const AtletasPage: React.FC = () => {
     );
   }
 
+  const accessInfo = getAccessInfo();
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>👥 Gestão de Atletas</h2>
+        <div>
+          <h2>🏃‍♂️ Gestão de Atletas</h2>
+          <Badge bg={accessInfo.color} className="mt-2">
+            {accessInfo.label}: {accessInfo.description}
+          </Badge>
+        </div>
         <Button 
           variant="primary" 
           onClick={() => {
@@ -217,22 +311,6 @@ const AtletasPage: React.FC = () => {
 
       <Card>
         <Card.Body>
-          <Row className="mb-3">
-            <Col md={6}>
-              <InputGroup>
-                <InputGroup.Text>
-                  <FaSearch />
-                </InputGroup.Text>
-                <Form.Control
-                  type="text"
-                  placeholder="Buscar por nome, CPF ou email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </InputGroup>
-            </Col>
-          </Row>
-
           <Table responsive striped hover>
             <thead>
               <tr>
@@ -247,17 +325,23 @@ const AtletasPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredAtletas.map((atleta) => (
+              {atletas.map((atleta) => (
                 <tr key={atleta.id}>
                   <td>{atleta.nome}</td>
-                  <td>{atleta.cpf}</td>
+                  <td>{formatCPF(atleta.cpf)}</td>
                   <td>
                     <Badge bg={atleta.sexo === 'M' ? 'primary' : 'danger'}>
-                      {atleta.sexo === 'M' ? 'M' : 'F'}
+                      {atleta.sexo === 'M' ? 'Masculino' : 'Feminino'}
                     </Badge>
                   </td>
                   <td>{atleta.email}</td>
-                  <td>{atleta.equipe?.nomeEquipe || '-'}</td>
+                  <td>
+                    {atleta.equipe ? (
+                      <Badge bg="success">{atleta.equipe.nomeEquipe}</Badge>
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </td>
                   <td>
                     <Badge bg={atleta.status === 'ATIVO' ? 'success' : 'secondary'}>
                       {atleta.status}
@@ -265,36 +349,37 @@ const AtletasPage: React.FC = () => {
                   </td>
                   <td>{atleta.maiorTotal ? `${atleta.maiorTotal}kg` : '-'}</td>
                   <td>
-                    <Dropdown>
-                      <Dropdown.Toggle variant="outline-secondary" size="sm">
-                        Ações
-                      </Dropdown.Toggle>
-                      <Dropdown.Menu>
-                        <Dropdown.Item onClick={() => handleEdit(atleta)}>
-                          <FaEdit className="me-2" />
-                          Editar
-                        </Dropdown.Item>
-                        <Dropdown.Item onClick={() => handleDelete(atleta)}>
-                          <FaTrash className="me-2" />
-                          Excluir
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      className="me-2"
+                      onClick={() => handleEdit(atleta)}
+                      disabled={!canModify(atleta.idEquipe)}
+                    >
+                      <FaEdit />
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => handleDelete(atleta)}
+                      disabled={!canDelete(atleta.idEquipe)}
+                    >
+                      <FaTrash />
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
 
-          {filteredAtletas.length === 0 && (
+          {atletas.length === 0 && (
             <Alert variant="info" className="text-center">
-              Nenhum atleta encontrado.
+              {isAdmin() ? 'Nenhum atleta cadastrado.' : 'Nenhum atleta encontrado para sua equipe.'}
             </Alert>
           )}
         </Card.Body>
       </Card>
 
-      {/* Modal de Cadastro/Edição */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
@@ -321,9 +406,18 @@ const AtletasPage: React.FC = () => {
                   <Form.Control
                     type="text"
                     value={formData.cpf}
-                    onChange={(e) => setFormData({...formData, cpf: e.target.value})}
+                    onChange={handleCPFChange}
+                    placeholder="00000000000"
+                    maxLength={11}
                     required
+                    isInvalid={!!cpfError}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {cpfError}
+                  </Form.Control.Feedback>
+                  <Form.Text className="text-muted">
+                    Digite apenas números (11 dígitos)
+                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>
@@ -357,16 +451,6 @@ const AtletasPage: React.FC = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Telefone</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={formData.telefone}
-                    onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
                   <Form.Label>Data de Nascimento</Form.Label>
                   <Form.Control
                     type="date"
@@ -375,9 +459,6 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
-            </Row>
-
-            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Data de Filiação *</Form.Label>
@@ -389,12 +470,16 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
+            </Row>
+
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Equipe</Form.Label>
                   <Form.Select
                     value={formData.idEquipe}
                     onChange={(e) => setFormData({...formData, idEquipe: e.target.value})}
+                    disabled={!isAdmin()} // Apenas admin pode escolher equipe
                   >
                     <option value="">Selecione uma equipe</option>
                     {equipes.map((equipe) => (
@@ -403,6 +488,24 @@ const AtletasPage: React.FC = () => {
                       </option>
                     ))}
                   </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Status *</Form.Label>
+                  <Form.Select
+                    value={formData.status}
+                    onChange={(e) => setFormData({...formData, status: e.target.value as 'ATIVO' | 'INATIVO'})}
+                    disabled={!isAdmin()} // Apenas admin pode editar status
+                  >
+                    <option value="ATIVO">Ativo</option>
+                    <option value="INATIVO">Inativo</option>
+                  </Form.Select>
+                  {!isAdmin() && (
+                    <Form.Text className="text-muted">
+                      Apenas administradores podem alterar o status
+                    </Form.Text>
+                  )}
                 </Form.Group>
               </Col>
             </Row>
@@ -442,31 +545,6 @@ const AtletasPage: React.FC = () => {
                 </Form.Group>
               </Col>
             </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Status</Form.Label>
-                  <Form.Select
-                    value={formData.status}
-                    onChange={(e) => setFormData({...formData, status: e.target.value as 'ATIVO' | 'INATIVO'})}
-                  >
-                    <option value="ATIVO">Ativo</option>
-                    <option value="INATIVO">Inativo</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Endereço</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                value={formData.endereco}
-                onChange={(e) => setFormData({...formData, endereco: e.target.value})}
-              />
-            </Form.Group>
 
             <Form.Group className="mb-3">
               <Form.Label>Observações</Form.Label>

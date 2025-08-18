@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { usuarioService, logService } from '../services/firebaseService';
+import { usuarioService, logService, equipeService } from '../services/firebaseService';
 import { Usuario, LoginCredentials, AuthContextType } from '../types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -91,7 +91,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const usuario = await usuarioService.getByLogin(credentials.login);
         
         if (usuario && usuario.senha === credentials.senha) {
-          const userWithoutPassword = { ...usuario };
+          // Buscar dados da equipe se o usuário tiver uma
+          let equipe = null;
+          if (usuario.idEquipe) {
+            try {
+              equipe = await equipeService.getById(usuario.idEquipe);
+            } catch (error) {
+              console.warn('Erro ao buscar equipe do usuário:', error);
+            }
+          }
+
+          const userWithoutPassword = { 
+            ...usuario, 
+            equipe: equipe || undefined
+          };
           delete userWithoutPassword.senha;
           
           setUser(userWithoutPassword);
@@ -103,7 +116,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               dataHora: new Date(),
               usuario: usuario.nome,
               acao: 'Login realizado',
-              detalhes: `Login do usuário ${usuario.nome}`,
+              detalhes: `Login do usuário ${usuario.nome}${equipe ? ` - Equipe: ${equipe.nomeEquipe}` : ''}`,
               tipoUsuario: usuario.tipo
             });
           } catch (logError) {
@@ -135,7 +148,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             dataHora: new Date(),
             usuario: user.nome,
             acao: 'Logout realizado',
-            detalhes: `Logout do usuário ${user.nome}`,
+            detalhes: `Logout do usuário ${user.nome}${user.equipe ? ` - Equipe: ${user.equipe.nomeEquipe}` : ''}`,
             tipoUsuario: user.tipo
           });
         } catch (logError) {
