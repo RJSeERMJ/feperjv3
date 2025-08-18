@@ -104,13 +104,14 @@ export const usuarioService = {
   async create(usuario: Omit<Usuario, 'id'>): Promise<string> {
     // Se o usuário não for admin, criar equipe automaticamente
     if (usuario.tipo === 'usuario') {
-      // Criar equipe com o nome do usuário
+      // Criar equipe com todos os dados fornecidos
       const equipeData = {
-        nomeEquipe: usuario.nome,
-        cidade: 'A definir', // Valor padrão
+        nomeEquipe: usuario.nomeEquipe || usuario.nome,
+        cidade: usuario.estado || 'A definir',
         tecnico: usuario.nome,
         telefone: '',
         email: '',
+        observacoes: usuario.observacoes || '',
         dataCriacao: Timestamp.now()
       };
       

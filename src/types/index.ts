@@ -6,6 +6,10 @@ export interface Usuario {
   tipo: 'admin' | 'usuario';
   chefeEquipe?: boolean; // Indica se o usuário é chefe de equipe
   idEquipe?: string; // ID da equipe que o usuário é chefe
+  // Campos da equipe
+  nomeEquipe?: string; // Nome da equipe
+  estado?: string; // Estado da equipe
+  observacoes?: string; // Observações
   dataCriacao?: Date;
   equipe?: Equipe; // Relacionamento com a equipe
 }

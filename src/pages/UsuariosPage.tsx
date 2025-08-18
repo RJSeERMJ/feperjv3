@@ -15,7 +15,10 @@ const UsuariosPage: React.FC = () => {
     login: '',
     nome: '',
     senha: '',
-    tipo: 'usuario' as 'admin' | 'usuario'
+    tipo: 'usuario' as 'admin' | 'usuario',
+    nomeEquipe: '',
+    estado: '',
+    observacoes: ''
   });
   const { user } = useAuth();
 
@@ -78,7 +81,10 @@ const UsuariosPage: React.FC = () => {
       login: usuario.login,
       nome: usuario.nome,
       senha: '',
-      tipo: usuario.tipo
+      tipo: usuario.tipo,
+      nomeEquipe: usuario.nomeEquipe || '',
+      estado: usuario.estado || '',
+      observacoes: usuario.observacoes || ''
     });
     setShowModal(true);
   };
@@ -109,7 +115,10 @@ const UsuariosPage: React.FC = () => {
       login: '',
       nome: '',
       senha: '',
-      tipo: 'usuario'
+      tipo: 'usuario',
+      nomeEquipe: '',
+      estado: '',
+      observacoes: ''
     });
   };
 
@@ -149,6 +158,7 @@ const UsuariosPage: React.FC = () => {
                 <th>Login</th>
                 <th>Tipo</th>
                 <th>Equipe</th>
+                <th>Estado</th>
                 <th>Chefe de Equipe</th>
                 <th>Data de Criação</th>
                 <th>Ações</th>
@@ -172,6 +182,9 @@ const UsuariosPage: React.FC = () => {
                     ) : (
                       <Badge bg="warning">Sem equipe</Badge>
                     )}
+                  </td>
+                  <td>
+                    {usuario.estado || '-'}
                   </td>
                   <td>
                     {usuario.chefeEquipe ? (
@@ -228,13 +241,13 @@ const UsuariosPage: React.FC = () => {
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
             <Alert variant="info" className="mb-3">
-              <strong>ℹ️ Informação:</strong> Usuários do tipo "Usuário" serão automaticamente criados como chefes de equipe com o mesmo nome.
+              <strong>ℹ️ Informação:</strong> Usuários do tipo "Usuário" serão automaticamente criados como chefes de equipe com os dados fornecidos.
             </Alert>
             
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Nome *</Form.Label>
+                  <Form.Label>Nome do Técnico *</Form.Label>
                   <Form.Control
                     type="text"
                     value={formData.nome}
@@ -283,10 +296,53 @@ const UsuariosPage: React.FC = () => {
             </Row>
 
             {formData.tipo === 'usuario' && (
-              <Alert variant="warning" className="mt-3">
-                <FaCrown className="me-2" />
-                <strong>Chefe de Equipe:</strong> Este usuário será automaticamente criado como chefe da equipe "{formData.nome}".
-              </Alert>
+              <>
+                <hr />
+                <h6 className="mb-3">📋 Dados da Equipe</h6>
+                
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Nome da Equipe *</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={formData.nomeEquipe}
+                        onChange={(e) => setFormData({...formData, nomeEquipe: e.target.value})}
+                        required={formData.tipo === 'usuario'}
+                        placeholder="Nome da equipe"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Estado *</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={formData.estado}
+                        onChange={(e) => setFormData({...formData, estado: e.target.value})}
+                        required={formData.tipo === 'usuario'}
+                        placeholder="Estado da equipe"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Observações</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    value={formData.observacoes}
+                    onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
+                    placeholder="Observações sobre a equipe..."
+                  />
+                </Form.Group>
+
+                <Alert variant="warning" className="mt-3">
+                  <FaCrown className="me-2" />
+                  <strong>Chefe de Equipe:</strong> Este usuário será automaticamente criado como chefe da equipe "{formData.nomeEquipe || formData.nome}".
+                </Alert>
+              </>
             )}
           </Modal.Body>
           <Modal.Footer>
