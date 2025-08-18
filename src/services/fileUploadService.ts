@@ -118,14 +118,13 @@ export class FileUploadService {
         
         for (const item of comprovantesList.items) {
           const url = await getDownloadURL(item);
-          const metadata = await item.getMetadata();
           
           result.comprovanteResidencia.push({
             name: item.name,
             url,
-            type: metadata.contentType || 'application/pdf',
-            size: metadata.size,
-            uploadedAt: new Date(metadata.timeCreated)
+            type: 'application/pdf',
+            size: 0, // Firebase Storage não fornece metadata facilmente
+            uploadedAt: new Date()
           });
         }
       } catch (error) {
@@ -139,14 +138,13 @@ export class FileUploadService {
         
         for (const item of fotosList.items) {
           const url = await getDownloadURL(item);
-          const metadata = await item.getMetadata();
           
           result.foto3x4.push({
             name: item.name,
             url,
-            type: metadata.contentType || 'image/jpeg',
-            size: metadata.size,
-            uploadedAt: new Date(metadata.timeCreated)
+            type: 'image/jpeg',
+            size: 0, // Firebase Storage não fornece metadata facilmente
+            uploadedAt: new Date()
           });
         }
       } catch (error) {

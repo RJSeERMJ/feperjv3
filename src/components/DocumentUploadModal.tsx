@@ -168,10 +168,10 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               )}
               <div>
                 <div className="fw-bold">{file.name}</div>
-                <small className="text-muted">
-                  {FileUploadService.formatFileSize(file.size)} • 
-                  {file.uploadedAt.toLocaleDateString('pt-BR')}
-                </small>
+                                 <small className="text-muted">
+                   {file.size > 0 ? FileUploadService.formatFileSize(file.size) : 'Tamanho não disponível'} • 
+                   {file.uploadedAt.toLocaleDateString('pt-BR')}
+                 </small>
               </div>
             </div>
             <div>
