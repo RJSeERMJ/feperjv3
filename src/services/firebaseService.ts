@@ -340,8 +340,17 @@ export const atletaService = {
   },
 
   async create(atleta: Omit<Atleta, 'id'>): Promise<string> {
+    // Verificar se CPF já existe no sistema
+    const cpfLimpo = atleta.cpf.replace(/\D/g, '');
+    const atletaExistente = await this.getByCpf(cpfLimpo);
+    
+    if (atletaExistente) {
+      throw new Error(`CPF ${atleta.cpf} já está cadastrado no sistema. Atleta: ${atletaExistente.nome} (Equipe: ${atletaExistente.equipe?.nomeEquipe || 'N/A'}). Entre em contato com o administrador.`);
+    }
+    
     const docRef = await addDoc(collection(db, 'atletas'), {
       ...atleta,
+      cpf: cpfLimpo, // Salvar CPF limpo (apenas números)
       dataNascimento: convertToTimestamp(atleta.dataNascimento),
       dataFiliacao: convertToTimestamp(atleta.dataFiliacao),
       dataCriacao: Timestamp.now()
@@ -350,9 +359,21 @@ export const atletaService = {
   },
 
   async update(id: string, atleta: Partial<Atleta>): Promise<void> {
+    // Se o CPF foi alterado, verificar se já existe no sistema
+    if (atleta.cpf) {
+      const cpfLimpo = atleta.cpf.replace(/\D/g, '');
+      const atletaExistente = await this.getByCpf(cpfLimpo);
+      
+      // Se encontrou um atleta com o mesmo CPF e não é o mesmo atleta sendo editado
+      if (atletaExistente && atletaExistente.id !== id) {
+        throw new Error(`CPF ${atleta.cpf} já está cadastrado no sistema. Atleta: ${atletaExistente.nome} (Equipe: ${atletaExistente.equipe?.nomeEquipe || 'N/A'}). Entre em contato com o administrador.`);
+      }
+    }
+    
     const docRef = doc(db, 'atletas', id);
     const updateData = {
       ...atleta,
+      cpf: atleta.cpf ? atleta.cpf.replace(/\D/g, '') : undefined, // Salvar CPF limpo
       dataNascimento: convertToTimestamp(atleta.dataNascimento),
       dataFiliacao: convertToTimestamp(atleta.dataFiliacao),
     };

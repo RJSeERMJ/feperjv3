@@ -19,6 +19,7 @@ import { toast } from 'react-toastify';
 import { atletaService, equipeService, categoriaService, logService } from '../services/firebaseService';
 import { Atleta, Equipe, Categoria } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useCPFValidation } from '../hooks/useCPFValidation';
 
 const AtletasPage: React.FC = () => {
   const [atletas, setAtletas] = useState<Atleta[]>([]);
@@ -45,6 +46,7 @@ const AtletasPage: React.FC = () => {
     observacoes: ''
   });
   const { user } = useAuth();
+  const { validateCPF, formatCPF, validating: cpfValidating, lastValidation: cpfValidation } = useCPFValidation();
 
   useEffect(() => {
     loadData();
@@ -115,6 +117,13 @@ const AtletasPage: React.FC = () => {
       
       // Forçar a equipe do usuário para novos atletas
       formData.idEquipe = user.idEquipe;
+    }
+    
+    // Validar CPF antes de salvar
+    const cpfValidation = await validateCPF(formData.cpf, editingAtleta?.id);
+    if (!cpfValidation.isValid) {
+      toast.error(cpfValidation.message);
+      return;
     }
     
     try {
@@ -367,6 +376,10 @@ const AtletasPage: React.FC = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
+            <Alert variant="info" className="mb-3">
+              <strong>ℹ️ Informação:</strong> O CPF deve ser único em todo o sistema. 
+              Se o CPF já estiver cadastrado em outra equipe, entre em contato com o administrador.
+            </Alert>
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
@@ -385,9 +398,32 @@ const AtletasPage: React.FC = () => {
                   <Form.Control
                     type="text"
                     value={formData.cpf}
-                    onChange={(e) => setFormData({...formData, cpf: e.target.value})}
+                    onChange={(e) => {
+                      const formattedCPF = formatCPF(e.target.value);
+                      setFormData({...formData, cpf: formattedCPF});
+                      
+                      // Validar CPF em tempo real
+                      if (formattedCPF.replace(/\D/g, '').length === 11) {
+                        validateCPF(formattedCPF, editingAtleta?.id);
+                      }
+                    }}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
                     required
+                    isInvalid={cpfValidation ? !cpfValidation.isValid : false}
+                    isValid={cpfValidation ? cpfValidation.isValid : false}
                   />
+                  {cpfValidating && (
+                    <Form.Text className="text-muted">
+                      <Spinner animation="border" size="sm" className="me-2" />
+                      Verificando CPF...
+                    </Form.Text>
+                  )}
+                  {cpfValidation && (
+                    <Form.Control.Feedback type={cpfValidation.isValid ? "valid" : "invalid"}>
+                      {cpfValidation.message}
+                    </Form.Control.Feedback>
+                  )}
                 </Form.Group>
               </Col>
             </Row>
