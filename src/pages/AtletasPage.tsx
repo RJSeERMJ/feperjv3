@@ -140,14 +140,21 @@ const AtletasPage: React.FC = () => {
     try {
       // Preparar dados do atleta
       const atletaData = {
-        ...formData,
+        nome: formData.nome,
+        cpf: formData.cpf,
+        sexo: formData.sexo,
+        email: formData.email,
+        telefone: formData.telefone || undefined,
         dataNascimento: formData.dataNascimento ? new Date(formData.dataNascimento) : undefined,
-        dataFiliacao: formData.dataFiliacao ? new Date(formData.dataFiliacao) : undefined,
+        dataFiliacao: formData.dataFiliacao ? new Date(formData.dataFiliacao) : new Date(),
         peso: formData.peso ? parseFloat(formData.peso) : undefined,
         altura: formData.altura ? parseFloat(formData.altura) : undefined,
         maiorTotal: formData.maiorTotal ? parseFloat(formData.maiorTotal) : undefined,
-        // Para usuários, sempre definir como ATIVO
-        status: isAdmin() ? formData.status : 'ATIVO'
+        status: isAdmin() ? formData.status : 'ATIVO',
+        idCategoria: formData.idCategoria || undefined,
+        idEquipe: formData.idEquipe || getUserTeamId() || undefined,
+        endereco: formData.endereco || undefined,
+        observacoes: formData.observacoes || undefined
       };
 
       if (editingAtleta) {
