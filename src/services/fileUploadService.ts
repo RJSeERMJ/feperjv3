@@ -38,12 +38,12 @@ export class FileUploadService {
   static async uploadFile(
     file: File, 
     atletaId: string, 
-    fileType: 'comprovanteResidencia' | 'foto3x4',
+    fileType: 'comprovanteResidencia' | 'foto3x4' | 'identidade' | 'certificadoAdel',
     onProgress?: (progress: FileUploadProgress) => void
   ): Promise<UploadedFile> {
     try {
       // Validar arquivo
-      const allowedTypes = fileType === 'comprovanteResidencia' 
+      const allowedTypes = (fileType === 'comprovanteResidencia' || fileType === 'identidade' || fileType === 'certificadoAdel')
         ? this.ALLOWED_PDF_TYPES 
         : this.ALLOWED_IMAGE_TYPES;
 
@@ -104,11 +104,15 @@ export class FileUploadService {
   static async listAtletaFiles(atletaId: string): Promise<{
     comprovanteResidencia?: UploadedFile[];
     foto3x4?: UploadedFile[];
+    identidade?: UploadedFile[];
+    certificadoAdel?: UploadedFile[];
   }> {
     try {
       const result = {
         comprovanteResidencia: [] as UploadedFile[],
-        foto3x4: [] as UploadedFile[]
+        foto3x4: [] as UploadedFile[],
+        identidade: [] as UploadedFile[],
+        certificadoAdel: [] as UploadedFile[]
       };
 
       // Listar comprovantes de residência
@@ -147,11 +151,51 @@ export class FileUploadService {
             uploadedAt: new Date()
           });
         }
-      } catch (error) {
-        console.log('Nenhuma foto 3x4 encontrada');
-      }
+             } catch (error) {
+         console.log('Nenhuma foto 3x4 encontrada');
+       }
 
-      return result;
+       // Listar identidades
+       try {
+         const identidadesRef = ref(storage, `atletas/${atletaId}/identidade`);
+         const identidadesList = await listAll(identidadesRef);
+         
+         for (const item of identidadesList.items) {
+           const url = await getDownloadURL(item);
+           
+           result.identidade.push({
+             name: item.name,
+             url,
+             type: 'application/pdf',
+             size: 0,
+             uploadedAt: new Date()
+           });
+         }
+       } catch (error) {
+         console.log('Nenhuma identidade encontrada');
+       }
+
+       // Listar certificados ADEL
+       try {
+         const certificadosRef = ref(storage, `atletas/${atletaId}/certificadoAdel`);
+         const certificadosList = await listAll(certificadosRef);
+         
+         for (const item of certificadosList.items) {
+           const url = await getDownloadURL(item);
+           
+           result.certificadoAdel.push({
+             name: item.name,
+             url,
+             type: 'application/pdf',
+             size: 0,
+             uploadedAt: new Date()
+           });
+         }
+       } catch (error) {
+         console.log('Nenhum certificado ADEL encontrado');
+       }
+
+       return result;
 
     } catch (error) {
       console.error('Erro ao listar arquivos:', error);

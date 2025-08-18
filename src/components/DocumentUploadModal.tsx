@@ -34,11 +34,15 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [files, setFiles] = useState<{
     comprovanteResidencia?: UploadedFile[];
     foto3x4?: UploadedFile[];
+    identidade?: UploadedFile[];
+    certificadoAdel?: UploadedFile[];
   }>({});
   const [loading, setLoading] = useState(false);
   
   const comprovanteRef = useRef<HTMLInputElement>(null);
   const fotoRef = useRef<HTMLInputElement>(null);
+  const identidadeRef = useRef<HTMLInputElement>(null);
+  const certificadoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (show && atleta) {
@@ -55,7 +59,13 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setFiles(atletaFiles);
     } catch (error) {
       console.error('Erro ao carregar arquivos:', error);
-      toast.error('Erro ao carregar documentos');
+      // Não mostrar erro se não há arquivos - isso é normal
+      setFiles({
+        comprovanteResidencia: [],
+        foto3x4: [],
+        identidade: [],
+        certificadoAdel: []
+      });
     } finally {
       setLoading(false);
     }
@@ -63,7 +73,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   const handleFileUpload = async (
     file: File,
-    fileType: 'comprovanteResidencia' | 'foto3x4'
+    fileType: 'comprovanteResidencia' | 'foto3x4' | 'identidade' | 'certificadoAdel'
   ) => {
     if (!atleta?.id) return;
 
@@ -113,6 +123,28 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     // Limpar input
     if (fotoRef.current) {
       fotoRef.current.value = '';
+    }
+  };
+
+  const handleIdentidadeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, 'identidade');
+    }
+    // Limpar input
+    if (identidadeRef.current) {
+      identidadeRef.current.value = '';
+    }
+  };
+
+  const handleCertificadoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file, 'certificadoAdel');
+    }
+    // Limpar input
+    if (certificadoRef.current) {
+      certificadoRef.current.value = '';
     }
   };
 
