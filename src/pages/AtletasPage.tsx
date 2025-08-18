@@ -81,19 +81,25 @@ const AtletasPage: React.FC = () => {
     
     // Validar CPF usando algoritmo oficial
     let sum = 0;
+    
+    // Primeiro dígito verificador
     for (let i = 0; i < 9; i++) {
       sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
     }
-    let remainder = 11 - (sum % 11);
-    let digit1 = remainder < 2 ? 0 : remainder;
     
+    let remainder = sum % 11;
+    let digit1 = remainder < 2 ? 0 : 11 - remainder;
+    
+    // Segundo dígito verificador
     sum = 0;
     for (let i = 0; i < 10; i++) {
       sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
     }
-    remainder = 11 - (sum % 11);
-    let digit2 = remainder < 2 ? 0 : remainder;
     
+    remainder = sum % 11;
+    let digit2 = remainder < 2 ? 0 : 11 - remainder;
+    
+    // Verificar se os dígitos calculados são iguais aos dígitos do CPF
     if (parseInt(cleanCPF.charAt(9)) !== digit1 || parseInt(cleanCPF.charAt(10)) !== digit2) {
       setCpfError('CPF inválido');
       return false;
@@ -115,6 +121,14 @@ const AtletasPage: React.FC = () => {
     } catch (error) {
       return false;
     }
+  };
+
+  // Função para testar CPF (apenas para desenvolvimento)
+  const testCPF = (cpf: string) => {
+    console.log('Testando CPF:', cpf);
+    const isValid = validateCPF(cpf);
+    console.log('CPF válido:', isValid);
+    return isValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
