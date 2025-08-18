@@ -50,6 +50,7 @@
     "build": "react-scripts build",
     "build:prod": "set \"CI=false\" && react-scripts build",
     "build:vercel": "set \"CI=false\" && set \"GENERATE_SOURCEMAP=false\" && react-scripts build",
+    "vercel-build": "node vercel-build.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "setup": "node setup.js"
