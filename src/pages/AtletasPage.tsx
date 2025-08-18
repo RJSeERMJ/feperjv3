@@ -53,11 +53,38 @@ const AtletasPage: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [atletasData, equipesData, categoriasData] = await Promise.all([
-        atletaService.getAll(),
-        equipeService.getAll(),
-        categoriaService.getAll()
-      ]);
+      
+      // Se for admin, carrega todos os atletas e equipes
+      // Se for usuário comum, carrega apenas atletas da sua equipe
+      let atletasData: Atleta[];
+      let equipesData: Equipe[];
+      
+      if (user?.tipo === 'admin') {
+        [atletasData, equipesData] = await Promise.all([
+          atletaService.getAll(),
+          equipeService.getAll()
+        ]);
+      } else {
+        // Usuário comum - só pode ver atletas da sua equipe
+        if (!user?.idEquipe) {
+          toast.error('Usuário não está vinculado a uma equipe');
+          setAtletas([]);
+          setEquipes([]);
+          setCategorias([]);
+          return;
+        }
+        
+        // Buscar apenas atletas da equipe do usuário
+        const atletasDaEquipe = await atletaService.getAll();
+        atletasData = atletasDaEquipe.filter(atleta => atleta.idEquipe === user.idEquipe);
+        
+        // Buscar apenas a equipe do usuário
+        const equipeDoUsuario = await equipeService.getById(user.idEquipe);
+        equipesData = equipeDoUsuario ? [equipeDoUsuario] : [];
+      }
+      
+      const categoriasData = await categoriaService.getAll();
+      
       setAtletas(atletasData);
       setEquipes(equipesData);
       setCategorias(categoriasData);
@@ -71,6 +98,24 @@ const AtletasPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Verificação de segurança para usuários não-admin
+    if (user?.tipo !== 'admin') {
+      // Usuário comum só pode criar/editar atletas da sua equipe
+      if (!user?.idEquipe) {
+        toast.error('Usuário não está vinculado a uma equipe');
+        return;
+      }
+      
+      // Se estiver editando, verificar se o atleta pertence à equipe do usuário
+      if (editingAtleta && editingAtleta.idEquipe !== user.idEquipe) {
+        toast.error('Você só pode editar atletas da sua equipe');
+        return;
+      }
+      
+      // Forçar a equipe do usuário para novos atletas
+      formData.idEquipe = user.idEquipe;
+    }
     
     try {
       const atletaData = {
@@ -120,6 +165,12 @@ const AtletasPage: React.FC = () => {
   };
 
   const handleEdit = (atleta: Atleta) => {
+    // Verificação de segurança para usuários não-admin
+    if (user?.tipo !== 'admin' && atleta.idEquipe !== user?.idEquipe) {
+      toast.error('Você só pode editar atletas da sua equipe');
+      return;
+    }
+    
     setEditingAtleta(atleta);
     setFormData({
       nome: atleta.nome,
@@ -141,6 +192,12 @@ const AtletasPage: React.FC = () => {
   };
 
   const handleDelete = async (atleta: Atleta) => {
+    // Verificação de segurança para usuários não-admin
+    if (user?.tipo !== 'admin' && atleta.idEquipe !== user?.idEquipe) {
+      toast.error('Você só pode excluir atletas da sua equipe');
+      return;
+    }
+    
     if (window.confirm(`Tem certeza que deseja excluir o atleta ${atleta.nome}?`)) {
       try {
         await atletaService.delete(atleta.id!);
@@ -176,7 +233,7 @@ const AtletasPage: React.FC = () => {
       altura: '',
       maiorTotal: '',
       status: 'ATIVO',
-      idEquipe: '',
+      idEquipe: user?.tipo === 'admin' ? '' : (user?.idEquipe || ''),
       endereco: '',
       observacoes: ''
     });
@@ -201,7 +258,14 @@ const AtletasPage: React.FC = () => {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>👥 Gestão de Atletas</h2>
+        <div>
+          <h2>👥 Gestão de Atletas</h2>
+          {user?.tipo !== 'admin' && user?.equipe && (
+            <p className="text-muted mb-0">
+              Visualizando atletas da equipe: <strong>{user.equipe.nomeEquipe}</strong>
+            </p>
+          )}
+        </div>
         <Button 
           variant="primary" 
           onClick={() => {
@@ -395,6 +459,7 @@ const AtletasPage: React.FC = () => {
                   <Form.Select
                     value={formData.idEquipe}
                     onChange={(e) => setFormData({...formData, idEquipe: e.target.value})}
+                    disabled={user?.tipo !== 'admin'}
                   >
                     <option value="">Selecione uma equipe</option>
                     {equipes.map((equipe) => (
@@ -403,6 +468,11 @@ const AtletasPage: React.FC = () => {
                       </option>
                     ))}
                   </Form.Select>
+                  {user?.tipo !== 'admin' && (
+                    <Form.Text className="text-muted">
+                      Atletas serão automaticamente vinculados à sua equipe
+                    </Form.Text>
+                  )}
                 </Form.Group>
               </Col>
             </Row>
