@@ -42,8 +42,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Não carregar usuário automaticamente do localStorage
-    // O usuário deve fazer login explicitamente
+    // Verificar se há usuário válido no localStorage
+    const savedUser = localStorage.getItem('feperj_user');
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        // Verificar se o usuário tem os campos obrigatórios
+        if (userData && userData.login && userData.nome && userData.tipo) {
+          setUser(userData);
+        } else {
+          // Dados inválidos, limpar
+          localStorage.removeItem('feperj_user');
+        }
+      } catch (error) {
+        console.error('Erro ao carregar usuário do localStorage:', error);
+        localStorage.removeItem('feperj_user');
+      }
+    }
     setLoading(false);
   }, []);
 
@@ -63,6 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           tipo: localUser.tipo
         };
         
+        console.log('👤 Usuário local encontrado:', userData);
         setUser(userData);
         localStorage.setItem('feperj_user', JSON.stringify(userData));
         

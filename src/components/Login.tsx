@@ -13,9 +13,13 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login, clearAuthData } = useAuth();
 
-  // Limpar dados de autenticação ao carregar a página de login
+  // Limpar dados de autenticação apenas uma vez ao montar o componente
   useEffect(() => {
-    clearAuthData();
+    // Só limpar se não houver usuário logado
+    const savedUser = localStorage.getItem('feperj_user');
+    if (!savedUser) {
+      clearAuthData();
+    }
   }, [clearAuthData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,12 +27,19 @@ const Login: React.FC = () => {
     setError('');
     setIsLoading(true);
 
+    console.log('🔐 Tentando login com:', credentials.login);
+
     try {
       const success = await login(credentials);
+      console.log('✅ Resultado do login:', success);
+      
       if (!success) {
         setError('Login ou senha incorretos!');
+      } else {
+        console.log('🎉 Login realizado com sucesso!');
       }
     } catch (error) {
+      console.error('❌ Erro no login:', error);
       setError('Erro ao fazer login. Tente novamente.');
     } finally {
       setIsLoading(false);
