@@ -9,16 +9,18 @@ O erro `ERESOLVE unable to resolve dependency tree` foi resolvido com múltiplas
 legacy-peer-deps=true
 ```
 
-### 2. **Variável de Ambiente no `vercel.json`**
+### 2. **Configuração no `vercel.json`**
 ```json
-"env": {
-  "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+"config": {
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npm run build"
 }
 ```
 
 ### 3. **Dependências Adicionadas**
 - `ajv: ^8.12.0`
 - `@babel/helper-define-polyfill-provider: ^0.3.3`
+- Plugins Babel atualizados para eliminar warnings
 
 ## 📁 Arquivos Criados/Modificados
 
@@ -27,7 +29,7 @@ legacy-peer-deps=true
 ### ✅ `package.json` - Dependências atualizadas
 ### ✅ `.vercelignore` - Otimização do upload
 ### ✅ `deploy.bat` - Script automatizado
-### ✅ `vercel-build.sh` - Script de backup
+### ✅ `vercel.json` - Configuração otimizada com installCommand
 
 ## 🔄 Como Fazer o Deploy
 

@@ -41,3 +41,5 @@ INSTALACAO_RAPIDA.md
 GITHUB_SETUP.md
 # Keep build script
 !vercel-build.sh
+# Keep Babel config
+!.babelrc
