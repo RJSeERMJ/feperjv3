@@ -25,6 +25,14 @@ export class FileUploadService {
   static async testFirebaseConnection(): Promise<boolean> {
     try {
       console.log('Testando conexão com Firebase Storage...');
+      
+      // Verificar autenticação primeiro
+      const isAuthenticated = await this.checkAuth();
+      if (!isAuthenticated) {
+        console.error('❌ Falha na autenticação para teste de conexão');
+        return false;
+      }
+      
       const testRef = ref(storage, 'test-connection.txt');
       const testBlob = new Blob(['test'], { type: 'text/plain' });
       await uploadBytes(testRef, testBlob);
@@ -50,14 +58,30 @@ export class FileUploadService {
   }
 
   // Verificar autenticação
-  static checkAuth(): boolean {
-    const user = auth.currentUser;
+  static async checkAuth(): Promise<boolean> {
+    let user = auth.currentUser;
+    
+    // Se não há usuário autenticado no Firebase, tentar autenticação anônima
     if (!user) {
-      console.error('❌ Usuário não está autenticado');
-      return false;
+      try {
+        console.log('🔐 Tentando autenticação anônima no Firebase...');
+        const { signInAnonymously } = await import('firebase/auth');
+        const result = await signInAnonymously(auth);
+        user = result.user;
+        console.log('✅ Autenticação anônima realizada:', user.uid);
+      } catch (error) {
+        console.error('❌ Erro na autenticação anônima:', error);
+        return false;
+      }
     }
-    console.log('✅ Usuário autenticado:', user.email);
-    return true;
+    
+    if (user) {
+      console.log('✅ Usuário autenticado no Firebase:', user.uid);
+      return true;
+    }
+    
+    console.error('❌ Falha na autenticação Firebase');
+    return false;
   }
 
   // Upload de arquivo
@@ -76,7 +100,8 @@ export class FileUploadService {
     });
 
     // Verificar autenticação
-    if (!this.checkAuth()) {
+    const isAuthenticated = await this.checkAuth();
+    if (!isAuthenticated) {
       throw new Error('Usuário não está autenticado. Faça login novamente.');
     }
 
