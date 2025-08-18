@@ -28,6 +28,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  console.log('🏗️ Layout - User:', user, 'Location:', location.pathname);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');

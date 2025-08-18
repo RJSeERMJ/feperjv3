@@ -20,7 +20,10 @@ import LogPage from './pages/LogPage';
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
+  console.log('🛡️ ProtectedRoute - User:', user, 'Loading:', loading);
+
   if (loading) {
+    console.log('⏳ ProtectedRoute - Carregando...');
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
         <div className="spinner-border" role="status">
@@ -31,9 +34,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   if (!user) {
+    console.log('❌ ProtectedRoute - Usuário não autenticado, redirecionando para login');
     return <Navigate to="/login" replace />;
   }
 
+  console.log('✅ ProtectedRoute - Usuário autenticado, renderizando conteúdo');
   return <Layout>{children}</Layout>;
 };
 

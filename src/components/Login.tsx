@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { FaDumbbell, FaSignInAlt } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import './Login.css';
 
 const Login: React.FC = () => {
@@ -11,7 +12,8 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, clearAuthData } = useAuth();
+  const { login, clearAuthData, user } = useAuth();
+  const navigate = useNavigate();
 
   // Limpar dados de autenticação apenas uma vez ao montar o componente
   useEffect(() => {
@@ -21,6 +23,14 @@ const Login: React.FC = () => {
       clearAuthData();
     }
   }, [clearAuthData]);
+
+  // Redirecionar se já estiver logado
+  useEffect(() => {
+    if (user) {
+      console.log('🔄 Usuário já logado, redirecionando para dashboard...');
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +47,10 @@ const Login: React.FC = () => {
         setError('Login ou senha incorretos!');
       } else {
         console.log('🎉 Login realizado com sucesso!');
+        // Redirecionar para o dashboard após login bem-sucedido
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 100);
       }
     } catch (error) {
       console.error('❌ Erro no login:', error);
