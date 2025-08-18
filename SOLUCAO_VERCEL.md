@@ -6,7 +6,8 @@
 **Problema**: `ERESOLVE unable to resolve dependency tree`
 **Solução**: 
 - Adicionado `--legacy-peer-deps` no comando de instalação
-- Configurado no `vercel.json` para usar automaticamente
+- Criado arquivo `.npmrc` com `legacy-peer-deps=true`
+- Configurado `NPM_CONFIG_LEGACY_PEER_DEPS=true` no vercel.json
 
 ### 2. ❌ Módulos Faltando
 **Problema**: `Cannot find module 'ajv/dist/compile/codegen'`

@@ -39,3 +39,5 @@ install.sh
 setup.js
 INSTALACAO_RAPIDA.md
 GITHUB_SETUP.md
+# Keep build script
+!vercel-build.sh
