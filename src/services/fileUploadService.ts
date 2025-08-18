@@ -1,5 +1,5 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
-import { storage } from '../config/firebase';
+import { storage, auth } from '../config/firebase';
 
 export interface UploadedFile {
   name: string;
@@ -49,6 +49,17 @@ export class FileUploadService {
     return null;
   }
 
+  // Verificar autenticação
+  static checkAuth(): boolean {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('❌ Usuário não está autenticado');
+      return false;
+    }
+    console.log('✅ Usuário autenticado:', user.email);
+    return true;
+  }
+
   // Upload de arquivo
   static async uploadFile(
     file: File, 
@@ -63,6 +74,11 @@ export class FileUploadService {
       atletaId,
       documentType: fileType
     });
+
+    // Verificar autenticação
+    if (!this.checkAuth()) {
+      throw new Error('Usuário não está autenticado. Faça login novamente.');
+    }
 
     try {
       // Validar arquivo
