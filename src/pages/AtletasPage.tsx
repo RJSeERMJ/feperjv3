@@ -62,7 +62,7 @@ const AtletasPage: React.FC = () => {
     }
   };
 
-  // Função para validar CPF
+  // Função para validar CPF (validação simplificada)
   const validateCPF = (cpf: string): boolean => {
     // Remover caracteres não numéricos
     const cleanCPF = cpf.replace(/\D/g, '');
@@ -73,35 +73,15 @@ const AtletasPage: React.FC = () => {
       return false;
     }
     
-    // Verificar se todos os dígitos são iguais
-    if (/^(\d)\1{10}$/.test(cleanCPF)) {
-      setCpfError('CPF inválido');
+    // Verificar se são apenas números de 0 a 9
+    if (!/^\d{11}$/.test(cleanCPF)) {
+      setCpfError('CPF deve conter apenas números de 0 a 9');
       return false;
     }
     
-    // Validar CPF usando algoritmo oficial
-    let sum = 0;
-    
-    // Primeiro dígito verificador
-    for (let i = 0; i < 9; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (10 - i);
-    }
-    
-    let remainder = sum % 11;
-    let digit1 = remainder < 2 ? 0 : 11 - remainder;
-    
-    // Segundo dígito verificador
-    sum = 0;
-    for (let i = 0; i < 10; i++) {
-      sum += parseInt(cleanCPF.charAt(i)) * (11 - i);
-    }
-    
-    remainder = sum % 11;
-    let digit2 = remainder < 2 ? 0 : 11 - remainder;
-    
-    // Verificar se os dígitos calculados são iguais aos dígitos do CPF
-    if (parseInt(cleanCPF.charAt(9)) !== digit1 || parseInt(cleanCPF.charAt(10)) !== digit2) {
-      setCpfError('CPF inválido');
+    // Verificar se todos os dígitos são iguais (opcional)
+    if (/^(\d)\1{10}$/.test(cleanCPF)) {
+      setCpfError('CPF não pode ter todos os dígitos iguais');
       return false;
     }
     
