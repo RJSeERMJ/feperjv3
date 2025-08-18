@@ -55,8 +55,16 @@ const AtletasPage: React.FC = () => {
       // Carregar equipes baseado no acesso do usuário
       const equipesData = await equipeService.getAll(userTeamId);
       setEquipes(equipesData);
-    } catch (error) {
-      toast.error('Erro ao carregar dados');
+    } catch (error: any) {
+      console.error('Erro ao carregar dados:', error);
+      
+      if (error?.code === 'unavailable' || error?.message?.includes('network')) {
+        toast.error('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else if (error?.code === 'permission-denied') {
+        toast.error('Permissão negada. Verifique suas credenciais.');
+      } else {
+        toast.error('Erro ao carregar dados. Tente recarregar a página.');
+      }
     } finally {
       setLoading(false);
     }
@@ -98,7 +106,9 @@ const AtletasPage: React.FC = () => {
         return true;
       }
       return false;
-    } catch (error) {
+    } catch (error: any) {
+      console.warn('Erro ao verificar CPF:', error);
+      // Em caso de erro na verificação, não bloqueia o cadastro
       return false;
     }
   };
@@ -109,6 +119,23 @@ const AtletasPage: React.FC = () => {
     const isValid = validateCPF(cpf);
     console.log('CPF válido:', isValid);
     return isValid;
+  };
+
+  // Função com retry para operações do Firebase
+  const retryOperation = async (operation: () => Promise<any>, maxRetries = 3) => {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        if (error?.code === 'unavailable' || error?.message?.includes('network') || error?.message?.includes('blocked')) {
+          console.log(`Tentativa ${i + 1} falhou, tentando novamente...`, error);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        } else {
+          throw error;
+        }
+      }
+    }
+    throw new Error('Máximo de tentativas excedido');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,35 +179,46 @@ const AtletasPage: React.FC = () => {
       };
 
       if (editingAtleta) {
-        await atletaService.update(editingAtleta.id!, atletaData);
+        await retryOperation(() => atletaService.update(editingAtleta.id!, atletaData));
         toast.success('Atleta atualizado com sucesso!');
         
-        await logService.create({
+        await retryOperation(() => logService.create({
           dataHora: new Date(),
           usuario: user?.nome || 'Sistema',
           acao: 'Atualizou atleta',
           detalhes: `Atualizou atleta: ${formData.nome}`,
           tipoUsuario: user?.tipo || 'usuario'
-        });
+        }));
       } else {
-        await atletaService.create(atletaData);
+        await retryOperation(() => atletaService.create(atletaData));
         toast.success('Atleta cadastrado com sucesso!');
         
-        await logService.create({
+        await retryOperation(() => logService.create({
           dataHora: new Date(),
           usuario: user?.nome || 'Sistema',
           acao: 'Cadastrou atleta',
           detalhes: `Cadastrou novo atleta: ${formData.nome}`,
           tipoUsuario: user?.tipo || 'usuario'
-        });
+        }));
       }
 
       setShowModal(false);
       setEditingAtleta(null);
       resetForm();
       loadData();
-    } catch (error) {
-      toast.error('Erro ao salvar atleta');
+    } catch (error: any) {
+      console.error('Erro detalhado ao salvar atleta:', error);
+      
+      // Verificar se é erro de conexão
+      if (error?.code === 'unavailable' || error?.message?.includes('network')) {
+        toast.error('Erro de conexão. Verifique sua internet e tente novamente.');
+      } else if (error?.code === 'permission-denied') {
+        toast.error('Permissão negada. Verifique suas credenciais.');
+      } else if (error?.code === 'not-found') {
+        toast.error('Recurso não encontrado. Tente recarregar a página.');
+      } else {
+        toast.error(`Erro ao salvar atleta: ${error?.message || 'Erro desconhecido'}`);
+      }
     }
   };
 
