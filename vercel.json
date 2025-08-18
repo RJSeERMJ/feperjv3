@@ -7,7 +7,7 @@
       "config": {
         "distDir": "build",
         "installCommand": "npm install --legacy-peer-deps",
-        "buildCommand": "npm run build"
+        "buildCommand": "node vercel-build.js"
       }
     }
   ],
@@ -39,6 +39,8 @@
   ],
   "env": {
     "CI": "false",
-    "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+    "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+    "GENERATE_SOURCEMAP": "false",
+    "SKIP_PREFLIGHT_CHECK": "true"
   }
 }
