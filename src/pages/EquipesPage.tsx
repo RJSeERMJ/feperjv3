@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { equipeService, logService, usuarioService } from '../services/firebaseService';
 import { Equipe, Usuario } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useAdminPermission } from '../hooks/useAdminPermission';
 
 const EquipesPage: React.FC = () => {
   const [equipes, setEquipes] = useState<Equipe[]>([]);
@@ -19,6 +20,7 @@ const EquipesPage: React.FC = () => {
     email: ''
   });
   const { user } = useAuth();
+  const { isAdmin, checkAdminPermission } = useAdminPermission();
 
   useEffect(() => {
     loadEquipes();
@@ -56,6 +58,12 @@ const EquipesPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Verificação de segurança - apenas administradores podem gerenciar equipes
+    if (!checkAdminPermission('gerenciar equipes')) {
+      toast.error('Apenas administradores podem gerenciar equipes');
+      return;
+    }
+    
     try {
       if (editingEquipe) {
         await equipeService.update(editingEquipe.id!, formData);
@@ -92,6 +100,12 @@ const EquipesPage: React.FC = () => {
   };
 
   const handleEdit = (equipe: Equipe) => {
+    // Verificação de segurança - apenas administradores podem editar equipes
+    if (!checkAdminPermission('editar equipes')) {
+      toast.error('Apenas administradores podem editar equipes');
+      return;
+    }
+    
     setEditingEquipe(equipe);
     setFormData({
       nomeEquipe: equipe.nomeEquipe,
@@ -104,6 +118,12 @@ const EquipesPage: React.FC = () => {
   };
 
   const handleDelete = async (equipe: Equipe) => {
+    // Verificação de segurança - apenas administradores podem excluir equipes
+    if (!checkAdminPermission('excluir equipes')) {
+      toast.error('Apenas administradores podem excluir equipes');
+      return;
+    }
+    
     if (window.confirm(`Tem certeza que deseja excluir a equipe ${equipe.nomeEquipe}?`)) {
       try {
         await equipeService.delete(equipe.id!);
@@ -134,6 +154,21 @@ const EquipesPage: React.FC = () => {
     });
   };
 
+  // Verificação de acesso - apenas administradores podem acessar
+  if (!isAdmin) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
+        <Alert variant="danger" className="text-center" style={{ maxWidth: '500px' }}>
+          <h4>🚫 Acesso Negado</h4>
+          <p className="mb-0">
+            Você não tem permissão para acessar a gestão de equipes. 
+            Apenas administradores podem gerenciar equipes.
+          </p>
+        </Alert>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
@@ -147,7 +182,13 @@ const EquipesPage: React.FC = () => {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>👥 Gestão de Equipes</h2>
+        <div>
+          <h2>👥 Gestão de Equipes</h2>
+          <p className="text-muted mb-0">
+            <Badge bg="warning" className="me-2">🔒 Admin Only</Badge>
+            Apenas administradores podem gerenciar equipes
+          </p>
+        </div>
         <Button 
           variant="primary" 
           onClick={() => {

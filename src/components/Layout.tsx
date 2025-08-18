@@ -38,7 +38,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: <FaHome /> },
     { path: '/atletas', label: 'Atletas', icon: <FaUsers /> },
-    { path: '/equipes', label: 'Equipes', icon: <FaUserFriends /> },
+    // Equipes apenas para administradores
+    ...(user?.tipo === 'admin' ? [
+      { path: '/equipes', label: 'Equipes', icon: <FaUserFriends /> }
+    ] : []),
     { path: '/competicoes', label: 'Competições', icon: <FaTrophy /> },
     { path: '/inscricoes', label: 'Inscrições', icon: <FaClipboardList /> },
     { path: '/relatorios', label: 'Relatórios', icon: <FaChartBar /> },
