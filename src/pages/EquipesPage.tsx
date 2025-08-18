@@ -30,6 +30,7 @@ const EquipesPage: React.FC = () => {
       const data = await equipeService.getAll();
       setEquipes(data);
     } catch (error) {
+      console.error(error, "Erro ao carregar equipes")
       toast.error('Erro ao carregar equipes');
     } finally {
       setLoading(false);
@@ -70,6 +71,7 @@ const EquipesPage: React.FC = () => {
       loadEquipes();
     } catch (error) {
       toast.error('Erro ao salvar equipe');
+      console.log(error, "Erro ao salver equipe")
     }
   };
 

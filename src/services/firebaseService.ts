@@ -206,7 +206,6 @@ export const atletaService = {
           ...data,
           dataNascimento: convertTimestamp(data.dataNascimento),
           dataFiliacao: convertTimestamp(data.dataFiliacao),
-          dataDesfiliacao: convertTimestamp(data.dataDesfiliacao),
           dataCriacao: convertTimestamp(data.dataCriacao),
           categoria,
           equipe
@@ -229,7 +228,6 @@ export const atletaService = {
         ...data,
         dataNascimento: convertTimestamp(data.dataNascimento),
         dataFiliacao: convertTimestamp(data.dataFiliacao),
-        dataDesfiliacao: convertTimestamp(data.dataDesfiliacao),
         dataCriacao: convertTimestamp(data.dataCriacao),
         categoria,
         equipe
@@ -252,7 +250,6 @@ export const atletaService = {
         ...data,
         dataNascimento: convertTimestamp(data.dataNascimento),
         dataFiliacao: convertTimestamp(data.dataFiliacao),
-        dataDesfiliacao: convertTimestamp(data.dataDesfiliacao),
         dataCriacao: convertTimestamp(data.dataCriacao),
         categoria,
         equipe
@@ -279,7 +276,6 @@ export const atletaService = {
           ...data,
           dataNascimento: convertTimestamp(data.dataNascimento),
           dataFiliacao: convertTimestamp(data.dataFiliacao),
-          dataDesfiliacao: convertTimestamp(data.dataDesfiliacao),
           dataCriacao: convertTimestamp(data.dataCriacao),
           categoria,
           equipe
@@ -294,7 +290,6 @@ export const atletaService = {
       ...atleta,
       dataNascimento: convertToTimestamp(atleta.dataNascimento),
       dataFiliacao: convertToTimestamp(atleta.dataFiliacao),
-      dataDesfiliacao: convertToTimestamp(atleta.dataDesfiliacao),
       dataCriacao: Timestamp.now()
     });
     return docRef.id;
@@ -306,7 +301,6 @@ export const atletaService = {
       ...atleta,
       dataNascimento: convertToTimestamp(atleta.dataNascimento),
       dataFiliacao: convertToTimestamp(atleta.dataFiliacao),
-      dataDesfiliacao: convertToTimestamp(atleta.dataDesfiliacao)
     };
     await updateDoc(docRef, updateData);
   },
