@@ -16,6 +16,22 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Sistema de autenticação local como fallback
+const LOCAL_USERS = [
+  {
+    login: '15119236790',
+    senha: '49912170',
+    nome: 'Administrador',
+    tipo: 'admin'
+  },
+  {
+    login: 'admin',
+    senha: 'admin123',
+    nome: 'Administrador Local',
+    tipo: 'admin'
+  }
+];
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,49 +55,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
 
-      // Verificar credenciais do administrador
-      if (credentials.login === '15119236790' && credentials.senha === '49912170') {
-        const adminUser: Usuario = {
-          login: credentials.login,
-          nome: 'Administrador',
-          tipo: 'admin'
+      // Primeiro, tentar autenticação local
+      const localUser = LOCAL_USERS.find(u => 
+        u.login === credentials.login && u.senha === credentials.senha
+      );
+
+      if (localUser) {
+        const userData: Usuario = {
+          login: localUser.login,
+          nome: localUser.nome,
+          tipo: localUser.tipo
         };
         
-        setUser(adminUser);
-        localStorage.setItem('feperj_user', JSON.stringify(adminUser));
+        setUser(userData);
+        localStorage.setItem('feperj_user', JSON.stringify(userData));
         
-        // Registrar log de login
-        await logService.create({
-          dataHora: new Date(),
-          usuario: adminUser.nome,
-          acao: 'Login realizado',
-          detalhes: 'Login como administrador',
-          tipoUsuario: adminUser.tipo
-        });
-        
+        console.log('✅ Login local realizado com sucesso');
         return true;
       }
 
-      // Verificar outros usuários no banco
-      const usuario = await usuarioService.getByLogin(credentials.login);
-      
-      if (usuario && usuario.senha === credentials.senha) {
-        const userWithoutPassword = { ...usuario };
-        delete userWithoutPassword.senha;
+      // Se não encontrar usuário local, tentar Firebase (se configurado)
+      try {
+        const usuario = await usuarioService.getByLogin(credentials.login);
         
-        setUser(userWithoutPassword);
-        localStorage.setItem('feperj_user', JSON.stringify(userWithoutPassword));
-        
-        // Registrar log de login
-        await logService.create({
-          dataHora: new Date(),
-          usuario: usuario.nome,
-          acao: 'Login realizado',
-          detalhes: `Login do usuário ${usuario.nome}`,
-          tipoUsuario: usuario.tipo
-        });
-        
-        return true;
+        if (usuario && usuario.senha === credentials.senha) {
+          const userWithoutPassword = { ...usuario };
+          delete userWithoutPassword.senha;
+          
+          setUser(userWithoutPassword);
+          localStorage.setItem('feperj_user', JSON.stringify(userWithoutPassword));
+          
+          // Registrar log de login
+          try {
+            await logService.create({
+              dataHora: new Date(),
+              usuario: usuario.nome,
+              acao: 'Login realizado',
+              detalhes: `Login do usuário ${usuario.nome}`,
+              tipoUsuario: usuario.tipo
+            });
+          } catch (logError) {
+            console.warn('Erro ao registrar log:', logError);
+          }
+          
+          return true;
+        }
+      } catch (firebaseError) {
+        console.warn('Erro ao conectar com Firebase:', firebaseError);
+        console.log('📝 Usando sistema de autenticação local');
       }
 
       return false;
