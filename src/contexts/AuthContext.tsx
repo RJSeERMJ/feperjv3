@@ -17,7 +17,12 @@ interface AuthProviderProps {
 }
 
 // Sistema de autenticação local como fallback
-const LOCAL_USERS = [
+const LOCAL_USERS: Array<{
+  login: string;
+  senha: string;
+  nome: string;
+  tipo: 'admin' | 'usuario';
+}> = [
   {
     login: '15119236790',
     senha: '49912170',
