@@ -37,7 +37,6 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     identidade?: UploadedFile[];
     certificadoAdel?: UploadedFile[];
   }>({});
-  const [loading, setLoading] = useState(false);
   
   const comprovanteRef = useRef<HTMLInputElement>(null);
   const fotoRef = useRef<HTMLInputElement>(null);
@@ -46,30 +45,15 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   useEffect(() => {
     if (show && atleta) {
-      loadFiles();
-    }
-  }, [show, atleta]);
-
-  const loadFiles = async () => {
-    if (!atleta?.id) return;
-    
-    try {
-      setLoading(true);
-      const atletaFiles = await FileUploadService.listAtletaFiles(atleta.id);
-      setFiles(atletaFiles);
-    } catch (error) {
-      console.error('Erro ao carregar arquivos:', error);
-      // Não mostrar erro se não há arquivos - isso é normal
+      // Inicializar com arrays vazios
       setFiles({
         comprovanteResidencia: [],
         foto3x4: [],
         identidade: [],
         certificadoAdel: []
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [show, atleta]);
 
   const handleFileUpload = async (
     file: File,
@@ -93,7 +77,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       );
 
       toast.success('Arquivo enviado com sucesso!');
-      await loadFiles(); // Recarregar lista de arquivos
+      // TODO: Recarregar lista de arquivos quando implementar listagem
       
     } catch (error) {
       console.error('Erro no upload:', error);
@@ -158,7 +142,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
   };
 
-  const handleDelete = async (file: UploadedFile, fileType: 'comprovanteResidencia' | 'foto3x4') => {
+  const handleDelete = async (file: UploadedFile, fileType: 'comprovanteResidencia' | 'foto3x4' | 'identidade' | 'certificadoAdel') => {
     if (!atleta?.id) return;
 
     if (!window.confirm(`Tem certeza que deseja excluir o arquivo "${file.name}"?`)) {
@@ -171,7 +155,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       await FileUploadService.deleteFile(filePath);
       
       toast.success('Arquivo excluído com sucesso!');
-      await loadFiles(); // Recarregar lista
+      // TODO: Recarregar lista quando implementar listagem
       
     } catch (error) {
       console.error('Erro ao deletar arquivo:', error);
@@ -179,12 +163,17 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
   };
 
-  const renderFileList = (files: UploadedFile[], fileType: 'comprovanteResidencia' | 'foto3x4') => {
+  const renderFileList = (files: UploadedFile[], fileType: 'comprovanteResidencia' | 'foto3x4' | 'identidade' | 'certificadoAdel') => {
     if (files.length === 0) {
       return (
-        <Alert variant="info" className="text-center">
-          Nenhum {fileType === 'comprovanteResidencia' ? 'comprovante de residência' : 'foto 3x4'} anexado.
-        </Alert>
+                 <Alert variant="info" className="text-center">
+           Nenhum {
+             fileType === 'comprovanteResidencia' ? 'comprovante de residência' : 
+             fileType === 'foto3x4' ? 'foto 3x4' :
+             fileType === 'identidade' ? 'identidade' :
+             'certificado ADEL'
+           } anexado.
+         </Alert>
       );
     }
 
@@ -250,16 +239,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           📎 Documentos do Atleta: {atleta.nome}
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        {loading && (
-          <div className="text-center py-4">
-            <div className="spinner-border" role="status">
-              <span className="visually-hidden">Carregando...</span>
-            </div>
-          </div>
-        )}
-
-        {!loading && (
+             <Modal.Body>
           <>
             {/* Upload de Comprovante de Residência */}
             <Card className="mb-4">
@@ -310,51 +290,122 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               </Card.Body>
             </Card>
 
-            {/* Upload de Foto 3x4 */}
-            <Card>
-              <Card.Header>
-                <h6 className="mb-0">
-                  <FaImage className="text-primary me-2" />
-                  Foto 3x4 (JPG/PNG)
-                </h6>
-              </Card.Header>
-              <Card.Body>
-                <Form.Group className="mb-3">
-                  <Form.Label>Selecionar imagem</Form.Label>
-                  <div className="d-flex gap-2">
-                    <Form.Control
-                      ref={fotoRef}
-                      type="file"
-                      accept=".jpg,.jpeg,.png"
-                      onChange={handleFotoUpload}
-                      disabled={uploading}
-                    />
-                    <Button
-                      variant="primary"
-                      onClick={() => fotoRef.current?.click()}
-                      disabled={uploading}
-                    >
-                      <FaUpload />
-                    </Button>
-                  </div>
-                  <Form.Text className="text-muted">
-                    Apenas arquivos JPG, JPEG ou PNG são aceitos. Tamanho máximo: 10MB
-                  </Form.Text>
-                </Form.Group>
+                         {/* Upload de Foto 3x4 */}
+             <Card className="mb-4">
+               <Card.Header>
+                 <h6 className="mb-0">
+                   <FaImage className="text-primary me-2" />
+                   Foto 3x4 (JPG/PNG)
+                 </h6>
+               </Card.Header>
+               <Card.Body>
+                 <Form.Group className="mb-3">
+                   <Form.Label>Selecionar imagem</Form.Label>
+                   <div className="d-flex gap-2">
+                     <Form.Control
+                       ref={fotoRef}
+                       type="file"
+                       accept=".jpg,.jpeg,.png"
+                       onChange={handleFotoUpload}
+                       disabled={uploading}
+                     />
+                     <Button
+                       variant="primary"
+                       onClick={() => fotoRef.current?.click()}
+                       disabled={uploading}
+                     >
+                       <FaUpload />
+                     </Button>
+                   </div>
+                   <Form.Text className="text-muted">
+                     Apenas arquivos JPG, JPEG ou PNG são aceitos. Tamanho máximo: 10MB
+                   </Form.Text>
+                 </Form.Group>
 
-                {renderFileList(files.foto3x4 || [], 'foto3x4')}
-              </Card.Body>
-            </Card>
+                 {renderFileList(files.foto3x4 || [], 'foto3x4')}
+               </Card.Body>
+             </Card>
 
-            {/* Informações de Permissão */}
-            {user?.tipo !== 'admin' && (
-              <Alert variant="info" className="mt-3">
-                <strong>ℹ️ Informação:</strong> Você pode fazer upload de documentos. 
-                Apenas administradores podem fazer download e exclusão dos arquivos.
-              </Alert>
-            )}
-          </>
-        )}
+             {/* Upload de Identidade */}
+             <Card className="mb-4">
+               <Card.Header>
+                 <h6 className="mb-0">
+                   <FaFilePdf className="text-warning me-2" />
+                   Identidade (PDF)
+                 </h6>
+               </Card.Header>
+               <Card.Body>
+                 <Form.Group className="mb-3">
+                   <Form.Label>Selecionar arquivo PDF</Form.Label>
+                   <div className="d-flex gap-2">
+                     <Form.Control
+                       ref={identidadeRef}
+                       type="file"
+                       accept=".pdf"
+                       onChange={handleIdentidadeUpload}
+                       disabled={uploading}
+                     />
+                     <Button
+                       variant="primary"
+                       onClick={() => identidadeRef.current?.click()}
+                       disabled={uploading}
+                     >
+                       <FaUpload />
+                     </Button>
+                   </div>
+                   <Form.Text className="text-muted">
+                     Apenas arquivos PDF são aceitos. Tamanho máximo: 10MB
+                   </Form.Text>
+                 </Form.Group>
+
+                 {renderFileList(files.identidade || [], 'identidade')}
+               </Card.Body>
+             </Card>
+
+             {/* Upload de Certificado ADEL */}
+             <Card>
+               <Card.Header>
+                 <h6 className="mb-0">
+                   <FaFilePdf className="text-info me-2" />
+                   Certificado ADEL (PDF)
+                 </h6>
+               </Card.Header>
+               <Card.Body>
+                 <Form.Group className="mb-3">
+                   <Form.Label>Selecionar arquivo PDF</Form.Label>
+                   <div className="d-flex gap-2">
+                     <Form.Control
+                       ref={certificadoRef}
+                       type="file"
+                       accept=".pdf"
+                       onChange={handleCertificadoUpload}
+                       disabled={uploading}
+                     />
+                     <Button
+                       variant="primary"
+                       onClick={() => certificadoRef.current?.click()}
+                       disabled={uploading}
+                     >
+                       <FaUpload />
+                     </Button>
+                   </div>
+                   <Form.Text className="text-muted">
+                     Apenas arquivos PDF são aceitos. Tamanho máximo: 10MB
+                   </Form.Text>
+                 </Form.Group>
+
+                 {renderFileList(files.certificadoAdel || [], 'certificadoAdel')}
+               </Card.Body>
+             </Card>
+
+                         {/* Informações de Permissão */}
+             {user?.tipo !== 'admin' && (
+               <Alert variant="info" className="mt-3">
+                 <strong>ℹ️ Informação:</strong> Você pode fazer upload de documentos. 
+                 Apenas administradores podem fazer download e exclusão dos arquivos.
+               </Alert>
+             )}
+           </>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={onHide}>
