@@ -110,9 +110,7 @@ const Login: React.FC = () => {
             </Form>
 
             <div className="text-center mt-4">
-              <small className="text-muted">
-                <strong>Administrador:</strong> Login: 15119236790, Senha: 49912170
-              </small>
+             
             </div>
           </Card.Body>
         </Card>
