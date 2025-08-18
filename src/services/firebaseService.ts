@@ -48,11 +48,30 @@ const convertToTimestamp = (date: Date | undefined): Timestamp | undefined => {
 export const usuarioService = {
   async getAll(): Promise<Usuario[]> {
     const querySnapshot = await getDocs(collection(db, 'usuarios'));
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      dataCriacao: convertTimestamp(doc.data().dataCriacao)
-    })) as Usuario[];
+    const usuarios = await Promise.all(
+      querySnapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        let equipe = null;
+        
+        // Se o usuário tem equipe, buscar os dados da equipe
+        if (data.idEquipe) {
+          try {
+            equipe = await equipeService.getById(data.idEquipe);
+          } catch (error) {
+            console.warn('Erro ao buscar equipe do usuário:', error);
+          }
+        }
+        
+        return {
+          id: doc.id,
+          ...data,
+          dataCriacao: convertTimestamp(data.dataCriacao),
+          equipe
+        } as Usuario;
+      })
+    );
+    
+    return usuarios;
   },
 
   async getById(id: string): Promise<Usuario | null> {
@@ -83,11 +102,45 @@ export const usuarioService = {
   },
 
   async create(usuario: Omit<Usuario, 'id'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'usuarios'), {
-      ...usuario,
-      dataCriacao: Timestamp.now()
-    });
-    return docRef.id;
+    // Se o usuário não for admin, criar equipe automaticamente
+    if (usuario.tipo === 'usuario') {
+      // Criar equipe com o nome do usuário
+      const equipeData = {
+        nomeEquipe: usuario.nome,
+        cidade: 'A definir', // Valor padrão
+        tecnico: usuario.nome,
+        telefone: '',
+        email: '',
+        dataCriacao: Timestamp.now()
+      };
+      
+      // Criar a equipe primeiro
+      const equipeRef = await addDoc(collection(db, 'equipes'), equipeData);
+      const equipeId = equipeRef.id;
+      
+      // Criar o usuário com referência à equipe
+      const usuarioData = {
+        ...usuario,
+        chefeEquipe: true,
+        idEquipe: equipeId,
+        dataCriacao: Timestamp.now()
+      };
+      
+      const docRef = await addDoc(collection(db, 'usuarios'), usuarioData);
+      
+      // Atualizar a equipe com o ID do chefe
+      await updateDoc(equipeRef, { idChefe: docRef.id });
+      
+      return docRef.id;
+    } else {
+      // Para administradores, criar normalmente sem equipe
+      const docRef = await addDoc(collection(db, 'usuarios'), {
+        ...usuario,
+        chefeEquipe: false,
+        dataCriacao: Timestamp.now()
+      });
+      return docRef.id;
+    }
   },
 
   async update(id: string, usuario: Partial<Usuario>): Promise<void> {

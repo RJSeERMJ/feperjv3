@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Form, Modal, Alert, Spinner, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { Card, Button, Table, Form, Modal, Alert, Spinner, Badge, Row, Col } from 'react-bootstrap';
+import { FaPlus, FaEdit, FaTrash, FaCrown } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { usuarioService, logService } from '../services/firebaseService';
 import { Usuario } from '../types';
@@ -148,6 +148,8 @@ const UsuariosPage: React.FC = () => {
                 <th>Nome</th>
                 <th>Login</th>
                 <th>Tipo</th>
+                <th>Equipe</th>
+                <th>Chefe de Equipe</th>
                 <th>Data de Criação</th>
                 <th>Ações</th>
               </tr>
@@ -161,6 +163,25 @@ const UsuariosPage: React.FC = () => {
                     <Badge bg={usuario.tipo === 'admin' ? 'danger' : 'primary'}>
                       {usuario.tipo === 'admin' ? 'Administrador' : 'Usuário'}
                     </Badge>
+                  </td>
+                  <td>
+                    {usuario.equipe ? (
+                      <Badge bg="success">{usuario.equipe.nomeEquipe}</Badge>
+                    ) : usuario.tipo === 'admin' ? (
+                      <Badge bg="secondary">Não aplicável</Badge>
+                    ) : (
+                      <Badge bg="warning">Sem equipe</Badge>
+                    )}
+                  </td>
+                  <td>
+                    {usuario.chefeEquipe ? (
+                      <Badge bg="warning">
+                        <FaCrown className="me-1" />
+                        Chefe
+                      </Badge>
+                    ) : (
+                      <span>-</span>
+                    )}
                   </td>
                   <td>
                     {usuario.dataCriacao ? 
@@ -198,7 +219,7 @@ const UsuariosPage: React.FC = () => {
         </Card.Body>
       </Card>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
             {editingUsuario ? 'Editar Usuário' : 'Novo Usuário'}
@@ -206,46 +227,67 @@ const UsuariosPage: React.FC = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Nome *</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.nome}
-                onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                required
-              />
-            </Form.Group>
+            <Alert variant="info" className="mb-3">
+              <strong>ℹ️ Informação:</strong> Usuários do tipo "Usuário" serão automaticamente criados como chefes de equipe com o mesmo nome.
+            </Alert>
+            
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Nome *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Login *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.login}
+                    onChange={(e) => setFormData({...formData, login: e.target.value})}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Login *</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.login}
-                onChange={(e) => setFormData({...formData, login: e.target.value})}
-                required
-              />
-            </Form.Group>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Senha {editingUsuario ? '(deixe em branco para manter)' : '*'}</Form.Label>
+                  <Form.Control
+                    type="password"
+                    value={formData.senha}
+                    onChange={(e) => setFormData({...formData, senha: e.target.value})}
+                    required={!editingUsuario}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Tipo *</Form.Label>
+                  <Form.Select
+                    value={formData.tipo}
+                    onChange={(e) => setFormData({...formData, tipo: e.target.value as 'admin' | 'usuario'})}
+                  >
+                    <option value="usuario">Usuário</option>
+                    <option value="admin">Administrador</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Senha {editingUsuario ? '(deixe em branco para manter)' : '*'}</Form.Label>
-              <Form.Control
-                type="password"
-                value={formData.senha}
-                onChange={(e) => setFormData({...formData, senha: e.target.value})}
-                required={!editingUsuario}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Tipo *</Form.Label>
-              <Form.Select
-                value={formData.tipo}
-                onChange={(e) => setFormData({...formData, tipo: e.target.value as 'admin' | 'usuario'})}
-              >
-                <option value="usuario">Usuário</option>
-                <option value="admin">Administrador</option>
-              </Form.Select>
-            </Form.Group>
+            {formData.tipo === 'usuario' && (
+              <Alert variant="warning" className="mt-3">
+                <FaCrown className="me-2" />
+                <strong>Chefe de Equipe:</strong> Este usuário será automaticamente criado como chefe da equipe "{formData.nome}".
+              </Alert>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>

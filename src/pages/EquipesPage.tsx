@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Table, Form, Modal, Alert, Spinner, Badge } from 'react-bootstrap';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { Card, Button, Table, Form, Modal, Alert, Spinner, Badge, Row, Col } from 'react-bootstrap';
+import { FaPlus, FaEdit, FaTrash, FaCrown } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { equipeService, logService } from '../services/firebaseService';
-import { Equipe } from '../types';
+import { equipeService, logService, usuarioService } from '../services/firebaseService';
+import { Equipe, Usuario } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 const EquipesPage: React.FC = () => {
@@ -28,7 +28,23 @@ const EquipesPage: React.FC = () => {
     try {
       setLoading(true);
       const data = await equipeService.getAll();
-      setEquipes(data);
+      
+      // Buscar dados do chefe para cada equipe
+      const equipesComChefe = await Promise.all(
+        data.map(async (equipe) => {
+          let chefe = null;
+          if (equipe.idChefe) {
+            try {
+              chefe = await usuarioService.getById(equipe.idChefe);
+            } catch (error) {
+              console.warn('Erro ao buscar chefe da equipe:', error);
+            }
+          }
+          return { ...equipe, chefe };
+        })
+      );
+      
+      setEquipes(equipesComChefe);
     } catch (error) {
       console.error(error, "Erro ao carregar equipes")
       toast.error('Erro ao carregar equipes');
@@ -152,6 +168,7 @@ const EquipesPage: React.FC = () => {
               <tr>
                 <th>Nome da Equipe</th>
                 <th>Cidade</th>
+                <th>Chefe da Equipe</th>
                 <th>Técnico</th>
                 <th>Telefone</th>
                 <th>Email</th>
@@ -161,8 +178,20 @@ const EquipesPage: React.FC = () => {
             <tbody>
               {equipes.map((equipe) => (
                 <tr key={equipe.id}>
-                  <td>{equipe.nomeEquipe}</td>
+                  <td>
+                    <strong>{equipe.nomeEquipe}</strong>
+                  </td>
                   <td>{equipe.cidade}</td>
+                  <td>
+                    {(equipe as any).chefe ? (
+                      <Badge bg="warning">
+                        <FaCrown className="me-1" />
+                        {(equipe as any).chefe.nome}
+                      </Badge>
+                    ) : (
+                      <Badge bg="secondary">Sem chefe</Badge>
+                    )}
+                  </td>
                   <td>{equipe.tecnico || '-'}</td>
                   <td>{equipe.telefone || '-'}</td>
                   <td>{equipe.email || '-'}</td>
@@ -196,7 +225,7 @@ const EquipesPage: React.FC = () => {
         </Card.Body>
       </Card>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
             {editingEquipe ? 'Editar Equipe' : 'Nova Equipe'}
@@ -204,43 +233,57 @@ const EquipesPage: React.FC = () => {
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Nome da Equipe *</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.nomeEquipe}
-                onChange={(e) => setFormData({...formData, nomeEquipe: e.target.value})}
-                required
-              />
-            </Form.Group>
+            <Alert variant="info" className="mb-3">
+              <strong>ℹ️ Informação:</strong> Equipes criadas automaticamente ao cadastrar usuários podem ser editadas aqui.
+            </Alert>
+            
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Nome da Equipe *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.nomeEquipe}
+                    onChange={(e) => setFormData({...formData, nomeEquipe: e.target.value})}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Cidade *</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.cidade}
+                    onChange={(e) => setFormData({...formData, cidade: e.target.value})}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Cidade *</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.cidade}
-                onChange={(e) => setFormData({...formData, cidade: e.target.value})}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Técnico</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.tecnico}
-                onChange={(e) => setFormData({...formData, tecnico: e.target.value})}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Telefone</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.telefone}
-                onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-              />
-            </Form.Group>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Técnico</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.tecnico}
+                    onChange={(e) => setFormData({...formData, tecnico: e.target.value})}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Telefone</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.telefone}
+                    onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
 
             <Form.Group className="mb-3">
               <Form.Label>Email</Form.Label>

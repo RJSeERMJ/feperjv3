@@ -4,7 +4,10 @@ export interface Usuario {
   nome: string;
   senha?: string;
   tipo: 'admin' | 'usuario';
+  chefeEquipe?: boolean; // Indica se o usuário é chefe de equipe
+  idEquipe?: string; // ID da equipe que o usuário é chefe
   dataCriacao?: Date;
+  equipe?: Equipe; // Relacionamento com a equipe
 }
 
 export interface Equipe {
@@ -14,6 +17,7 @@ export interface Equipe {
   tecnico?: string;
   telefone?: string;
   email?: string;
+  idChefe?: string; // ID do usuário que é chefe da equipe
   dataCriacao?: Date;
 }
 
@@ -35,7 +39,7 @@ export interface Atleta {
   telefone?: string;
   dataNascimento?: Date;
   dataFiliacao: Date;
-  dataDesfiliacao?: Date;
+
   peso?: number;
   altura?: number;
   maiorTotal?: number;
