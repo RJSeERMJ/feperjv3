@@ -21,7 +21,6 @@ export interface Equipe {
   tecnico?: string;
   telefone?: string;
   email?: string;
-  observacoes?: string; // Observações da equipe
   idChefe?: string; // ID do usuário que é chefe da equipe
   dataCriacao?: Date;
 }

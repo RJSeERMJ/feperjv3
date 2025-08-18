@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Table, Form, Modal, Alert, Spinner, Badge, Row, Col } from 'react-bootstrap';
-import { FaEdit, FaTrash, FaCrown, FaInfoCircle } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCrown } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { equipeService, logService, usuarioService } from '../services/firebaseService';
-import { Equipe } from '../types';
+import { Equipe, Usuario } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { useAccessControl } from '../hooks/useAccessControl';
 
 const EquipesPage: React.FC = () => {
   const [equipes, setEquipes] = useState<Equipe[]>([]);
@@ -17,11 +16,9 @@ const EquipesPage: React.FC = () => {
     cidade: '',
     tecnico: '',
     telefone: '',
-    email: '',
-    observacoes: ''
+    email: ''
   });
   const { user } = useAuth();
-  const { isAdmin, getUserTeamId, canModify, canDelete, getAccessInfo } = useAccessControl();
 
   useEffect(() => {
     loadEquipes();
@@ -30,10 +27,7 @@ const EquipesPage: React.FC = () => {
   const loadEquipes = async () => {
     try {
       setLoading(true);
-      
-      // Carregar equipes baseado no acesso do usuário
-      const userTeamId = getUserTeamId();
-      const data = await equipeService.getAll(userTeamId);
+      const data = await equipeService.getAll();
       
       // Buscar dados do chefe para cada equipe
       const equipesComChefe = await Promise.all(
@@ -62,23 +56,30 @@ const EquipesPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Verificar se o usuário pode modificar
-    if (!canModify(editingEquipe?.id)) {
-      toast.error('Você não tem permissão para modificar dados desta equipe');
-      return;
-    }
-    
     try {
-      await equipeService.update(editingEquipe!.id!, formData);
-      toast.success('Equipe atualizada com sucesso!');
-      
-      await logService.create({
-        dataHora: new Date(),
-        usuario: user?.nome || 'Sistema',
-        acao: 'Atualizou equipe',
-        detalhes: `Atualizou equipe: ${formData.nomeEquipe}`,
-        tipoUsuario: user?.tipo || 'usuario'
-      });
+      if (editingEquipe) {
+        await equipeService.update(editingEquipe.id!, formData);
+        toast.success('Equipe atualizada com sucesso!');
+        
+        await logService.create({
+          dataHora: new Date(),
+          usuario: user?.nome || 'Sistema',
+          acao: 'Atualizou equipe',
+          detalhes: `Atualizou equipe: ${formData.nomeEquipe}`,
+          tipoUsuario: user?.tipo || 'usuario'
+        });
+      } else {
+        await equipeService.create(formData);
+        toast.success('Equipe cadastrada com sucesso!');
+        
+        await logService.create({
+          dataHora: new Date(),
+          usuario: user?.nome || 'Sistema',
+          acao: 'Cadastrou equipe',
+          detalhes: `Cadastrou nova equipe: ${formData.nomeEquipe}`,
+          tipoUsuario: user?.tipo || 'usuario'
+        });
+      }
 
       setShowModal(false);
       setEditingEquipe(null);
@@ -86,36 +87,23 @@ const EquipesPage: React.FC = () => {
       loadEquipes();
     } catch (error) {
       toast.error('Erro ao salvar equipe');
-      console.log(error, "Erro ao salvar equipe")
+      console.log(error, "Erro ao salver equipe")
     }
   };
 
   const handleEdit = (equipe: Equipe) => {
-    // Verificar se o usuário pode modificar esta equipe
-    if (!canModify(equipe.id)) {
-      toast.error('Você não tem permissão para editar esta equipe');
-      return;
-    }
-
     setEditingEquipe(equipe);
     setFormData({
       nomeEquipe: equipe.nomeEquipe,
       cidade: equipe.cidade,
       tecnico: equipe.tecnico || '',
       telefone: equipe.telefone || '',
-      email: equipe.email || '',
-      observacoes: (equipe as any).observacoes || ''
+      email: equipe.email || ''
     });
     setShowModal(true);
   };
 
   const handleDelete = async (equipe: Equipe) => {
-    // Verificar se o usuário pode excluir esta equipe
-    if (!canDelete(equipe.id)) {
-      toast.error('Você não tem permissão para excluir esta equipe');
-      return;
-    }
-
     if (window.confirm(`Tem certeza que deseja excluir a equipe ${equipe.nomeEquipe}?`)) {
       try {
         await equipeService.delete(equipe.id!);
@@ -142,8 +130,7 @@ const EquipesPage: React.FC = () => {
       cidade: '',
       tecnico: '',
       telefone: '',
-      email: '',
-      observacoes: ''
+      email: ''
     });
   };
 
@@ -157,23 +144,21 @@ const EquipesPage: React.FC = () => {
     );
   }
 
-  const accessInfo = getAccessInfo();
-
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <div>
-          <h2>👥 Gestão de Equipes</h2>
-          <Badge bg={accessInfo.color} className="mt-2">
-            {accessInfo.label}: {accessInfo.description}
-          </Badge>
-        </div>
-        <div className="d-flex align-items-center">
-          <Alert variant="info" className="mb-0 me-3" style={{ fontSize: '0.9rem' }}>
-            <FaInfoCircle className="me-2" />
-            <strong>Info:</strong> Equipes são criadas automaticamente ao cadastrar usuários
-          </Alert>
-        </div>
+        <h2>👥 Gestão de Equipes</h2>
+        <Button 
+          variant="primary" 
+          onClick={() => {
+            setEditingEquipe(null);
+            resetForm();
+            setShowModal(true);
+          }}
+        >
+          <FaPlus className="me-2" />
+          Nova Equipe
+        </Button>
       </div>
 
       <Card>
@@ -182,12 +167,11 @@ const EquipesPage: React.FC = () => {
             <thead>
               <tr>
                 <th>Nome da Equipe</th>
-                <th>Estado</th>
+                <th>Cidade</th>
                 <th>Chefe da Equipe</th>
                 <th>Técnico</th>
                 <th>Telefone</th>
                 <th>Email</th>
-                <th>Observações</th>
                 <th>Ações</th>
               </tr>
             </thead>
@@ -212,21 +196,11 @@ const EquipesPage: React.FC = () => {
                   <td>{equipe.telefone || '-'}</td>
                   <td>{equipe.email || '-'}</td>
                   <td>
-                    {(equipe as any).observacoes ? (
-                      <span title={(equipe as any).observacoes}>
-                        {(equipe as any).observacoes.length > 30 
-                          ? `${(equipe as any).observacoes.substring(0, 30)}...` 
-                          : (equipe as any).observacoes}
-                      </span>
-                    ) : '-'}
-                  </td>
-                  <td>
                     <Button
                       variant="outline-primary"
                       size="sm"
                       className="me-2"
                       onClick={() => handleEdit(equipe)}
-                      disabled={!canModify(equipe.id)}
                     >
                       <FaEdit />
                     </Button>
@@ -234,7 +208,6 @@ const EquipesPage: React.FC = () => {
                       variant="outline-danger"
                       size="sm"
                       onClick={() => handleDelete(equipe)}
-                      disabled={!canDelete(equipe.id)}
                     >
                       <FaTrash />
                     </Button>
@@ -246,10 +219,7 @@ const EquipesPage: React.FC = () => {
 
           {equipes.length === 0 && (
             <Alert variant="info" className="text-center">
-              {isAdmin() 
-                ? 'Nenhuma equipe cadastrada. Cadastre usuários para criar equipes automaticamente.'
-                : 'Nenhuma equipe encontrada para seu acesso.'
-              }
+              Nenhuma equipe cadastrada.
             </Alert>
           )}
         </Card.Body>
@@ -258,13 +228,13 @@ const EquipesPage: React.FC = () => {
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
-            Editar Equipe
+            {editingEquipe ? 'Editar Equipe' : 'Nova Equipe'}
           </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body>
             <Alert variant="info" className="mb-3">
-              <strong>ℹ️ Informação:</strong> Esta equipe foi criada automaticamente. Você pode editar os dados aqui.
+              <strong>ℹ️ Informação:</strong> Equipes criadas automaticamente ao cadastrar usuários podem ser editadas aqui.
             </Alert>
             
             <Row>
@@ -281,7 +251,7 @@ const EquipesPage: React.FC = () => {
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Estado *</Form.Label>
+                  <Form.Label>Cidade *</Form.Label>
                   <Form.Control
                     type="text"
                     value={formData.cidade}
@@ -315,27 +285,12 @@ const EquipesPage: React.FC = () => {
               </Col>
             </Row>
 
-            <Row>
-              <Col md={12}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Email</Form.Label>
-                  <Form.Control
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
             <Form.Group className="mb-3">
-              <Form.Label>Observações</Form.Label>
+              <Form.Label>Email</Form.Label>
               <Form.Control
-                as="textarea"
-                rows={3}
-                value={formData.observacoes}
-                onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
-                placeholder="Observações sobre a equipe..."
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
               />
             </Form.Group>
           </Modal.Body>
@@ -344,7 +299,7 @@ const EquipesPage: React.FC = () => {
               Cancelar
             </Button>
             <Button variant="primary" type="submit">
-              Atualizar
+              {editingEquipe ? 'Atualizar' : 'Cadastrar'}
             </Button>
           </Modal.Footer>
         </Form>

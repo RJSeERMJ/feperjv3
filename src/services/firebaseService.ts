@@ -157,18 +157,8 @@ export const usuarioService = {
 
 // Serviços de Equipes
 export const equipeService = {
-  async getAll(userTeamId?: string): Promise<Equipe[]> {
-    let querySnapshot;
-    
-    // Se o usuário tem uma equipe específica, filtrar por ela
-    if (userTeamId) {
-      const q = query(collection(db, 'equipes'), where('__name__', '==', userTeamId));
-      querySnapshot = await getDocs(q);
-    } else {
-      // Se não tem equipe (admin), buscar todas
-      querySnapshot = await getDocs(collection(db, 'equipes'));
-    }
-    
+  async getAll(): Promise<Equipe[]> {
+    const querySnapshot = await getDocs(collection(db, 'equipes'));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
@@ -257,18 +247,8 @@ export const categoriaService = {
 
 // Serviços de Atletas
 export const atletaService = {
-  async getAll(userTeamId?: string): Promise<Atleta[]> {
-    let querySnapshot;
-    
-    // Se o usuário tem uma equipe específica, filtrar por ela
-    if (userTeamId) {
-      const q = query(collection(db, 'atletas'), where('idEquipe', '==', userTeamId));
-      querySnapshot = await getDocs(q);
-    } else {
-      // Se não tem equipe (admin), buscar todos
-      querySnapshot = await getDocs(collection(db, 'atletas'));
-    }
-    
+  async getAll(): Promise<Atleta[]> {
+    const querySnapshot = await getDocs(collection(db, 'atletas'));
     const atletas = await Promise.all(
       querySnapshot.docs.map(async (doc) => {
         const data = doc.data();
@@ -311,9 +291,7 @@ export const atletaService = {
   },
 
   async getByCpf(cpf: string): Promise<Atleta | null> {
-    // Limpar CPF para busca (apenas números)
-    const cleanCPF = cpf.replace(/\D/g, '');
-    const q = query(collection(db, 'atletas'), where('cpf', '==', cleanCPF));
+    const q = query(collection(db, 'atletas'), where('cpf', '==', cpf));
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
       const doc = querySnapshot.docs[0];
@@ -362,12 +340,8 @@ export const atletaService = {
   },
 
   async create(atleta: Omit<Atleta, 'id'>): Promise<string> {
-    // Limpar CPF para salvar apenas números
-    const cleanCPF = atleta.cpf.replace(/\D/g, '');
-    
     const docRef = await addDoc(collection(db, 'atletas'), {
       ...atleta,
-      cpf: cleanCPF,
       dataNascimento: convertToTimestamp(atleta.dataNascimento),
       dataFiliacao: convertToTimestamp(atleta.dataFiliacao),
       dataCriacao: Timestamp.now()
@@ -379,8 +353,6 @@ export const atletaService = {
     const docRef = doc(db, 'atletas', id);
     const updateData = {
       ...atleta,
-      // Limpar CPF se estiver sendo atualizado
-      ...(atleta.cpf && { cpf: atleta.cpf.replace(/\D/g, '') }),
       dataNascimento: convertToTimestamp(atleta.dataNascimento),
       dataFiliacao: convertToTimestamp(atleta.dataFiliacao),
     };
