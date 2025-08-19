@@ -46,30 +46,68 @@ export class GoogleDriveService {
     try {
       console.log('🔍 Testando conexão com Google Drive...');
       
-      // Testar se a pasta principal existe
-      const response = await fetch('/api/folders', {
-        method: 'POST',
+      // Testar se a API está funcionando
+      const response = await fetch('/api/test', {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          action: 'find',
-          folderName: this.FOLDER_NAME,
-          parentId: this.FOLDER_ID
-        })
+          'Accept': 'application/json'
+        }
       });
 
-      const result = await response.json();
-      
-      if (response.ok) {
-        console.log('✅ Conexão com Google Drive estabelecida');
-        return true;
-      } else {
-        console.error('❌ Erro na conexão:', result.error);
+      console.log('📡 Resposta da API de teste:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        contentType: response.headers.get('content-type')
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.error('❌ API não encontrada (404). Verifique se as API routes estão configuradas corretamente no Vercel.');
+          return false;
+        }
+        console.error('❌ Erro na API:', response.status, response.statusText);
         return false;
       }
+
+      // Verificar se a resposta é JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('❌ API retornou HTML em vez de JSON. Verifique a configuração do Vercel.');
+        return false;
+      }
+
+      const result = await response.json();
+      console.log('✅ Resultado do teste:', result);
+      
+      if (result.env) {
+        console.log('🔧 Status das variáveis de ambiente:', {
+          hasGoogleServiceKey: result.env.hasGoogleServiceKey,
+          hasGoogleDriveFolderId: result.env.hasGoogleDriveFolderId
+        });
+        
+        if (!result.env.hasGoogleServiceKey) {
+          console.error('❌ GOOGLE_SERVICE_KEY não configurada');
+          return false;
+        }
+        
+        if (!result.env.hasGoogleDriveFolderId) {
+          console.error('❌ GOOGLE_DRIVE_FOLDER_ID não configurada');
+          return false;
+        }
+      }
+      
+      console.log('✅ Conexão com Google Drive estabelecida');
+      return true;
     } catch (error) {
       console.error('❌ Erro no teste de conexão:', error);
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('❌ Erro de rede. Verifique se a API está acessível.');
+      } else if (error instanceof SyntaxError) {
+        console.error('❌ Erro de parsing JSON. A API pode estar retornando HTML em vez de JSON.');
+      }
+      
       return false;
     }
   }
