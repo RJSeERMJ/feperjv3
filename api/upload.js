@@ -1,4 +1,12 @@
-import { google } from 'googleapis';
+import { google } from "googleapis";
+import formidable from "formidable";
+import fs from "fs";
+
+export const config = {
+  api: {
+    bodyParser: false, // necessário pro formidable
+  },
+};
 
 function getAuth() {
   const credentials = {
@@ -18,67 +26,77 @@ function getAuth() {
   return new google.auth.JWT(
     credentials.client_email,
     null,
-    credentials.private_key.replace(/\\n/g, "\n"), // reconverte as quebras de linha
+    credentials.private_key.replace(/\\n/g, "\n"),
     ["https://www.googleapis.com/auth/drive"]
   );
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Método não permitido" });
   }
 
   try {
-    console.log('🔧 Iniciando upload com nova autenticação...');
+    console.log('🔧 Iniciando upload com formidable...');
 
-    // Usar nova autenticação
-    const auth = getAuth();
-    const drive = google.drive({ version: 'v3', auth });
-    
-    const { file, atletaId, atletaNome, fileType, folderId } = req.body;
+    const form = formidable({});
+    const [fields, files] = await form.parse(req);
 
-    if (!file || !atletaId || !atletaNome || !fileType || !folderId) {
-      return res.status(400).json({ 
-        error: 'Dados obrigatórios não fornecidos',
-        required: ['file', 'atletaId', 'atletaNome', 'fileType', 'folderId']
-      });
+    console.log('📋 Campos recebidos:', Object.keys(fields));
+    console.log('📁 Arquivos recebidos:', Object.keys(files));
+
+    if (!files.file || !files.file[0]) {
+      return res.status(400).json({ error: "Nenhum arquivo enviado" });
     }
 
-    console.log('📁 Preparando upload para pasta:', folderId);
+    const file = files.file[0];
+    const atletaId = fields.atletaId?.[0];
+    const atletaNome = fields.atletaNome?.[0];
+    const fileType = fields.fileType?.[0];
+    const folderId = fields.folderId?.[0];
 
-    // Converter base64 para buffer
-    const fileBuffer = Buffer.from(file.split(',')[1], 'base64');
-    const fileName = `${fileType}_${Date.now()}_${req.body.fileName || 'arquivo'}`;
+    console.log('📄 Informações do arquivo:');
+    console.log('- Nome:', file.originalFilename);
+    console.log('- Tipo:', file.mimetype);
+    console.log('- Tamanho:', file.size);
+    console.log('- Atleta ID:', atletaId);
+    console.log('- Atleta Nome:', atletaNome);
+    console.log('- Tipo de arquivo:', fileType);
+    console.log('- Pasta destino:', folderId);
 
-    // Criar arquivo no Google Drive
-    const fileMetadata = {
-      name: fileName,
-      parents: [folderId]
-    };
+    const auth = getAuth();
+    const drive = google.drive({ version: "v3", auth });
 
-    const media = {
-      mimeType: req.body.mimeType || 'application/octet-stream',
-      body: fileBuffer
-    };
+    // Criar nome único para o arquivo
+    const fileName = `${fileType}_${Date.now()}_${file.originalFilename}`;
 
     console.log('📤 Enviando arquivo para Google Drive...');
 
-    const uploadedFile = await drive.files.create({
-      resource: fileMetadata,
-      media: media,
-      fields: 'id,name,size,createdTime,webViewLink,webContentLink'
+    const response = await drive.files.create({
+      requestBody: {
+        name: fileName,
+        parents: [folderId || '1AyoDXJrH8MH-CI-jkap2l04U_UdjhFCh'], // pasta padrão se não especificada
+      },
+      media: {
+        mimeType: file.mimetype,
+        body: fs.createReadStream(file.filepath),
+      },
+      fields: "id, name, size, createdTime, webViewLink, webContentLink",
     });
 
-    console.log('✅ Arquivo enviado para o Google Drive:', uploadedFile.data.id);
+    console.log('✅ Arquivo enviado com sucesso:', response.data.id);
 
-    res.status(200).json({
+    // Limpar arquivo temporário
+    fs.unlinkSync(file.filepath);
+
+    return res.status(200).json({
       success: true,
-      file: uploadedFile.data
+      file: response.data,
     });
 
   } catch (error) {
-    console.error('❌ Erro no upload:', error);
-    res.status(500).json({ 
+    console.error("❌ Erro no upload:", error);
+    return res.status(500).json({ 
       error: error.message,
       details: error.stack
     });

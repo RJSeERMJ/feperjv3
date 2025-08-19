@@ -226,30 +226,23 @@ export class GoogleDriveService {
         status: 'uploading'
       });
 
-      // Converter arquivo para base64
-      const fileBase64 = await this.fileToBase64(file);
-      
       onProgress?.({
         progress: 70,
         fileName: file.name,
         status: 'uploading'
       });
 
-      // Fazer upload via API do Vercel
+      // Fazer upload via API do Vercel usando FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('atletaId', atletaId);
+      formData.append('atletaNome', atletaNome);
+      formData.append('fileType', fileType);
+      formData.append('folderId', documentFolders[fileType]);
+
       const response = await fetch('/api/upload', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          file: fileBase64,
-          fileName: file.name,
-          mimeType: file.type,
-          atletaId,
-          atletaNome,
-          fileType,
-          folderId: documentFolders[fileType]
-        })
+        body: formData
       });
 
       if (!response.ok) {
@@ -288,15 +281,7 @@ export class GoogleDriveService {
     }
   }
 
-  // Converter arquivo para base64
-  private static fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  }
+
 
   // Listar arquivos de um atleta (REAL)
   static async listAtletaFiles(atletaId: string, atletaNome: string): Promise<{
