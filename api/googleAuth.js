@@ -61,18 +61,44 @@ export function getDrive() {
  */
 export async function testConnection() {
   try {
-    const drive = getDrive();
+    console.log("🔍 Iniciando teste de conexão com Google Drive...");
+    
+    const auth = getAuth();
+    console.log("🔑 Autenticação configurada");
+    
+    const drive = google.drive({ version: "v3", auth });
+    console.log("📡 Instância do Drive criada");
     
     // Testar listando arquivos da pasta raiz
+    console.log("📋 Testando listagem de arquivos...");
     const response = await drive.files.list({
       pageSize: 1,
       fields: "files(id, name)"
     });
     
     console.log("✅ Conexão com Google Drive estabelecida");
+    console.log("📁 Arquivos encontrados:", response.data.files?.length || 0);
     return true;
   } catch (error) {
-    console.error("❌ Erro ao testar conexão:", error.message);
+    console.error("❌ Erro detalhado ao testar conexão:");
+    console.error("   Mensagem:", error.message);
+    console.error("   Código:", error.code);
+    console.error("   Status:", error.status);
+    console.error("   Stack:", error.stack);
+    
+    // Verificar tipo específico de erro
+    if (error.message.includes("unauthorized") || error.message.includes("authentication")) {
+      console.error("🔐 Erro de autenticação detectado");
+    } else if (error.message.includes("quota") || error.message.includes("rate limit")) {
+      console.error("⏱️ Erro de quota/rate limit detectado");
+    } else if (error.message.includes("not found") || error.message.includes("404")) {
+      console.error("📁 Erro de pasta não encontrada");
+    } else if (error.message.includes("permission") || error.message.includes("access")) {
+      console.error("🚫 Erro de permissão detectado");
+    } else {
+      console.error("❓ Erro desconhecido");
+    }
+    
     return false;
   }
 }
