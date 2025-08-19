@@ -1,4 +1,4 @@
-import { SupabaseService, FileUploadProgress, UploadedFile } from './supabaseService';
+import { SupabaseService } from './supabaseService';
 
 export interface UploadedFile {
   name: string;
@@ -211,5 +211,28 @@ export class FileUploadService {
       console.error('❌ Erro ao inicializar FileUploadService:', error);
       return false;
     }
+  }
+
+  // Métodos utilitários
+  static formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  static getFileExtension(fileName: string): string {
+    return fileName.split('.').pop()?.toLowerCase() || '';
+  }
+
+  static isImage(fileType: string): boolean {
+    return ['image/jpeg', 'image/jpg', 'image/png'].includes(fileType);
+  }
+
+  static isPDF(fileType: string): boolean {
+    return fileType === 'application/pdf';
   }
 }

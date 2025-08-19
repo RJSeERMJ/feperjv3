@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://kamgocrdbdwjryvcavuo.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '';
+
+if (!supabaseAnonKey) {
+  console.warn('⚠️ Chave do Supabase não configurada');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
