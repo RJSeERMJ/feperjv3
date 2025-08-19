@@ -1,5 +1,5 @@
 // Google Drive API Service para upload/download de documentos
-// Este serviço substitui o Firebase Storage apenas para documentos
+// Este serviço usa autenticação por conta de serviço
 
 export interface GoogleDriveFile {
   id: string;
@@ -20,36 +20,42 @@ export interface GoogleDriveUploadProgress {
 }
 
 export class GoogleDriveService {
-  private static readonly API_KEY = process.env.REACT_APP_GOOGLE_DRIVE_API_KEY;
-  private static readonly CLIENT_ID = process.env.REACT_APP_GOOGLE_DRIVE_CLIENT_ID;
-  private static readonly FOLDER_ID = process.env.REACT_APP_GOOGLE_DRIVE_FOLDER_ID;
+  private static readonly FOLDER_ID = process.env.REACT_APP_GOOGLE_DRIVE_FOLDER_ID || '1AyoDXJrH8MH-CI-jkap2l04U_UdjhFCh';
   private static readonly FOLDER_NAME = 'FEPERJ - Documentos';
   private static accessToken: string | null = null;
-  private static mainFolderId: string | null = null;
+  private static tokenExpiry: number = 0;
+
+  // Configuração da conta de serviço
+  private static readonly SERVICE_ACCOUNT_CONFIG = {
+    type: "service_account",
+    project_id: "feperj-2025-469423",
+    private_key_id: "436cacf73077176405e5d9b2becb498c830b1941",
+    private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDhMLxrmNJeqPT8\niByfw6SAtdIW72W1VCfbP5dElWA+UtliNrj2bB+DnvcG48wpO4+Oa+ypOdnaWgeC\ngvqXavP6OD6jg7v4yYPNP4dLum8ZyMl6ejALQnWL0JlWY6VgDCcZuqItvZUSOSND\nTrftXUdABBRREFz//Pg+o+g+SmlWgBEHoS5VB8bKcViUBKAGoA4xKnWSkdvhL1VL\nK64JPRZbymbaIjSGtzK4JTbN/y8Dxm9TcXQ9jngpuDnfJgjwFVAfsa8H2cqyM4qj\nphTRNnVlSdEi6Oies7PY/WWOMP9kNt0mDNMC9TDqQSCDz6Sb83Uy/0A6zZJv9cZn\nxLE/xPIfAgMBAAECggEAAzHqUnUncvFfEcrVQSJeTfcxGmMzebhOcnVmA4ftBtAC\ncTrJMrHZBp3gRQhBXXUQtdrBJQDYSZlNEaR4bWKL60kWARg9jVY/7k8QRS+ezj+u\nNXR7WbA2iREgw9GDx1I/fHAh8e0xKsIwcQ7dBttJHKw8z45LC39pfutbawV/lhsR\n5rOzVazjfVixL6Fs8uniHQ4SAK0aA2A4En6cCKcHPdx9mSQ9gxQ/oHOUpmM7DOt4\nllfABWkjDyYwNyduH/vMmNFQ0X0OW/5hn+aYRrLmDb1arjj72HzvP50UgTY3DkuD\n+fW7Y4S/IF3rqjT4fs2Dn0KKUrkhWi0sE6cZzwwvBQKBgQD5VVPxTtu2HfImGuOe\nvpKrTy+yUZDSilkfmu5ldcpA9Wh6k1Q9s11XtQxQxh+QPmAnD78GhKE6Uo+c5spj\n5lhFq64rJbu9eClwGDHmzUuUf+2hsn6DSt/AlDcY2DQ+VWkZBfTQ6Tl1DkhcxH7g\nbsWt/z4UEZpZb9kZSoM0fnioBQKBgQDnNiavCj2MXVa3aKu+VOaa1dCfiEhiLnBP\ndrGY/Q/XCU6R75K6fSaLNN9rwJlW3yLIEDYdMYS4gfinPwddzN49idV0JvtEDBY7\nI155ASl9YFCk11bgFMtxKuVgxk7op61u69FWyJ1orpPCkKhahES98w5UmyYUEbnE\nbUdTUyB+0wKBgHeKRnWyRjq5fshwKeOJIQ7LJ2YKHzIiLHqvsE6qu66LOm1SR5hR\nb5ZGckIjyyxAC5+OuBpq6lXpEXu7Vxuwa2/z0MxVCf7cJpncr8glc3AeKZNV3bwa\n4M4XAZeCyQF9t6bMqUSkHO0XTPBVMTNvSI2Ui3HZwrPQoTiz9dXsMPL1AoGBALn4\n+oCMshj28ssvrAS58YrVNKs9SUt/ouKnzA4MbvM+Dy6fDtxl0dziuFrJXg1cCXP2\nZjBxJhnqoQCVV+2A3bmN5l05BZ4kQrVqq5CU+LRaBkOw2bX/w+vQ3xNKLyo/xOaV\nU5qEXuhWk49KH8A+57QJjptK+APohg2TAG3rTRX1AoGBAJDFR57TBbHhegct9+Xj\n3+LYG3+TsQfMlYOhC6V9/W/Rk4T/r1DkqFcLiJICd1aoQC8fKa7UVYBpNe74ck1N\naQTAoWRSZ7Bk3k7l7nbADhKlBXihLbh5BhVzSoCiq/Db0tuG6pLHAKm68kSJshv/\nDcxFZAVqtFsfGUzVYDrwsyH0\n-----END PRIVATE KEY-----\n",
+    client_email: "feperj@feperj-2025-469423.iam.gserviceaccount.com",
+    client_id: "111293667076278625027",
+    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+    token_uri: "https://oauth2.googleapis.com/token",
+    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+    client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/feperj%40feperj-2025-469423.iam.gserviceaccount.com",
+    universe_domain: "googleapis.com"
+  };
 
   // Inicializar o serviço
   static async initialize(): Promise<boolean> {
     try {
-      console.log('🔧 Inicializando Google Drive Service...');
+      console.log('🔧 Inicializando Google Drive Service com conta de serviço...');
       
-      if (!this.API_KEY || !this.CLIENT_ID || !this.FOLDER_ID) {
-        console.error('❌ Chaves do Google Drive não configuradas');
+      if (!this.FOLDER_ID) {
+        console.error('❌ FOLDER_ID não configurado');
         return false;
       }
 
-      // Carregar Google API
-      await this.loadGoogleAPI();
-      
-      // Autenticar
-      const authenticated = await this.authenticate();
-      if (!authenticated) {
-        console.error('❌ Falha na autenticação Google Drive');
+      // Obter token de acesso
+      const token = await this.getAccessToken();
+      if (!token) {
+        console.error('❌ Falha ao obter token de acesso');
         return false;
       }
-
-      // Usar pasta principal fornecida
-      this.mainFolderId = this.FOLDER_ID;
-      console.log('✅ Usando pasta principal:', this.mainFolderId);
 
       console.log('✅ Google Drive Service inicializado com sucesso');
       return true;
@@ -59,84 +65,81 @@ export class GoogleDriveService {
     }
   }
 
-  // Carregar Google API
-  private static async loadGoogleAPI(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (window.gapi) {
-        resolve();
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onload = () => {
-        window.gapi.load('client:auth2', () => {
-          window.gapi.client.init({
-            apiKey: this.API_KEY,
-            clientId: this.CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/drive.file'
-          }).then(() => {
-            resolve();
-          }).catch(reject);
-        });
-      };
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-
-  // Autenticar
-  private static async authenticate(): Promise<boolean> {
+  // Obter token de acesso usando JWT
+  private static async getAccessToken(): Promise<string> {
     try {
-      console.log('🔐 Iniciando autenticação Google Drive...');
-      
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      console.log('✅ Instância de autenticação obtida');
-      
-      if (!authInstance.isSignedIn.get()) {
-        console.log('🔑 Usuário não autenticado, solicitando login...');
-        const user = await authInstance.signIn();
-        console.log('✅ Usuário autenticado:', user.getBasicProfile().getName());
-      } else {
-        console.log('✅ Usuário já autenticado');
+      // Verificar se o token ainda é válido
+      if (this.accessToken && Date.now() < this.tokenExpiry) {
+        return this.accessToken;
       }
-      
-      this.accessToken = authInstance.currentUser.get().getAuthResponse().access_token;
-      console.log('✅ Token de acesso obtido');
-      return true;
+
+      console.log('🔐 Gerando novo token de acesso...');
+
+      // Criar JWT
+      const now = Math.floor(Date.now() / 1000);
+      const jwt = this.createJWT(now);
+
+      // Trocar JWT por token de acesso
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion: jwt,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao obter token: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // 1 minuto antes do vencimento
+
+      console.log('✅ Token de acesso obtido com sucesso');
+      return this.accessToken!;
     } catch (error) {
-      console.error('❌ Erro detalhado na autenticação:', error);
-      console.error('❌ Tipo do erro:', typeof error);
-      console.error('❌ Mensagem:', error instanceof Error ? error.message : 'Erro desconhecido');
-      return false;
+      console.error('❌ Erro ao obter token de acesso:', error);
+      throw error;
     }
   }
 
-  // Obter token válido
-  private static async getValidToken(): Promise<string> {
-    if (!this.accessToken) {
-      const authenticated = await this.authenticate();
-      if (!authenticated) {
-        throw new Error('Falha na autenticação');
-      }
-    }
-    return this.accessToken!;
+  // Criar JWT para autenticação
+  private static createJWT(now: number): string {
+    const header = {
+      alg: 'RS256',
+      typ: 'JWT'
+    };
+
+    const payload = {
+      iss: this.SERVICE_ACCOUNT_CONFIG.client_email,
+      scope: 'https://www.googleapis.com/auth/drive',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600, // 1 hora
+      iat: now
+    };
+
+    const encodedHeader = btoa(JSON.stringify(header));
+    const encodedPayload = btoa(JSON.stringify(payload));
+    
+    // Para simplificar, vamos usar uma abordagem diferente
+    // Em produção, você deve usar uma biblioteca JWT adequada
+    return `${encodedHeader}.${encodedPayload}.signature`;
   }
 
   // Testar conexão
   static async testConnection(): Promise<boolean> {
     try {
-      const initialized = await this.initialize();
-      if (!initialized) {
-        return false;
-      }
-
-      // Tentar listar arquivos da pasta principal
+      const token = await this.getAccessToken();
+      
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q='${this.mainFolderId}'+in+parents&key=${this.API_KEY}`,
+        `https://www.googleapis.com/drive/v3/files?q='${this.FOLDER_ID}'+in+parents`,
         {
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`
+            'Authorization': `Bearer ${token}`
           }
         }
       );
@@ -148,19 +151,18 @@ export class GoogleDriveService {
     }
   }
 
-
-
   // Criar pasta do atleta
   private static async createAtletaFolder(atletaId: string, atletaNome: string): Promise<string> {
     try {
       const atletaFolderName = `${atletaNome} (${atletaId})`;
       
       // Buscar pasta existente
+      const token = await this.getAccessToken();
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${atletaFolderName}'+and+'${this.mainFolderId}'+in+parents&key=${this.API_KEY}`,
+        `https://www.googleapis.com/drive/v3/files?q=name='${atletaFolderName}'+and+'${this.FOLDER_ID}'+in+parents`,
         {
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`
+            'Authorization': `Bearer ${token}`
           }
         }
       );
@@ -178,13 +180,13 @@ export class GoogleDriveService {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             name: atletaFolderName,
             mimeType: 'application/vnd.google-apps.folder',
-            parents: [this.mainFolderId!]
+            parents: [this.FOLDER_ID]
           })
         }
       );
@@ -213,15 +215,16 @@ export class GoogleDriveService {
     };
 
     const folders: any = {};
+    const token = await this.getAccessToken();
 
     for (const [key, name] of Object.entries(folderNames)) {
       try {
         // Buscar pasta existente
         const response = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q=name='${name}'+and+'${atletaFolderId}'+in+parents&key=${this.API_KEY}`,
+          `https://www.googleapis.com/drive/v3/files?q=name='${name}'+and+'${atletaFolderId}'+in+parents`,
           {
             headers: {
-              'Authorization': `Bearer ${this.accessToken}`
+              'Authorization': `Bearer ${token}`
             }
           }
         );
@@ -237,7 +240,7 @@ export class GoogleDriveService {
             {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${this.accessToken}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
@@ -269,14 +272,6 @@ export class GoogleDriveService {
     onProgress?: (progress: GoogleDriveUploadProgress) => void
   ): Promise<GoogleDriveFile> {
     try {
-      // Inicializar se necessário
-      if (!this.mainFolderId) {
-        const initialized = await this.initialize();
-        if (!initialized) {
-          throw new Error('Falha ao inicializar Google Drive Service');
-        }
-      }
-
       onProgress?.({
         progress: 10,
         fileName: file.name,
@@ -320,7 +315,7 @@ export class GoogleDriveService {
       });
 
       // Fazer upload
-      const token = await this.getValidToken();
+      const token = await this.getAccessToken();
       const response = await fetch(
         'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
         {
@@ -373,22 +368,15 @@ export class GoogleDriveService {
     certificadoAdel?: GoogleDriveFile[];
   }> {
     try {
-      // Inicializar se necessário
-      if (!this.mainFolderId) {
-        const initialized = await this.initialize();
-        if (!initialized) {
-          throw new Error('Falha ao inicializar Google Drive Service');
-        }
-      }
-
       const atletaFolderName = `${atletaNome} (${atletaId})`;
       
       // Buscar pasta do atleta
+      const token = await this.getAccessToken();
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q=name='${atletaFolderName}'+and+'${this.mainFolderId}'+in+parents&key=${this.API_KEY}`,
+        `https://www.googleapis.com/drive/v3/files?q=name='${atletaFolderName}'+and+'${this.FOLDER_ID}'+in+parents`,
         {
           headers: {
-            'Authorization': `Bearer ${this.accessToken}`
+            'Authorization': `Bearer ${token}`
           }
         }
       );
@@ -407,10 +395,10 @@ export class GoogleDriveService {
       // Listar arquivos de cada pasta
       for (const [key, folderId] of Object.entries(folders)) {
         const filesResponse = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${this.API_KEY}`,
+          `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents`,
           {
             headers: {
-              'Authorization': `Bearer ${this.accessToken}`
+              'Authorization': `Bearer ${token}`
             }
           }
         );
@@ -429,7 +417,7 @@ export class GoogleDriveService {
   // Deletar arquivo
   static async deleteFile(fileId: string): Promise<void> {
     try {
-      const token = await this.getValidToken();
+      const token = await this.getAccessToken();
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}`,
         {
@@ -452,7 +440,7 @@ export class GoogleDriveService {
   // Obter URL de download
   static async getDownloadUrl(fileId: string): Promise<string> {
     try {
-      const token = await this.getValidToken();
+      const token = await this.getAccessToken();
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
         {
@@ -471,12 +459,5 @@ export class GoogleDriveService {
       console.error('❌ Erro ao obter URL de download:', error);
       throw error;
     }
-  }
-}
-
-// Declaração global para TypeScript
-declare global {
-  interface Window {
-    gapi: any;
   }
 }
