@@ -8,9 +8,17 @@
         "distDir": "build",
         "buildCommand": "npm run vercel-build"
       }
+    },
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
     {
       "src": "/static/(.*)",
       "dest": "/static/$1"

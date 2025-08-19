@@ -202,8 +202,37 @@ export class GoogleDriveService {
     onProgress?: (progress: GoogleDriveUploadProgress) => void
   ): Promise<GoogleDriveFile> {
     try {
+      console.log('🚀 Iniciando upload para Google Drive:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        atletaId,
+        atletaNome,
+        documentType: fileType
+      });
+
       onProgress?.({
         progress: 10,
+        fileName: file.name,
+        status: 'uploading'
+      });
+
+      // Testar conexão primeiro
+      console.log('🔍 Testando conexão com API...');
+      const testResponse = await fetch('/api/test', {
+        method: 'GET'
+      });
+
+      if (!testResponse.ok) {
+        console.error('❌ API de teste falhou:', testResponse.status, testResponse.statusText);
+        throw new Error(`API não está funcionando: ${testResponse.status}`);
+      }
+
+      const testResult = await testResponse.json();
+      console.log('✅ API funcionando:', testResult);
+
+      onProgress?.({
+        progress: 20,
         fileName: file.name,
         status: 'uploading'
       });
@@ -212,15 +241,30 @@ export class GoogleDriveService {
       const formData = new FormData();
       formData.append('file', file);
 
+      console.log('📤 Enviando arquivo para API...');
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
 
+      console.log('📥 Resposta da API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Erro no upload:', errorData);
-        throw new Error(`Erro no upload: ${errorData.error || response.statusText}`);
+        let errorMessage = `Erro ${response.status}: ${response.statusText}`;
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.warn('⚠️ Não foi possível parsear erro:', parseError);
+        }
+        
+        console.error('❌ Erro no upload:', errorMessage);
+        throw new Error(`Erro no upload: ${errorMessage}`);
       }
 
       onProgress?.({
@@ -240,7 +284,7 @@ export class GoogleDriveService {
 
       return result.file;
     } catch (error) {
-      console.error('❌ Erro no upload:', error);
+      console.error('❌ Erro detalhado no upload:', error);
       
       onProgress?.({
         progress: 0,
