@@ -43,6 +43,18 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const identidadeRef = useRef<HTMLInputElement>(null);
   const certificadoRef = useRef<HTMLInputElement>(null);
 
+  const loadAtletaFiles = async () => {
+    if (!atleta?.id) return;
+    
+    try {
+      const atletaFiles = await FileUploadService.listAtletaFiles(atleta.id, atleta.nome);
+      setFiles(atletaFiles);
+    } catch (error) {
+      console.error('Erro ao carregar arquivos:', error);
+      toast.error('Erro ao carregar arquivos do atleta');
+    }
+  };
+
   useEffect(() => {
     if (show && atleta) {
       // Inicializar com arrays vazios
@@ -53,10 +65,13 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         certificadoAdel: []
       });
       
-      // Testar conexão com Firebase Storage
-      FileUploadService.testFirebaseConnection().then(isConnected => {
+      // Testar conexão com Google Drive
+      FileUploadService.testGoogleDriveConnection().then((isConnected: boolean) => {
         if (!isConnected) {
-          toast.error('Erro de conexão com o servidor de arquivos');
+          toast.error('Erro de conexão com o Google Drive');
+        } else {
+          // Carregar arquivos do atleta
+          loadAtletaFiles();
         }
       });
     }
@@ -76,6 +91,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       fileSize: file.size,
       fileType: file.type,
       atletaId: atleta.id,
+      atletaNome: atleta.nome,
       documentType: fileType
     });
 
@@ -85,8 +101,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       const result = await FileUploadService.uploadFile(
         file,
         atleta.id,
+        atleta.nome,
         fileType,
-        (progress) => {
+        (progress: FileUploadProgress) => {
           console.log('Progresso do upload:', progress);
           setUploadProgress(progress);
           if (progress.status === 'error') {
@@ -97,6 +114,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
       console.log('Upload concluído com sucesso:', result);
       toast.success(`Arquivo "${file.name}" enviado com sucesso!`);
+      
+      // Recarregar lista de arquivos
+      await loadAtletaFiles();
       
     } catch (error) {
       console.error('Erro detalhado no upload:', error);
@@ -154,7 +174,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   const handleDownload = async (file: UploadedFile) => {
     try {
-      await FileUploadService.downloadFile(file.url, file.name);
+      await FileUploadService.downloadFile(file.fileId, file.name);
       toast.success('Download iniciado!');
     } catch (error) {
       console.error('Erro no download:', error);
@@ -170,12 +190,11 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
 
     try {
-      // Extrair caminho do arquivo da URL
-      const filePath = `atletas/${atleta.id}/${fileType}/${file.name}`;
-      await FileUploadService.deleteFile(filePath);
+      await FileUploadService.deleteFile(file.fileId);
       
       toast.success('Arquivo excluído com sucesso!');
-      // TODO: Recarregar lista quando implementar listagem
+      // Recarregar lista de arquivos
+      await loadAtletaFiles();
       
     } catch (error) {
       console.error('Erro ao deletar arquivo:', error);

@@ -5,11 +5,11 @@ export interface GoogleDriveFile {
   id: string;
   name: string;
   mimeType: string;
-  size: number;
-  webViewLink: string;
-  webContentLink: string;
+  size: string;
   createdTime: string;
-  modifiedTime: string;
+  webViewLink?: string;
+  webContentLink?: string;
+  parents?: string[];
 }
 
 export interface GoogleDriveUploadProgress {
@@ -23,28 +23,33 @@ export class GoogleDriveService {
   private static readonly API_KEY = process.env.REACT_APP_GOOGLE_DRIVE_API_KEY;
   private static readonly CLIENT_ID = process.env.REACT_APP_GOOGLE_DRIVE_CLIENT_ID;
   private static readonly FOLDER_ID = process.env.REACT_APP_GOOGLE_DRIVE_FOLDER_ID;
-  private static readonly SCOPES = ['https://www.googleapis.com/auth/drive.file'];
-  
+  private static readonly FOLDER_NAME = 'FEPERJ - Documentos';
   private static accessToken: string | null = null;
-  private static tokenExpiry: number | null = null;
+  private static mainFolderId: string | null = null;
 
   // Inicializar o serviço
   static async initialize(): Promise<boolean> {
     try {
-      if (!this.API_KEY || !this.CLIENT_ID) {
-        console.error('❌ Google Drive API não configurada. Verifique as variáveis de ambiente.');
+      console.log('🔧 Inicializando Google Drive Service...');
+      
+      if (!this.API_KEY || !this.CLIENT_ID || !this.FOLDER_ID) {
+        console.error('❌ Chaves do Google Drive não configuradas');
         return false;
       }
 
-      // Carregar a API do Google
+      // Carregar Google API
       await this.loadGoogleAPI();
       
-      // Autenticar usuário
+      // Autenticar
       const authenticated = await this.authenticate();
       if (!authenticated) {
-        console.error('❌ Falha na autenticação com Google Drive');
+        console.error('❌ Falha na autenticação Google Drive');
         return false;
       }
+
+      // Usar pasta principal fornecida
+      this.mainFolderId = this.FOLDER_ID;
+      console.log('✅ Usando pasta principal:', this.mainFolderId);
 
       console.log('✅ Google Drive Service inicializado com sucesso');
       return true;
@@ -69,7 +74,7 @@ export class GoogleDriveService {
           window.gapi.client.init({
             apiKey: this.API_KEY,
             clientId: this.CLIENT_ID,
-            scope: this.SCOPES.join(' ')
+            scope: 'https://www.googleapis.com/auth/drive.file'
           }).then(() => {
             resolve();
           }).catch(reject);
@@ -80,95 +85,168 @@ export class GoogleDriveService {
     });
   }
 
-  // Autenticar com Google
+  // Autenticar
   private static async authenticate(): Promise<boolean> {
     try {
-      const auth2 = window.gapi.auth2.getAuthInstance();
-      if (!auth2.isSignedIn.get()) {
-        await auth2.signIn();
+      const authInstance = window.gapi.auth2.getAuthInstance();
+      if (!authInstance.isSignedIn.get()) {
+        await authInstance.signIn();
       }
       
-      const user = auth2.currentUser.get();
-      this.accessToken = user.getAuthResponse().access_token;
-      this.tokenExpiry = user.getAuthResponse().expires_at;
-      
+      this.accessToken = authInstance.currentUser.get().getAuthResponse().access_token;
       return true;
     } catch (error) {
-      console.error('Erro na autenticação Google:', error);
+      console.error('❌ Erro na autenticação:', error);
       return false;
     }
   }
 
-  // Verificar se o token ainda é válido
-  private static isTokenValid(): boolean {
-    if (!this.accessToken || !this.tokenExpiry) {
-      return false;
-    }
-    return Date.now() < this.tokenExpiry * 1000;
-  }
-
-  // Obter token de acesso válido
+  // Obter token válido
   private static async getValidToken(): Promise<string> {
-    if (!this.isTokenValid()) {
-      await this.authenticate();
+    if (!this.accessToken) {
+      const authenticated = await this.authenticate();
+      if (!authenticated) {
+        throw new Error('Falha na autenticação');
+      }
     }
     return this.accessToken!;
   }
 
-  // Criar pasta para um atleta se não existir
-  private static async createAtletaFolder(atletaId: string, atletaNome: string): Promise<string> {
-    const token = await this.getValidToken();
-    
-    // Verificar se a pasta já existe
-    const existingFolders = await this.listFolders(atletaId);
-    if (existingFolders.length > 0) {
-      return existingFolders[0].id;
+  // Testar conexão
+  static async testConnection(): Promise<boolean> {
+    try {
+      const initialized = await this.initialize();
+      if (!initialized) {
+        return false;
+      }
+
+      // Tentar listar arquivos da pasta principal
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q='${this.mainFolderId}'+in+parents&key=${this.API_KEY}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`
+          }
+        }
+      );
+
+      return response.ok;
+    } catch (error) {
+      console.error('❌ Erro no teste de conexão:', error);
+      return false;
     }
-
-    // Criar nova pasta
-    const folderMetadata = {
-      name: `${atletaId}_${atletaNome}`,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: this.FOLDER_ID ? [this.FOLDER_ID] : undefined
-    };
-
-    const response = await fetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(folderMetadata)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao criar pasta: ${response.statusText}`);
-    }
-
-    const folder = await response.json();
-    return folder.id;
   }
 
-  // Listar pastas por nome
-  private static async listFolders(folderName: string): Promise<GoogleDriveFile[]> {
-    const token = await this.getValidToken();
-    
-    const query = `name contains '${folderName}' and mimeType='application/vnd.google-apps.folder'`;
-    const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Erro ao listar pastas: ${response.statusText}`);
+
+  // Criar pasta do atleta
+  private static async createAtletaFolder(atletaId: string, atletaNome: string): Promise<string> {
+    try {
+      const atletaFolderName = `${atletaNome} (${atletaId})`;
+      
+      // Buscar pasta existente
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${atletaFolderName}'+and+'${this.mainFolderId}'+in+parents&key=${this.API_KEY}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`
+          }
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.files && data.files.length > 0) {
+        console.log('📁 Pasta do atleta encontrada:', data.files[0].id);
+        return data.files[0].id;
+      }
+
+      // Criar nova pasta
+      const createResponse = await fetch(
+        'https://www.googleapis.com/drive/v3/files',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: atletaFolderName,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [this.mainFolderId!]
+          })
+        }
+      );
+
+      const folderData = await createResponse.json();
+      console.log('📁 Pasta do atleta criada:', folderData.id);
+      return folderData.id;
+    } catch (error) {
+      console.error('❌ Erro ao criar pasta do atleta:', error);
+      throw error;
+    }
+  }
+
+  // Criar subpastas para tipos de documento
+  private static async createDocumentFolders(atletaFolderId: string): Promise<{
+    comprovanteResidencia: string;
+    foto3x4: string;
+    identidade: string;
+    certificadoAdel: string;
+  }> {
+    const folderNames = {
+      comprovanteResidencia: 'Comprovante de Residência',
+      foto3x4: 'Foto 3x4',
+      identidade: 'Identidade',
+      certificadoAdel: 'Certificado ADEL'
+    };
+
+    const folders: any = {};
+
+    for (const [key, name] of Object.entries(folderNames)) {
+      try {
+        // Buscar pasta existente
+        const response = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=name='${name}'+and+'${atletaFolderId}'+in+parents&key=${this.API_KEY}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.accessToken}`
+            }
+          }
+        );
+
+        const data = await response.json();
+        
+        if (data.files && data.files.length > 0) {
+          folders[key] = data.files[0].id;
+        } else {
+          // Criar nova pasta
+          const createResponse = await fetch(
+            'https://www.googleapis.com/drive/v3/files',
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${this.accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                name: name,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [atletaFolderId]
+              })
+            }
+          );
+
+          const folderData = await createResponse.json();
+          folders[key] = folderData.id;
+        }
+      } catch (error) {
+        console.error(`❌ Erro ao criar pasta ${name}:`, error);
+        throw error;
+      }
     }
 
-    const result = await response.json();
-    return result.files || [];
+    return folders;
   }
 
   // Upload de arquivo
@@ -181,7 +259,7 @@ export class GoogleDriveService {
   ): Promise<GoogleDriveFile> {
     try {
       // Inicializar se necessário
-      if (!this.accessToken) {
+      if (!this.mainFolderId) {
         const initialized = await this.initialize();
         if (!initialized) {
           throw new Error('Falha ao inicializar Google Drive Service');
@@ -195,10 +273,19 @@ export class GoogleDriveService {
       });
 
       // Criar pasta do atleta
-      const folderId = await this.createAtletaFolder(atletaId, atletaNome);
+      const atletaFolderId = await this.createAtletaFolder(atletaId, atletaNome);
       
       onProgress?.({
         progress: 30,
+        fileName: file.name,
+        status: 'uploading'
+      });
+
+      // Criar subpastas
+      const documentFolders = await this.createDocumentFolders(atletaFolderId);
+      
+      onProgress?.({
+        progress: 50,
         fileName: file.name,
         status: 'uploading'
       });
@@ -207,7 +294,7 @@ export class GoogleDriveService {
       const fileName = `${fileType}_${Date.now()}_${file.name}`;
       const metadata = {
         name: fileName,
-        parents: [folderId]
+        parents: [documentFolders[fileType]]
       };
 
       // Criar FormData para upload
@@ -216,7 +303,7 @@ export class GoogleDriveService {
       form.append('file', file);
 
       onProgress?.({
-        progress: 50,
+        progress: 70,
         fileName: file.name,
         status: 'uploading'
       });
@@ -244,10 +331,7 @@ export class GoogleDriveService {
         status: 'uploading'
       });
 
-      const uploadedFile = await response.json();
-      
-      // Tornar o arquivo público para visualização
-      await this.makeFilePublic(uploadedFile.id);
+      const result = await response.json();
 
       onProgress?.({
         progress: 100,
@@ -255,19 +339,9 @@ export class GoogleDriveService {
         status: 'success'
       });
 
-      return {
-        id: uploadedFile.id,
-        name: file.name,
-        mimeType: file.type,
-        size: file.size,
-        webViewLink: uploadedFile.webViewLink,
-        webContentLink: uploadedFile.webContentLink,
-        createdTime: uploadedFile.createdTime,
-        modifiedTime: uploadedFile.modifiedTime
-      };
-
+      return result;
     } catch (error) {
-      console.error('Erro no upload para Google Drive:', error);
+      console.error('❌ Erro no upload:', error);
       
       onProgress?.({
         progress: 0,
@@ -280,96 +354,63 @@ export class GoogleDriveService {
     }
   }
 
-  // Tornar arquivo público para visualização
-  private static async makeFilePublic(fileId: string): Promise<void> {
-    const token = await this.getValidToken();
-    
-    const permission = {
-      type: 'anyone',
-      role: 'reader'
-    };
-
-    await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(permission)
-    });
-  }
-
   // Listar arquivos de um atleta
-  static async listAtletaFiles(atletaId: string): Promise<{
+  static async listAtletaFiles(atletaId: string, atletaNome: string): Promise<{
     comprovanteResidencia?: GoogleDriveFile[];
     foto3x4?: GoogleDriveFile[];
     identidade?: GoogleDriveFile[];
     certificadoAdel?: GoogleDriveFile[];
   }> {
     try {
-      if (!this.accessToken) {
+      // Inicializar se necessário
+      if (!this.mainFolderId) {
         const initialized = await this.initialize();
         if (!initialized) {
-          return {};
+          throw new Error('Falha ao inicializar Google Drive Service');
         }
       }
 
-      const token = await this.getValidToken();
+      const atletaFolderName = `${atletaNome} (${atletaId})`;
       
       // Buscar pasta do atleta
-      const folders = await this.listFolders(atletaId);
-      if (folders.length === 0) {
-        return {};
-      }
-
-      const folderId = folders[0].id;
-      
-      // Listar arquivos na pasta
       const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?q='${folderId}' in parents`,
+        `https://www.googleapis.com/drive/v3/files?q=name='${atletaFolderName}'+and+'${this.mainFolderId}'+in+parents&key=${this.API_KEY}`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${this.accessToken}`
           }
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Erro ao listar arquivos: ${response.statusText}`);
+      const data = await response.json();
+      
+      if (!data.files || data.files.length === 0) {
+        return {};
       }
 
-      const result = await response.json();
-      const files = result.files || [];
-
-      // Organizar por tipo
-      const organizedFiles: any = {};
+      const atletaFolderId = data.files[0].id;
+      const folders = await this.createDocumentFolders(atletaFolderId);
       
-      files.forEach((file: GoogleDriveFile) => {
-        const fileName = file.name;
-        let fileType: string | null = null;
+      const result: any = {};
 
-        if (fileName.includes('comprovanteResidencia')) {
-          fileType = 'comprovanteResidencia';
-        } else if (fileName.includes('foto3x4')) {
-          fileType = 'foto3x4';
-        } else if (fileName.includes('identidade')) {
-          fileType = 'identidade';
-        } else if (fileName.includes('certificadoAdel')) {
-          fileType = 'certificadoAdel';
-        }
-
-        if (fileType) {
-          if (!organizedFiles[fileType]) {
-            organizedFiles[fileType] = [];
+      // Listar arquivos de cada pasta
+      for (const [key, folderId] of Object.entries(folders)) {
+        const filesResponse = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${this.API_KEY}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.accessToken}`
+            }
           }
-          organizedFiles[fileType].push(file);
-        }
-      });
+        );
 
-      return organizedFiles;
+        const filesData = await filesResponse.json();
+        result[key] = filesData.files || [];
+      }
 
+      return result;
     } catch (error) {
-      console.error('Erro ao listar arquivos do atleta:', error);
+      console.error('❌ Erro ao listar arquivos:', error);
       return {};
     }
   }
@@ -378,28 +419,29 @@ export class GoogleDriveService {
   static async deleteFile(fileId: string): Promise<void> {
     try {
       const token = await this.getValidToken();
-      
-      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         }
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`Erro ao deletar arquivo: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Erro ao deletar arquivo:', error);
+      console.error('❌ Erro ao deletar arquivo:', error);
       throw error;
     }
   }
 
-  // Download de arquivo
-  static async downloadFile(fileId: string, fileName: string): Promise<void> {
+  // Obter URL de download
+  static async getDownloadUrl(fileId: string): Promise<string> {
     try {
       const token = await this.getValidToken();
-      
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
         {
@@ -410,37 +452,18 @@ export class GoogleDriveService {
       );
 
       if (!response.ok) {
-        throw new Error(`Erro ao fazer download: ${response.statusText}`);
+        throw new Error(`Erro ao obter URL de download: ${response.statusText}`);
       }
 
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-
+      return response.url;
     } catch (error) {
-      console.error('Erro ao fazer download:', error);
+      console.error('❌ Erro ao obter URL de download:', error);
       throw error;
-    }
-  }
-
-  // Teste de conexão
-  static async testConnection(): Promise<boolean> {
-    try {
-      return await this.initialize();
-    } catch (error) {
-      console.error('Erro no teste de conexão:', error);
-      return false;
     }
   }
 }
 
-// Declaração global para Google API
+// Declaração global para TypeScript
 declare global {
   interface Window {
     gapi: any;

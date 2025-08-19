@@ -1,5 +1,4 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
-import { storage, auth } from '../config/firebase';
+import { GoogleDriveService } from './googleDriveService';
 
 export interface UploadedFile {
   name: string;
@@ -7,6 +6,7 @@ export interface UploadedFile {
   type: string;
   size: number;
   uploadedAt: Date;
+  fileId: string; // ID do arquivo no Google Drive
 }
 
 export interface FileUploadProgress {
@@ -21,25 +21,20 @@ export class FileUploadService {
   private static readonly ALLOWED_PDF_TYPES = ['application/pdf'];
   private static readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-  // Teste de conexão com Firebase Storage
-  static async testFirebaseConnection(): Promise<boolean> {
+  // Teste de conexão com Google Drive
+  static async testGoogleDriveConnection(): Promise<boolean> {
     try {
-      console.log('Testando conexão com Firebase Storage...');
-      
-      // Verificar autenticação primeiro
-      const isAuthenticated = await this.checkAuth();
-      if (!isAuthenticated) {
-        console.error('❌ Falha na autenticação para teste de conexão');
+      console.log('Testando conexão com Google Drive...');
+      const isConnected = await GoogleDriveService.testConnection();
+      if (isConnected) {
+        console.log('✅ Conexão com Google Drive OK');
+        return true;
+      } else {
+        console.error('❌ Falha na conexão com Google Drive');
         return false;
       }
-      
-      const testRef = ref(storage, 'test-connection.txt');
-      const testBlob = new Blob(['test'], { type: 'text/plain' });
-      await uploadBytes(testRef, testBlob);
-      console.log('✅ Conexão com Firebase Storage OK');
-      return true;
     } catch (error) {
-      console.error('❌ Erro na conexão com Firebase Storage:', error);
+      console.error('❌ Erro na conexão com Google Drive:', error);
       return false;
     }
   }
@@ -57,37 +52,11 @@ export class FileUploadService {
     return null;
   }
 
-  // Verificar autenticação
-  static async checkAuth(): Promise<boolean> {
-    let user = auth.currentUser;
-    
-    // Se não há usuário autenticado no Firebase, tentar autenticação anônima
-    if (!user) {
-      try {
-        console.log('🔐 Tentando autenticação anônima no Firebase...');
-        const { signInAnonymously } = await import('firebase/auth');
-        const result = await signInAnonymously(auth);
-        user = result.user;
-        console.log('✅ Autenticação anônima realizada:', user.uid);
-      } catch (error) {
-        console.error('❌ Erro na autenticação anônima:', error);
-        return false;
-      }
-    }
-    
-    if (user) {
-      console.log('✅ Usuário autenticado no Firebase:', user.uid);
-      return true;
-    }
-    
-    console.error('❌ Falha na autenticação Firebase');
-    return false;
-  }
-
-  // Upload de arquivo
+  // Upload de arquivo para Google Drive
   static async uploadFile(
     file: File, 
-    atletaId: string, 
+    atletaId: string,
+    atletaNome: string,
     fileType: 'comprovanteResidencia' | 'foto3x4' | 'identidade' | 'certificadoAdel',
     onProgress?: (progress: FileUploadProgress) => void
   ): Promise<UploadedFile> {
@@ -96,14 +65,9 @@ export class FileUploadService {
       fileSize: file.size,
       fileType: file.type,
       atletaId,
+      atletaNome,
       documentType: fileType
     });
-
-    // Verificar autenticação
-    const isAuthenticated = await this.checkAuth();
-    if (!isAuthenticated) {
-      throw new Error('Usuário não está autenticado. Faça login novamente.');
-    }
 
     try {
       // Validar arquivo
@@ -121,38 +85,33 @@ export class FileUploadService {
 
       console.log('Arquivo validado com sucesso');
 
-      // Criar referência no storage
-      const fileName = `${atletaId}_${fileType}_${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, `atletas/${atletaId}/${fileType}/${fileName}`);
-      
-      console.log('Referência do storage criada:', storageRef.fullPath);
-
-      // Simular progresso (Firebase não fornece progresso nativo)
+      // Simular progresso inicial
       onProgress?.({
         progress: 0,
         fileName: file.name,
         status: 'uploading'
       });
 
-      console.log('Iniciando upload para Firebase Storage...');
+      console.log('Iniciando upload para Google Drive...');
 
-      // Upload do arquivo
-      const snapshot = await uploadBytes(storageRef, file);
-      
-      console.log('Upload concluído, snapshot:', snapshot);
-      
-      onProgress?.({
-        progress: 50,
-        fileName: file.name,
-        status: 'uploading'
-      });
+      // Upload para Google Drive
+      const result = await GoogleDriveService.uploadFile(
+        file,
+        atletaId,
+        atletaNome,
+        fileType,
+        (progress) => {
+          console.log('Progresso do upload:', progress);
+          onProgress?.({
+            progress: progress.progress,
+            fileName: progress.fileName,
+            status: progress.status === 'error' ? 'error' : 'uploading',
+            error: progress.error
+          });
+        }
+      );
 
-      console.log('Obtendo URL de download...');
-
-      // Obter URL de download
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      console.log('URL de download obtida:', downloadURL);
+      console.log('Upload concluído com sucesso:', result);
 
       onProgress?.({
         progress: 100,
@@ -160,16 +119,17 @@ export class FileUploadService {
         status: 'success'
       });
 
-      const result = {
+      const uploadedFile: UploadedFile = {
         name: file.name,
-        url: downloadURL,
+        url: result.webViewLink || result.webContentLink || '',
         type: file.type,
         size: file.size,
-        uploadedAt: new Date()
+        uploadedAt: new Date(),
+        fileId: result.id
       };
 
-      console.log('Upload finalizado com sucesso:', result);
-      return result;
+      console.log('Upload finalizado com sucesso:', uploadedFile);
+      return uploadedFile;
 
     } catch (error) {
       console.error('Erro no FileUploadService.uploadFile:', error);
@@ -184,28 +144,47 @@ export class FileUploadService {
     }
   }
 
-    // Listar arquivos de um atleta
-  static async listAtletaFiles(atletaId: string): Promise<{
+  // Listar arquivos de um atleta
+  static async listAtletaFiles(atletaId: string, atletaNome: string): Promise<{
     comprovanteResidencia?: UploadedFile[];
     foto3x4?: UploadedFile[];
     identidade?: UploadedFile[];
     certificadoAdel?: UploadedFile[];
   }> {
-    // Retornar arrays vazios por enquanto para evitar problemas
-    // TODO: Implementar listagem real quando necessário
-    return {
-      comprovanteResidencia: [],
-      foto3x4: [],
-      identidade: [],
-      certificadoAdel: []
-    };
+    try {
+      const files = await GoogleDriveService.listAtletaFiles(atletaId, atletaNome);
+      
+      // Converter para formato UploadedFile
+      const convertToUploadedFile = (file: any): UploadedFile => ({
+        name: file.name,
+        url: file.webViewLink || file.webContentLink || '',
+        type: file.mimeType,
+        size: parseInt(file.size) || 0,
+        uploadedAt: new Date(file.createdTime),
+        fileId: file.id
+      });
+
+      return {
+        comprovanteResidencia: files.comprovanteResidencia?.map(convertToUploadedFile) || [],
+        foto3x4: files.foto3x4?.map(convertToUploadedFile) || [],
+        identidade: files.identidade?.map(convertToUploadedFile) || [],
+        certificadoAdel: files.certificadoAdel?.map(convertToUploadedFile) || []
+      };
+    } catch (error) {
+      console.error('Erro ao listar arquivos:', error);
+      return {
+        comprovanteResidencia: [],
+        foto3x4: [],
+        identidade: [],
+        certificadoAdel: []
+      };
+    }
   }
 
   // Deletar arquivo
-  static async deleteFile(filePath: string): Promise<void> {
+  static async deleteFile(fileId: string): Promise<void> {
     try {
-      const fileRef = ref(storage, filePath);
-      await deleteObject(fileRef);
+      await GoogleDriveService.deleteFile(fileId);
     } catch (error) {
       console.error('Erro ao deletar arquivo:', error);
       throw error;
@@ -213,19 +192,21 @@ export class FileUploadService {
   }
 
   // Download de arquivo
-  static async downloadFile(url: string, fileName: string): Promise<void> {
+  static async downloadFile(fileId: string, fileName: string): Promise<void> {
     try {
-      const response = await fetch(url);
+      const downloadUrl = await GoogleDriveService.getDownloadUrl(fileId);
+      
+      const response = await fetch(downloadUrl);
       const blob = await response.blob();
       
-      const downloadUrl = window.URL.createObjectURL(blob);
+      const downloadUrlBlob = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = downloadUrlBlob;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      window.URL.revokeObjectURL(downloadUrlBlob);
     } catch (error) {
       console.error('Erro ao fazer download:', error);
       throw error;
