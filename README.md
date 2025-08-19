@@ -131,8 +131,8 @@ O sistema estará disponível em `http://localhost:3000`
 ## 🔐 Credenciais de Acesso
 
 ### **Administrador Padrão**
-- **Login**: `15119236790`
-- **Senha**: `49912170`
+- **Login**: `xxxxxxx`
+- **Senha**: `xxxxxxx`
 
 ### **Criar Novos Usuários**
 1. Faça login como administrador
@@ -259,31 +259,9 @@ O sistema é totalmente responsivo e funciona em:
 4. **Configure CORS adequadamente**
 5. **Implemente rate limiting**
 
-### **Regras de Segurança do Firestore (Exemplo)**
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Usuários podem ler/escrever apenas seus próprios dados
-    match /usuarios/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Apenas admins podem gerenciar usuários
-    match /usuarios/{document=**} {
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipo == 'admin';
-    }
-    
-    // Logs apenas para admins
-    match /log_atividades/{document=**} {
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipo == 'admin';
-    }
-  }
-}
-```
+
+
 
 ## 🐛 Solução de Problemas
 
