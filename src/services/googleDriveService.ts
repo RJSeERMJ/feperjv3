@@ -88,15 +88,26 @@ export class GoogleDriveService {
   // Autenticar
   private static async authenticate(): Promise<boolean> {
     try {
+      console.log('🔐 Iniciando autenticação Google Drive...');
+      
       const authInstance = window.gapi.auth2.getAuthInstance();
+      console.log('✅ Instância de autenticação obtida');
+      
       if (!authInstance.isSignedIn.get()) {
-        await authInstance.signIn();
+        console.log('🔑 Usuário não autenticado, solicitando login...');
+        const user = await authInstance.signIn();
+        console.log('✅ Usuário autenticado:', user.getBasicProfile().getName());
+      } else {
+        console.log('✅ Usuário já autenticado');
       }
       
       this.accessToken = authInstance.currentUser.get().getAuthResponse().access_token;
+      console.log('✅ Token de acesso obtido');
       return true;
     } catch (error) {
-      console.error('❌ Erro na autenticação:', error);
+      console.error('❌ Erro detalhado na autenticação:', error);
+      console.error('❌ Tipo do erro:', typeof error);
+      console.error('❌ Mensagem:', error instanceof Error ? error.message : 'Erro desconhecido');
       return false;
     }
   }
