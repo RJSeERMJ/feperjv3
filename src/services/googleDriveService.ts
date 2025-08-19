@@ -208,37 +208,9 @@ export class GoogleDriveService {
         status: 'uploading'
       });
 
-      // Criar pasta do atleta
-      const atletaFolderId = await this.createAtletaFolder(atletaId, atletaNome);
-      
-      onProgress?.({
-        progress: 30,
-        fileName: file.name,
-        status: 'uploading'
-      });
-
-      // Criar subpastas
-      const documentFolders = await this.createDocumentFolders(atletaFolderId);
-      
-      onProgress?.({
-        progress: 50,
-        fileName: file.name,
-        status: 'uploading'
-      });
-
-      onProgress?.({
-        progress: 70,
-        fileName: file.name,
-        status: 'uploading'
-      });
-
       // Fazer upload via API do Vercel usando FormData
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('atletaId', atletaId);
-      formData.append('atletaNome', atletaNome);
-      formData.append('fileType', fileType);
-      formData.append('folderId', documentFolders[fileType]);
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -365,27 +337,29 @@ export class GoogleDriveService {
     }
   }
 
-  // Obter URL de download (REAL)
-  static async getDownloadUrl(fileId: string): Promise<string> {
+  // Download direto de arquivo (REAL)
+  static async downloadFile(fileId: string, fileName?: string): Promise<void> {
     try {
-      const response = await fetch(`/api/download-url`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ fileId })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Erro ao obter URL de download: ${errorData.error || response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result.downloadUrl;
+      const url = `/api/download?fileId=${encodeURIComponent(fileId)}`;
+      
+      // Criar link temporário para download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || fileId;
+      link.target = '_blank';
+      
+      // Simular clique para iniciar download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
-      console.error('❌ Erro ao obter URL de download:', error);
+      console.error('❌ Erro ao fazer download:', error);
       throw error;
     }
+  }
+
+  // Obter URL de download (mantido para compatibilidade)
+  static async getDownloadUrl(fileId: string): Promise<string> {
+    return `/api/download?fileId=${encodeURIComponent(fileId)}`;
   }
 }
