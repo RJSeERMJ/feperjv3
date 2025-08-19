@@ -151,3 +151,19 @@ export interface AuthContextType {
   clearAuthData: () => void;
   loading: boolean;
 }
+
+export interface UploadedFile {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  uploadedAt: Date;
+  fileId: string; // Caminho do arquivo no Supabase
+}
+
+export interface FileUploadProgress {
+  progress: number;
+  fileName: string;
+  status: 'uploading' | 'success' | 'error';
+  error?: string;
+}

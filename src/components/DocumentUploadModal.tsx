@@ -65,10 +65,10 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         certificadoAdel: []
       });
       
-      // Testar conexão com Google Drive
-      FileUploadService.testGoogleDriveConnection().then((isConnected: boolean) => {
+      // Testar conexão com Supabase
+      FileUploadService.testSupabaseConnection().then((isConnected: boolean) => {
         if (!isConnected) {
-          toast.error('Erro de conexão com o Google Drive');
+          toast.error('Erro de conexão com o Supabase');
         } else {
           // Carregar arquivos do atleta
           loadAtletaFiles();

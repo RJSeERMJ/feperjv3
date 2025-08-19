@@ -1,4 +1,4 @@
-import { GoogleDriveService } from './googleDriveService';
+import { SupabaseService, FileUploadProgress, UploadedFile } from './supabaseService';
 
 export interface UploadedFile {
   name: string;
@@ -6,7 +6,7 @@ export interface UploadedFile {
   type: string;
   size: number;
   uploadedAt: Date;
-  fileId: string; // ID do arquivo no Google Drive
+  fileId: string;
 }
 
 export interface FileUploadProgress {
@@ -21,20 +21,20 @@ export class FileUploadService {
   private static readonly ALLOWED_PDF_TYPES = ['application/pdf'];
   private static readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-  // Teste de conexão com Google Drive
-  static async testGoogleDriveConnection(): Promise<boolean> {
+  // Teste de conexão com Supabase
+  static async testSupabaseConnection(): Promise<boolean> {
     try {
-      console.log('Testando conexão com Google Drive...');
-      const isConnected = await GoogleDriveService.testConnection();
+      console.log('Testando conexão com Supabase...');
+      const isConnected = await SupabaseService.testConnection();
       if (isConnected) {
-        console.log('✅ Conexão com Google Drive OK');
+        console.log('✅ Conexão com Supabase OK');
         return true;
       } else {
-        console.error('❌ Falha na conexão com Google Drive');
+        console.error('❌ Falha na conexão com Supabase');
         return false;
       }
     } catch (error) {
-      console.error('❌ Erro na conexão com Google Drive:', error);
+      console.error('❌ Erro na conexão com Supabase:', error);
       return false;
     }
   }
@@ -52,7 +52,7 @@ export class FileUploadService {
     return null;
   }
 
-  // Upload de arquivo para Google Drive
+  // Upload de arquivo para Supabase
   static async uploadFile(
     file: File, 
     atletaId: string,
@@ -92,15 +92,15 @@ export class FileUploadService {
         status: 'uploading'
       });
 
-      console.log('Iniciando upload para Google Drive...');
+      console.log('Iniciando upload para Supabase...');
 
-      // Upload para Google Drive
-      const result = await GoogleDriveService.uploadFile(
+      // Upload para Supabase
+      const result = await SupabaseService.uploadFile(
         file,
         atletaId,
         atletaNome,
         fileType,
-        (progress) => {
+        (progress: FileUploadProgress) => {
           console.log('Progresso do upload:', progress);
           onProgress?.({
             progress: progress.progress,
@@ -119,20 +119,9 @@ export class FileUploadService {
         status: 'success'
       });
 
-      const uploadedFile: UploadedFile = {
-        name: file.name,
-        url: result.webViewLink || result.webContentLink || '',
-        type: file.type,
-        size: file.size,
-        uploadedAt: new Date(),
-        fileId: result.id
-      };
-
-      console.log('Upload finalizado com sucesso:', uploadedFile);
-      return uploadedFile;
-
+      return result;
     } catch (error) {
-      console.error('Erro no FileUploadService.uploadFile:', error);
+      console.error('Erro no upload:', error);
       
       onProgress?.({
         progress: 0,
@@ -140,6 +129,31 @@ export class FileUploadService {
         status: 'error',
         error: error instanceof Error ? error.message : 'Erro no upload'
       });
+      
+      throw error;
+    }
+  }
+
+  // Download de arquivo do Supabase
+  static async downloadFile(filePath: string, fileName: string): Promise<void> {
+    try {
+      console.log('Iniciando download:', filePath);
+
+      const blob = await SupabaseService.downloadFile(filePath);
+      
+      // Criar link de download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('Download concluído com sucesso');
+    } catch (error) {
+      console.error('Erro no download:', error);
       throw error;
     }
   }
@@ -152,90 +166,50 @@ export class FileUploadService {
     certificadoAdel?: UploadedFile[];
   }> {
     try {
-      const files = await GoogleDriveService.listAtletaFiles(atletaId, atletaNome);
+      console.log('Listando arquivos do atleta:', atletaId);
       
-      // Converter para formato UploadedFile
-      const convertToUploadedFile = (file: any): UploadedFile => ({
-        name: file.name,
-        url: file.webViewLink || file.webContentLink || '',
-        type: file.mimeType,
-        size: parseInt(file.size) || 0,
-        uploadedAt: new Date(file.createdTime),
-        fileId: file.id
-      });
-
-      return {
-        comprovanteResidencia: files.comprovanteResidencia?.map(convertToUploadedFile) || [],
-        foto3x4: files.foto3x4?.map(convertToUploadedFile) || [],
-        identidade: files.identidade?.map(convertToUploadedFile) || [],
-        certificadoAdel: files.certificadoAdel?.map(convertToUploadedFile) || []
-      };
+      const files = await SupabaseService.listAtletaFiles(atletaId, atletaNome);
+      
+      console.log('Arquivos encontrados:', files);
+      return files;
     } catch (error) {
       console.error('Erro ao listar arquivos:', error);
-      return {
-        comprovanteResidencia: [],
-        foto3x4: [],
-        identidade: [],
-        certificadoAdel: []
-      };
-    }
-  }
-
-  // Deletar arquivo
-  static async deleteFile(fileId: string): Promise<void> {
-    try {
-      await GoogleDriveService.deleteFile(fileId);
-    } catch (error) {
-      console.error('Erro ao deletar arquivo:', error);
       throw error;
     }
   }
 
-  // Download de arquivo
-  static async downloadFile(fileId: string, fileName: string): Promise<void> {
+  // Excluir arquivo do Supabase
+  static async deleteFile(filePath: string): Promise<boolean> {
     try {
-      const downloadUrl = await GoogleDriveService.getDownloadUrl(fileId);
+      console.log('Excluindo arquivo:', filePath);
       
-      const response = await fetch(downloadUrl);
-      const blob = await response.blob();
+      const result = await SupabaseService.deleteFile(filePath);
       
-      const downloadUrlBlob = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrlBlob;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrlBlob);
+      console.log('Arquivo excluído com sucesso');
+      return result;
     } catch (error) {
-      console.error('Erro ao fazer download:', error);
+      console.error('Erro ao excluir arquivo:', error);
       throw error;
     }
   }
 
-  // Formatar tamanho do arquivo
-  static formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
-  // Obter extensão do arquivo
-  static getFileExtension(fileName: string): string {
-    return fileName.split('.').pop()?.toLowerCase() || '';
-  }
-
-  // Verificar se é imagem
-  static isImage(fileType: string): boolean {
-    return this.ALLOWED_IMAGE_TYPES.includes(fileType);
-  }
-
-  // Verificar se é PDF
-  static isPDF(fileType: string): boolean {
-    return this.ALLOWED_PDF_TYPES.includes(fileType);
+  // Inicializar serviço
+  static async initialize(): Promise<boolean> {
+    try {
+      console.log('Inicializando FileUploadService...');
+      
+      const initialized = await SupabaseService.initialize();
+      
+      if (initialized) {
+        console.log('✅ FileUploadService inicializado com sucesso');
+        return true;
+      } else {
+        console.error('❌ Falha ao inicializar FileUploadService');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Erro ao inicializar FileUploadService:', error);
+      return false;
+    }
   }
 }
