@@ -51,7 +51,11 @@ const EditarInscricaoForm: React.FC<{
 }> = ({ inscricao, competicao, onSave, onCancel }) => {
   const [categoriaPeso, setCategoriaPeso] = useState<any>(inscricao.categoriaPeso || null);
   const [categoriaIdade, setCategoriaIdade] = useState<any>(inscricao.categoriaIdade || null);
-  const [dobraCategoria, setDobraCategoria] = useState<any>(inscricao.dobraCategoria);
+  const [dobraCategoria, setDobraCategoria] = useState<any>(inscricao.dobraCategoria || null);
+
+  // Obter atleta da inscrição
+  const atleta = inscricao.atleta;
+  const idadeAtleta = atleta?.dataNascimento ? calcularIdade(new Date(atleta.dataNascimento)) : null;
 
   const podeEditarDobra = () => {
     if (!competicao.permiteDobraCategoria) return false;
@@ -64,6 +68,33 @@ const EditarInscricaoForm: React.FC<{
     return hoje <= umDiaAntes;
   };
 
+  // Validar se atleta pode usar categoria master baseado na idade
+  const podeUsarCategoriaMaster = (categoriaIdade: any) => {
+    if (!idadeAtleta || !categoriaIdade) return true;
+    
+    if (categoriaIdade.id.startsWith('master')) {
+      return validarIdadeParaCategoria(idadeAtleta, categoriaIdade);
+    }
+    
+    return true;
+  };
+
+  // Obter opções válidas de dobra considerando a idade do atleta
+  const obterOpcoesDobraValidasComIdade = (categoriaIdade: any) => {
+    if (!categoriaIdade || !idadeAtleta) return [];
+    
+    const opcoes = obterOpcoesDobraValidas(categoriaIdade);
+    
+    // Filtrar apenas categorias que o atleta pode usar baseado na idade
+    return opcoes.filter(cat => validarIdadeParaCategoria(idadeAtleta, cat));
+  };
+
+  // Validar se a combinação de categorias é válida para dobra
+  const validarCombinacaoDobra = (cat1: any, cat2: any) => {
+    if (!cat1 || !cat2) return true;
+    return validarDobraCategoria(cat1, cat2);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -72,7 +103,21 @@ const EditarInscricaoForm: React.FC<{
       return;
     }
 
-    onSave(categoriaPeso, categoriaIdade, dobraCategoria);
+    // Validar se atleta pode usar a categoria de idade selecionada
+    if (!podeUsarCategoriaMaster(categoriaIdade)) {
+      toast.error(`Atleta não tem idade suficiente para categoria ${categoriaIdade.nome}`);
+      return;
+    }
+
+    // Validar se a dobra é válida
+    if (dobraCategoria && !validarCombinacaoDobra(categoriaIdade, dobraCategoria.categoriaIdade)) {
+      toast.error('Combinação de categorias inválida para dobra');
+      return;
+    }
+
+    // Garantir que dobraCategoria seja null em vez de undefined
+    const dobraParaSalvar = (dobraCategoria && dobraCategoria.categoriaIdade && dobraCategoria.categoriaPeso) ? dobraCategoria : null;
+    onSave(categoriaPeso, categoriaIdade, dobraParaSalvar);
   };
 
   return (
@@ -83,7 +128,125 @@ const EditarInscricaoForm: React.FC<{
         {!podeEditarDobra() && (
           <span className="text-warning"> <strong>Dobra de categoria não pode mais ser alterada.</strong></span>
         )}
+        {idadeAtleta && (
+          <div className="mt-2">
+            <strong>Idade do atleta:</strong> {idadeAtleta} anos
+          </div>
+        )}
       </Alert>
+
+      <Row>
+        <Col md={6}>
+          <Form.Group className="mb-3">
+            <Form.Label>Categoria de Peso *</Form.Label>
+            <Form.Select
+              value={categoriaPeso?.id || ''}
+              onChange={(e) => {
+                const categoria = obterCategoriasPeso(atleta?.sexo || 'M')
+                  .find(cat => cat.id === e.target.value);
+                setCategoriaPeso(categoria || null);
+              }}
+              required
+            >
+              <option value="">Selecione a categoria de peso</option>
+              {obterCategoriasPeso(atleta?.sexo || 'M').map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.nome} - {cat.descricao}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+        </Col>
+        
+        <Col md={6}>
+          <Form.Group className="mb-3">
+            <Form.Label>Categoria de Idade *</Form.Label>
+            <Form.Select
+              value={categoriaIdade?.id || ''}
+              onChange={(e) => {
+                const categoria = CATEGORIAS_IDADE.find(cat => cat.id === e.target.value);
+                setCategoriaIdade(categoria || null);
+                // Limpar dobra se a categoria mudar
+                if (dobraCategoria) {
+                  setDobraCategoria(null);
+                }
+              }}
+              required
+            >
+              <option value="">Selecione a categoria de idade</option>
+              {CATEGORIAS_IDADE.map(cat => {
+                const podeUsar = podeUsarCategoriaMaster(cat);
+                return (
+                  <option 
+                    key={cat.id} 
+                    value={cat.id}
+                    disabled={!podeUsar}
+                  >
+                    {cat.nome} - {cat.descricao}
+                    {!podeUsar && ` (Idade insuficiente: ${cat.idadeMaxima} anos)`}
+                  </option>
+                );
+              })}
+            </Form.Select>
+            {categoriaIdade && !podeUsarCategoriaMaster(categoriaIdade) && (
+              <Form.Text className="text-danger">
+                Atleta não tem idade suficiente para esta categoria
+              </Form.Text>
+            )}
+          </Form.Group>
+        </Col>
+      </Row>
+
+      {competicao.permiteDobraCategoria && categoriaIdade && podeEditarDobra() && (
+        <Row>
+          <Col md={12}>
+            <Form.Group className="mb-3">
+              <Form.Label>Dobra de Categoria</Form.Label>
+              <Form.Select
+                value={dobraCategoria?.categoriaIdade?.id || ''}
+                onChange={(e) => {
+                  if (e.target.value === '') {
+                    setDobraCategoria(null);
+                    return;
+                  }
+
+                  const categoriaIdadeDobra = CATEGORIAS_IDADE.find(cat => cat.id === e.target.value);
+                  if (!categoriaIdadeDobra) return;
+
+                  // Validar se atleta pode usar a categoria de dobra
+                  if (!podeUsarCategoriaMaster(categoriaIdadeDobra)) {
+                    toast.error(`Atleta não tem idade suficiente para categoria ${categoriaIdadeDobra.nome}`);
+                    return;
+                  }
+
+                  // Validar se a combinação é válida para dobra
+                  if (!validarDobraCategoria(categoriaIdade, categoriaIdadeDobra)) {
+                    toast.error('Combinação de categorias inválida para dobra');
+                    return;
+                  }
+
+                  const novaDobra = {
+                    categoriaPeso: categoriaPeso,
+                    categoriaIdade: categoriaIdadeDobra
+                  };
+
+                  setDobraCategoria(novaDobra);
+                }}
+              >
+                <option value="">Sem dobra</option>
+                {obterOpcoesDobraValidasComIdade(categoriaIdade).map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.nome} - {cat.descricao}
+                  </option>
+                ))}
+              </Form.Select>
+              <Form.Text className="text-muted">
+                Selecione uma categoria adicional para dobra (opcional)
+              </Form.Text>
+            </Form.Group>
+          </Col>
+        </Row>
+      )}
 
       <div className="d-flex justify-content-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
@@ -108,6 +271,8 @@ const CompeticoesPage: React.FC = () => {
   const [showInscricaoModal, setShowInscricaoModal] = useState(false);
   const [showCategorizacaoModal, setShowCategorizacaoModal] = useState(false);
   const [showEditarInscricaoModal, setShowEditarInscricaoModal] = useState(false);
+  const [showDetalhesCompeticaoModal, setShowDetalhesCompeticaoModal] = useState(false);
+  const [competicaoDetalhes, setCompeticaoDetalhes] = useState<Competicao | null>(null);
   const [inscricaoEmEdicao, setInscricaoEmEdicao] = useState<InscricaoCompeticao | null>(null);
   const [categorizacaoAtletas, setCategorizacaoAtletas] = useState<Map<string, any>>(new Map());
   const [selectedCompeticao, setSelectedCompeticao] = useState<Competicao | null>(null);
@@ -526,6 +691,11 @@ const CompeticoesPage: React.FC = () => {
     setShowEditarInscricaoModal(true);
   };
 
+  const handleDetalhesCompeticao = (competicao: Competicao) => {
+    setCompeticaoDetalhes(competicao);
+    setShowDetalhesCompeticaoModal(true);
+  };
+
   const handleSalvarEdicaoInscricao = async (categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any) => {
     if (!inscricaoEmEdicao || !selectedCompeticao) return;
 
@@ -536,12 +706,12 @@ const CompeticoesPage: React.FC = () => {
         categoriaIdade
       };
 
-      // Adicionar dobraCategoria apenas se existir
-      if (dobraCategoria) {
+      // Adicionar dobraCategoria apenas se existir e for válida
+      if (dobraCategoria && dobraCategoria.categoriaIdade && dobraCategoria.categoriaPeso) {
         dadosAtualizacao.dobraCategoria = dobraCategoria;
       } else {
-        // Se não há dobra, remover o campo
-        dadosAtualizacao.dobraCategoria = undefined;
+        // Se não há dobra válida, definir como null (Firestore aceita null)
+        dadosAtualizacao.dobraCategoria = null;
       }
 
       // Atualizar a inscrição
@@ -760,7 +930,14 @@ const CompeticoesPage: React.FC = () => {
             </thead>
             <tbody>
               {filteredCompeticoes.map((competicao) => (
-                <tr key={competicao.id}>
+                <tr 
+                  key={competicao.id} 
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleDetalhesCompeticao(competicao)}
+                  className="hover-row"
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
+                >
                   <td>
                     <strong>{competicao.nomeCompeticao}</strong>
                     {competicao.permiteDobraCategoria && (
@@ -1130,6 +1307,197 @@ const CompeticoesPage: React.FC = () => {
                 </Alert>
               )}
             </Tab>
+            
+            <Tab eventKey="nominacao" title="Nominação">
+              <div className="mb-3">
+                <Alert variant="info">
+                  <strong>📋 Nominação por Categoria de Peso</strong>
+                  <br />
+                  Atletas organizados por categoria de peso e sexo para facilitar a organização da competição.
+                </Alert>
+              </div>
+              
+              {/* Tabela Masculino */}
+              <Card className="mb-4">
+                <Card.Header className="bg-primary text-white">
+                  <strong>🏋️ Masculino</strong>
+                </Card.Header>
+                <Card.Body>
+                  {(() => {
+                    const inscricoesMasculinas = inscricoes.filter(i => 
+                      i.statusInscricao === 'INSCRITO' && 
+                      i.atleta?.sexo === 'M' && 
+                      i.categoriaPeso
+                    );
+                    
+                    if (inscricoesMasculinas.length === 0) {
+                      return (
+                        <Alert variant="info" className="text-center">
+                          Nenhum atleta masculino inscrito.
+                        </Alert>
+                      );
+                    }
+                    
+                    // Agrupar por categoria de peso
+                    const categoriasPeso = obterCategoriasPeso('M');
+                    const atletasPorCategoria = new Map();
+                    
+                    categoriasPeso.forEach(cat => {
+                      const atletas = inscricoesMasculinas.filter(insc => 
+                        insc.categoriaPeso?.id === cat.id
+                      );
+                      if (atletas.length > 0) {
+                        atletasPorCategoria.set(cat.id, atletas);
+                      }
+                    });
+                    
+                                         return Array.from(atletasPorCategoria.entries()).map(([categoriaId, atletas]: [string, InscricaoCompeticao[]]) => {
+                       const categoria = categoriasPeso.find(cat => cat.id === categoriaId);
+                       return (
+                         <div key={categoriaId} className="mb-4">
+                           <h6 className="text-primary border-bottom pb-2">
+                             <strong>{categoria?.nome}</strong>
+                             <span className="text-muted ms-2">({categoria?.descricao})</span>
+                             <Badge bg="secondary" className="ms-2">{atletas.length} atleta(s)</Badge>
+                           </h6>
+                           <Table responsive striped size="sm">
+                             <thead>
+                               <tr>
+                                 <th>Nome</th>
+                                 <th>Equipe</th>
+                                 <th>Categoria Idade</th>
+                                 <th>Dobra</th>
+                               </tr>
+                             </thead>
+                             <tbody>
+                               {atletas.map((inscricao: InscricaoCompeticao) => (
+                                <tr key={inscricao.id}>
+                                  <td>
+                                    <strong>{inscricao.atleta?.nome}</strong>
+                                    <br />
+                                    <small className="text-muted">{inscricao.atleta?.cpf}</small>
+                                  </td>
+                                  <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
+                                  <td>
+                                    {inscricao.categoriaIdade ? (
+                                      <Badge bg="info">
+                                        {inscricao.categoriaIdade.nome}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted">-</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {inscricao.dobraCategoria ? (
+                                      <Badge bg="warning">
+                                        {inscricao.dobraCategoria.categoriaIdade.nome}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+                      );
+                    });
+                  })()}
+                </Card.Body>
+              </Card>
+              
+              {/* Tabela Feminino */}
+              <Card>
+                <Card.Header className="bg-danger text-white">
+                  <strong>🏋️‍♀️ Feminino</strong>
+                </Card.Header>
+                <Card.Body>
+                  {(() => {
+                    const inscricoesFemininas = inscricoes.filter(i => 
+                      i.statusInscricao === 'INSCRITO' && 
+                      i.atleta?.sexo === 'F' && 
+                      i.categoriaPeso
+                    );
+                    
+                    if (inscricoesFemininas.length === 0) {
+                      return (
+                        <Alert variant="info" className="text-center">
+                          Nenhum atleta feminino inscrito.
+                        </Alert>
+                      );
+                    }
+                    
+                    // Agrupar por categoria de peso
+                    const categoriasPeso = obterCategoriasPeso('F');
+                    const atletasPorCategoria = new Map();
+                    
+                    categoriasPeso.forEach(cat => {
+                      const atletas = inscricoesFemininas.filter(insc => 
+                        insc.categoriaPeso?.id === cat.id
+                      );
+                      if (atletas.length > 0) {
+                        atletasPorCategoria.set(cat.id, atletas);
+                      }
+                    });
+                    
+                                         return Array.from(atletasPorCategoria.entries()).map(([categoriaId, atletas]: [string, InscricaoCompeticao[]]) => {
+                       const categoria = categoriasPeso.find(cat => cat.id === categoriaId);
+                       return (
+                         <div key={categoriaId} className="mb-4">
+                           <h6 className="text-danger border-bottom pb-2">
+                             <strong>{categoria?.nome}</strong>
+                             <span className="text-muted ms-2">({categoria?.descricao})</span>
+                             <Badge bg="secondary" className="ms-2">{atletas.length} atleta(s)</Badge>
+                           </h6>
+                           <Table responsive striped size="sm">
+                             <thead>
+                               <tr>
+                                 <th>Nome</th>
+                                 <th>Equipe</th>
+                                 <th>Categoria Idade</th>
+                                 <th>Dobra</th>
+                               </tr>
+                             </thead>
+                             <tbody>
+                               {atletas.map((inscricao: InscricaoCompeticao) => (
+                                <tr key={inscricao.id}>
+                                  <td>
+                                    <strong>{inscricao.atleta?.nome}</strong>
+                                    <br />
+                                    <small className="text-muted">{inscricao.atleta?.cpf}</small>
+                                  </td>
+                                  <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
+                                  <td>
+                                    {inscricao.categoriaIdade ? (
+                                      <Badge bg="info">
+                                        {inscricao.categoriaIdade.nome}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted">-</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {inscricao.dobraCategoria ? (
+                                      <Badge bg="warning">
+                                        {inscricao.dobraCategoria.categoriaIdade.nome}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted">-</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+                      );
+                    });
+                  })()}
+                </Card.Body>
+              </Card>
+            </Tab>
+            
             <Tab eventKey="cancelados" title="Cancelados">
               <Table responsive striped>
                 <thead>
@@ -1539,6 +1907,184 @@ const CompeticoesPage: React.FC = () => {
              />
            )}
          </Modal.Body>
+       </Modal>
+
+       {/* Modal de Detalhes da Competição */}
+       <Modal show={showDetalhesCompeticaoModal} onHide={() => setShowDetalhesCompeticaoModal(false)} size="lg">
+         <Modal.Header closeButton>
+           <Modal.Title>
+             <FaCalendarAlt className="me-2" />
+             Detalhes da Competição
+           </Modal.Title>
+         </Modal.Header>
+         <Modal.Body>
+           {competicaoDetalhes && (
+             <div>
+               <Row>
+                 <Col md={12}>
+                   <h4 className="text-primary mb-3">{competicaoDetalhes.nomeCompeticao}</h4>
+                 </Col>
+               </Row>
+               
+               <Row className="mb-3">
+                 <Col md={6}>
+                   <Card className="h-100">
+                     <Card.Body className="text-center">
+                       <FaCalendarAlt className="text-primary mb-2" size={24} />
+                       <h6>Data da Competição</h6>
+                       <p className="mb-0 fw-bold">
+                         {competicaoDetalhes.dataCompeticao.toLocaleDateString('pt-BR')}
+                       </p>
+                     </Card.Body>
+                   </Card>
+                 </Col>
+                 <Col md={6}>
+                   <Card className="h-100">
+                     <Card.Body className="text-center">
+                       <FaMapMarkerAlt className="text-info mb-2" size={24} />
+                       <h6>Local</h6>
+                       <p className="mb-0 fw-bold">
+                         {competicaoDetalhes.local || 'Não informado'}
+                       </p>
+                     </Card.Body>
+                   </Card>
+                 </Col>
+               </Row>
+
+               <Row className="mb-3">
+                 <Col md={6}>
+                   <Card className="h-100">
+                     <Card.Body className="text-center">
+                       <FaMoneyBillWave className="text-success mb-2" size={24} />
+                       <h6>Valor da Inscrição</h6>
+                       <p className="mb-0 fw-bold text-success">
+                         R$ {competicaoDetalhes.valorInscricao.toFixed(2)}
+                       </p>
+                       {competicaoDetalhes.valorDobra && (
+                         <small className="text-muted">
+                           Dobra: R$ {competicaoDetalhes.valorDobra.toFixed(2)}
+                         </small>
+                       )}
+                     </Card.Body>
+                   </Card>
+                 </Col>
+                 <Col md={6}>
+                   <Card className="h-100">
+                     <Card.Body className="text-center">
+                       <FaUsers className="text-warning mb-2" size={24} />
+                       <h6>Status</h6>
+                       <p className="mb-0">
+                         {getStatusBadge(competicaoDetalhes.status)}
+                       </p>
+                     </Card.Body>
+                   </Card>
+                 </Col>
+               </Row>
+
+               <Row className="mb-3">
+                 <Col md={6}>
+                   <Card className="h-100">
+                     <Card.Body className="text-center">
+                       <FaCalendarAlt className="text-info mb-2" size={24} />
+                       <h6>Prazo de Inscrição</h6>
+                       <p className="mb-0 fw-bold">
+                         Até {competicaoDetalhes.dataFimInscricao.toLocaleDateString('pt-BR')}
+                       </p>
+                       <small className="text-muted">
+                         Início: {competicaoDetalhes.dataInicioInscricao.toLocaleDateString('pt-BR')}
+                       </small>
+                     </Card.Body>
+                   </Card>
+                 </Col>
+                 <Col md={6}>
+                   <Card className="h-100">
+                     <Card.Body className="text-center">
+                       <FaCalendarAlt className="text-warning mb-2" size={24} />
+                       <h6>Nominata Final</h6>
+                       <p className="mb-0 fw-bold">
+                         {competicaoDetalhes.dataNominacaoFinal 
+                           ? competicaoDetalhes.dataNominacaoFinal.toLocaleDateString('pt-BR')
+                           : 'Não definida'
+                         }
+                       </p>
+                       <small className="text-muted">
+                         {competicaoDetalhes.dataNominacaoPreliminar && 
+                           `Preliminar: ${competicaoDetalhes.dataNominacaoPreliminar.toLocaleDateString('pt-BR')}`
+                         }
+                       </small>
+                     </Card.Body>
+                   </Card>
+                 </Col>
+               </Row>
+
+               {competicaoDetalhes.descricao && (
+                 <Row className="mb-3">
+                   <Col md={12}>
+                     <Card>
+                       <Card.Body>
+                         <h6>Descrição</h6>
+                         <p className="mb-0">{competicaoDetalhes.descricao}</p>
+                       </Card.Body>
+                     </Card>
+                   </Col>
+                 </Row>
+               )}
+
+               <Row className="mb-3">
+                 <Col md={12}>
+                   <Alert variant="info">
+                     <strong>ℹ️ Informação:</strong> Clique em "Ver Inscrições" para gerenciar os atletas inscritos nesta competição.
+                     {competicaoDetalhes.permiteDobraCategoria && (
+                       <span> Esta competição permite dobra de categoria.</span>
+                     )}
+                   </Alert>
+                 </Col>
+               </Row>
+             </div>
+           )}
+         </Modal.Body>
+         <Modal.Footer>
+           <div className="d-flex gap-2">
+             <Button 
+               variant="outline-info" 
+               onClick={() => {
+                 setShowDetalhesCompeticaoModal(false);
+                 handleInscricoes(competicaoDetalhes!);
+               }}
+             >
+               <FaUsers className="me-2" />
+               Ver Inscrições
+             </Button>
+             {user?.tipo === 'admin' && (
+               <Button 
+                 variant="outline-primary" 
+                 onClick={() => {
+                   setShowDetalhesCompeticaoModal(false);
+                   handleEdit(competicaoDetalhes!);
+                 }}
+               >
+                 <FaEdit className="me-2" />
+                 Editar Competição
+               </Button>
+             )}
+             {user?.tipo === 'admin' || (user?.idEquipe && atletas.some(a => a.idEquipe === user.idEquipe)) ? (
+               <Button 
+                 variant="outline-success" 
+                 onClick={() => {
+                   setShowDetalhesCompeticaoModal(false);
+                   handleInscreverAtletas(competicaoDetalhes!);
+                 }}
+                 disabled={competicaoDetalhes?.status !== 'AGENDADA' || !podeInscrever(competicaoDetalhes!)}
+               >
+                 <FaUserCheck className="me-2" />
+                 Inscrever Atletas
+               </Button>
+             ) : null}
+           </div>
+           <Button variant="secondary" onClick={() => setShowDetalhesCompeticaoModal(false)}>
+             Fechar
+           </Button>
+         </Modal.Footer>
        </Modal>
      </div>
    );
