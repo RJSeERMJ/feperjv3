@@ -237,23 +237,28 @@ export const validarDobraCategoria = (
   categoriaIdade1: CategoriaIdade,
   categoriaIdade2: CategoriaIdade
 ): boolean => {
-  // Sub-júnior não pode dobrar
+  // Sub-júnior nunca pode dobrar
   if (categoriaIdade1.id === 'subjunior' || categoriaIdade2.id === 'subjunior') {
     return false;
   }
   
-  // Open + Master (I, II, III, IV) OU Open + Júnior
+  // Master 4 nunca pode dobrar
+  if (categoriaIdade1.id === 'master4' || categoriaIdade2.id === 'master4') {
+    return false;
+  }
+  
+  // Apenas combinações específicas são permitidas:
+  // 1. Open + Júnior (e vice-versa)
+  // 2. Open + Master 1,2,3 (e vice-versa)
   const combinacoesValidas = [
+    { cat1: 'open', cat2: 'junior' },
     { cat1: 'open', cat2: 'master1' },
     { cat1: 'open', cat2: 'master2' },
     { cat1: 'open', cat2: 'master3' },
-    { cat1: 'open', cat2: 'master4' },
-    { cat1: 'open', cat2: 'junior' },
+    { cat1: 'junior', cat2: 'open' },
     { cat1: 'master1', cat2: 'open' },
     { cat1: 'master2', cat2: 'open' },
-    { cat1: 'master3', cat2: 'open' },
-    { cat1: 'master4', cat2: 'open' },
-    { cat1: 'junior', cat2: 'open' }
+    { cat1: 'master3', cat2: 'open' }
   ];
   
   return combinacoesValidas.some(combo => 
@@ -264,22 +269,30 @@ export const validarDobraCategoria = (
 
 // Função para obter opções válidas de dobra
 export const obterOpcoesDobraValidas = (categoriaIdade: CategoriaIdade): CategoriaIdade[] => {
+  // Sub-júnior nunca pode dobrar
   if (categoriaIdade.id === 'subjunior') {
     return [];
   }
   
+  // Master 4 nunca pode dobrar
+  if (categoriaIdade.id === 'master4') {
+    return [];
+  }
+  
+  // Open pode dobrar com Júnior, Master 1, 2 e 3
   if (categoriaIdade.id === 'open') {
     return CATEGORIAS_IDADE.filter(cat => 
-      cat.id === 'master1' || cat.id === 'master2' || cat.id === 'master3' || 
-      cat.id === 'master4' || cat.id === 'junior'
+      cat.id === 'junior' || cat.id === 'master1' || cat.id === 'master2' || cat.id === 'master3'
     );
   }
   
+  // Júnior pode dobrar apenas com Open
   if (categoriaIdade.id === 'junior') {
     return CATEGORIAS_IDADE.filter(cat => cat.id === 'open');
   }
   
-  if (categoriaIdade.id.startsWith('master')) {
+  // Master 1, 2 e 3 podem dobrar apenas com Open
+  if (categoriaIdade.id === 'master1' || categoriaIdade.id === 'master2' || categoriaIdade.id === 'master3') {
     return CATEGORIAS_IDADE.filter(cat => cat.id === 'open');
   }
   
