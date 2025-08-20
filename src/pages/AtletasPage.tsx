@@ -14,12 +14,20 @@ import {
   Badge,
   Dropdown
 } from 'react-bootstrap';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload, FaIdCard } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { atletaService, equipeService, categoriaService, logService } from '../services/firebaseService';
 import { Atleta, Equipe, Categoria } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useCPFValidation } from '../hooks/useCPFValidation';
+
+// Função para gerar matrícula baseada no CPF e ano atual
+const gerarMatricula = (cpf: string): string => {
+  const cpfLimpo = cpf.replace(/\D/g, '');
+  const primeirosDigitos = cpfLimpo.substring(0, 5);
+  const anoAtual = new Date().getFullYear();
+  return `FEPERJ - ${primeirosDigitos}${anoAtual}`;
+};
 
 const AtletasPage: React.FC = () => {
   const [atletas, setAtletas] = useState<Atleta[]>([]);
@@ -32,6 +40,7 @@ const AtletasPage: React.FC = () => {
   const [formData, setFormData] = useState({
     nome: '',
     cpf: '',
+    matricula: '',
     sexo: 'M' as 'M' | 'F',
     email: '',
     telefone: '',
@@ -49,6 +58,14 @@ const AtletasPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Atualizar matrícula quando CPF mudar
+  useEffect(() => {
+    if (formData.cpf.replace(/\D/g, '').length >= 5) {
+      const novaMatricula = gerarMatricula(formData.cpf);
+      setFormData(prev => ({ ...prev, matricula: novaMatricula }));
+    }
+  }, [formData.cpf]);
 
   const loadData = async () => {
     try {
@@ -133,6 +150,7 @@ const AtletasPage: React.FC = () => {
     try {
       const atletaData = {
         ...formData,
+        matricula: formData.matricula || gerarMatricula(formData.cpf),
         dataNascimento: formData.dataNascimento ? new Date(formData.dataNascimento) : undefined,
         dataFiliacao: new Date(formData.dataFiliacao),
         maiorTotal: formData.maiorTotal ? parseFloat(formData.maiorTotal) : undefined,
@@ -186,6 +204,7 @@ const AtletasPage: React.FC = () => {
     setFormData({
       nome: atleta.nome,
       cpf: atleta.cpf,
+      matricula: atleta.matricula || '',
       sexo: atleta.sexo,
       email: atleta.email,
       telefone: atleta.telefone || '',
@@ -233,6 +252,7 @@ const AtletasPage: React.FC = () => {
     setFormData({
       nome: '',
       cpf: '',
+      matricula: '',
       sexo: 'M',
       email: '',
       telefone: '',
@@ -250,7 +270,9 @@ const AtletasPage: React.FC = () => {
   const filteredAtletas = atletas.filter(atleta =>
     atleta.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     atleta.cpf.includes(searchTerm) ||
-    atleta.email.toLowerCase().includes(searchTerm.toLowerCase())
+    atleta.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (atleta.matricula && atleta.matricula.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    gerarMatricula(atleta.cpf).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -297,7 +319,7 @@ const AtletasPage: React.FC = () => {
                 </InputGroup.Text>
                 <Form.Control
                   type="text"
-                  placeholder="Buscar por nome, CPF ou email..."
+                  placeholder="Buscar por nome, CPF, email ou matrícula..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -310,6 +332,7 @@ const AtletasPage: React.FC = () => {
               <tr>
                 <th>Nome</th>
                 <th>CPF</th>
+                <th>Matrícula</th>
                 <th>Sexo</th>
                 <th>Email</th>
                 <th>Equipe</th>
@@ -323,6 +346,12 @@ const AtletasPage: React.FC = () => {
                 <tr key={atleta.id}>
                   <td>{atleta.nome}</td>
                   <td>{atleta.cpf}</td>
+                  <td>
+                    <Badge bg="info" className="d-flex align-items-center">
+                      <FaIdCard className="me-1" />
+                      {atleta.matricula || gerarMatricula(atleta.cpf)}
+                    </Badge>
+                  </td>
                   <td>
                     <Badge bg={atleta.sexo === 'M' ? 'primary' : 'danger'}>
                       {atleta.sexo === 'M' ? 'M' : 'F'}
@@ -378,6 +407,8 @@ const AtletasPage: React.FC = () => {
             <Alert variant="info" className="mb-3">
               <strong>ℹ️ Informação:</strong> O CPF deve ser único em todo o sistema. 
               Se o CPF já estiver cadastrado em outra equipe, entre em contato com o administrador.
+              <br />
+              <strong>📋 Matrícula:</strong> A matrícula é gerada automaticamente com os 5 primeiros dígitos do CPF + ano atual (ex: FEPERJ - 151192025).
             </Alert>
             <Row>
               <Col md={6}>
@@ -430,6 +461,21 @@ const AtletasPage: React.FC = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
+                  <Form.Label>Matrícula</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={formData.matricula}
+                    onChange={(e) => setFormData({...formData, matricula: e.target.value})}
+                    disabled
+                    placeholder="Gerada automaticamente"
+                  />
+                  <Form.Text className="text-muted">
+                    Formato: FEPERJ - [5 primeiros dígitos do CPF][ano atual]
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
                   <Form.Label>Sexo *</Form.Label>
                   <Form.Select
                     value={formData.sexo}
@@ -440,6 +486,9 @@ const AtletasPage: React.FC = () => {
                   </Form.Select>
                 </Form.Group>
               </Col>
+            </Row>
+
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Email *</Form.Label>
@@ -451,9 +500,6 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
-            </Row>
-
-            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Telefone</Form.Label>
@@ -464,6 +510,9 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
+            </Row>
+
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Data de Nascimento</Form.Label>
@@ -474,9 +523,6 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
-            </Row>
-
-            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Data de Filiação *</Form.Label>
@@ -488,6 +534,9 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
+            </Row>
+
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Equipe</Form.Label>
@@ -510,9 +559,6 @@ const AtletasPage: React.FC = () => {
                   )}
                 </Form.Group>
               </Col>
-            </Row>
-
-            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Maior Total (kg)</Form.Label>
@@ -524,24 +570,23 @@ const AtletasPage: React.FC = () => {
                   />
                 </Form.Group>
               </Col>
-              {user?.tipo === 'admin' && (
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Status</Form.Label>
-                    <Form.Select
-                      value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value as 'ATIVO' | 'INATIVO'})}
-                    >
-                      <option value="ATIVO">Ativo</option>
-                      <option value="INATIVO">Inativo</option>
-                    </Form.Select>
-                    <Form.Text className="text-muted">
-                      Apenas administradores podem alterar o status
-                    </Form.Text>
-                  </Form.Group>
-                </Col>
-              )}
             </Row>
+
+            {user?.tipo === 'admin' && (
+              <Form.Group className="mb-3">
+                <Form.Label>Status</Form.Label>
+                <Form.Select
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value as 'ATIVO' | 'INATIVO'})}
+                >
+                  <option value="ATIVO">Ativo</option>
+                  <option value="INATIVO">Inativo</option>
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  Apenas administradores podem alterar o status
+                </Form.Text>
+              </Form.Group>
+            )}
 
             <Form.Group className="mb-3">
               <Form.Label>Endereço</Form.Label>

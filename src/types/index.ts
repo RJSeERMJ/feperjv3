@@ -38,6 +38,7 @@ export interface Atleta {
   id?: string;
   nome: string;
   cpf: string;
+  matricula?: string; // Matrícula gerada automaticamente (5 primeiros dígitos do CPF + ano atual)
   sexo: 'M' | 'F';
   email: string;
   telefone?: string;
