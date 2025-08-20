@@ -8,8 +8,7 @@ yarn-error.log*
 build/
 dist/
 
-# Environment files
-.env
+# Environment files (mantendo .env para Vercel)
 .env.local
 .env.development.local
 .env.test.local

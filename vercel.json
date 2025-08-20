@@ -5,49 +5,14 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "build",
-        "buildCommand": "npm run vercel-build"
+        "distDir": "build"
       }
     }
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/favicon.ico",
-      "dest": "/favicon.ico"
-    },
-    {
-      "src": "/manifest.json",
-      "dest": "/manifest.json"
-    },
-    {
-      "src": "/logo192.png",
-      "dest": "/logo192.png"
-    },
-    {
-      "src": "/logo512.png",
-      "dest": "/logo512.png"
-    },
-    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "CI": "false",
-    "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-    "GENERATE_SOURCEMAP": "false",
-    "SKIP_PREFLIGHT_CHECK": "true"
-  },
-  "build": {
-    "env": {
-      "CI": "false",
-      "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-      "GENERATE_SOURCEMAP": "false",
-      "SKIP_PREFLIGHT_CHECK": "true"
-    }
-  }
+  ]
 }
