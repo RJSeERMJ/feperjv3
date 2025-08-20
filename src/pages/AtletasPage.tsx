@@ -14,7 +14,7 @@ import {
   Badge,
   Dropdown
 } from 'react-bootstrap';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload, FaIdCard, FaFileAlt } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload, FaIdCard, FaFileAlt, FaFileExport } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { atletaService, equipeService, categoriaService, logService } from '../services/firebaseService';
 import { Atleta, Equipe, Categoria } from '../types';
@@ -262,6 +262,63 @@ const AtletasPage: React.FC = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    try {
+      // Verificar se é admin
+      if (user?.tipo !== 'admin') {
+        toast.error('Apenas administradores podem exportar dados');
+        return;
+      }
+
+      // Preparar dados para CSV
+      const csvContent = [
+        ['Nome', 'CPF', 'Matrícula', 'Sexo', 'Email', 'Telefone', 'Data de Nascimento', 'Data de Filiação', 'Equipe', 'Status', 'Maior Total (kg)', 'Endereço', 'Observações'],
+        ...atletas.map(atleta => [
+          atleta.nome,
+          atleta.cpf,
+          atleta.matricula || gerarMatricula(atleta.cpf),
+          atleta.sexo,
+          atleta.email,
+          atleta.telefone || '',
+          atleta.dataNascimento ? atleta.dataNascimento.toLocaleDateString('pt-BR') : '',
+          atleta.dataFiliacao.toLocaleDateString('pt-BR'),
+          atleta.equipe?.nomeEquipe || '',
+          atleta.status,
+          atleta.maiorTotal?.toString() || '',
+          atleta.endereco || '',
+          atleta.observacoes || ''
+        ])
+      ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+
+      // Criar e baixar arquivo
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `atletas_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Registrar log
+      logService.create({
+        dataHora: new Date(),
+        usuario: user?.nome || 'Sistema',
+        acao: 'Exportou lista de atletas',
+        detalhes: `Exportou ${atletas.length} atletas em CSV`,
+        tipoUsuario: user?.tipo || 'usuario'
+      }).catch(error => {
+        console.warn('Erro ao registrar log de exportação:', error);
+      });
+      
+      toast.success(`Lista de ${atletas.length} atletas exportada com sucesso!`);
+    } catch (error) {
+      toast.error('Erro ao exportar dados');
+      console.error(error);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       nome: '',
@@ -310,17 +367,29 @@ const AtletasPage: React.FC = () => {
             </p>
           )}
         </div>
-        <Button 
-          variant="primary" 
-          onClick={() => {
-            setEditingAtleta(null);
-            resetForm();
-            setShowModal(true);
-          }}
-        >
-          <FaPlus className="me-2" />
-          Novo Atleta
-        </Button>
+        <div className="d-flex gap-2">
+          {user?.tipo === 'admin' && (
+            <Button 
+              variant="outline-success" 
+              onClick={handleExportCSV}
+              title="Exportar lista de atletas em CSV"
+            >
+              <FaFileExport className="me-2" />
+              Exportar CSV
+            </Button>
+          )}
+          <Button 
+            variant="primary" 
+            onClick={() => {
+              setEditingAtleta(null);
+              resetForm();
+              setShowModal(true);
+            }}
+          >
+            <FaPlus className="me-2" />
+            Novo Atleta
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -636,7 +705,7 @@ const AtletasPage: React.FC = () => {
           </Modal.Footer>
         </Form>
       </Modal>
-
+S
       {/* Modal de Documentos */}
       <DocumentosModal
         show={showDocumentosModal}
