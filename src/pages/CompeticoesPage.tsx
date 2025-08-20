@@ -83,10 +83,19 @@ const EditarInscricaoForm: React.FC<{
   const obterOpcoesDobraValidasComIdade = (categoriaIdade: any) => {
     if (!categoriaIdade || !idadeAtleta) return [];
     
+    // Primeiro obter as opções válidas baseadas nas regras de dobra
     const opcoes = obterOpcoesDobraValidas(categoriaIdade);
     
-    // Filtrar apenas categorias que o atleta pode usar baseado na idade
-    return opcoes.filter(cat => validarIdadeParaCategoria(idadeAtleta, cat));
+    // Depois filtrar apenas categorias que o atleta pode usar baseado na idade
+    return opcoes.filter(cat => {
+      // Verificar se o atleta tem idade para a categoria de dobra
+      const podeUsarCategoria = validarIdadeParaCategoria(idadeAtleta, cat);
+      
+      // Verificar se a combinação é válida para dobra
+      const combinacaoValida = validarDobraCategoria(categoriaIdade, cat);
+      
+      return podeUsarCategoria && combinacaoValida;
+    });
   };
 
   // Validar se a combinação de categorias é válida para dobra
@@ -234,14 +243,33 @@ const EditarInscricaoForm: React.FC<{
                 }}
               >
                 <option value="">Sem dobra</option>
-                {obterOpcoesDobraValidasComIdade(categoriaIdade).map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.nome} - {cat.descricao}
-                  </option>
-                ))}
+                {(() => {
+                  const opcoesValidas = obterOpcoesDobraValidasComIdade(categoriaIdade);
+                  if (opcoesValidas.length === 0) {
+                    return (
+                      <option value="" disabled>
+                        Nenhuma opção de dobra disponível para esta categoria
+                      </option>
+                    );
+                  }
+                  return opcoesValidas.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.nome} - {cat.descricao}
+                    </option>
+                  ));
+                })()}
               </Form.Select>
               <Form.Text className="text-muted">
-                Selecione uma categoria adicional para dobra (opcional)
+                {(() => {
+                  if (!categoriaIdade) {
+                    return "Selecione primeiro uma categoria de idade para ver as opções de dobra";
+                  }
+                  const opcoesValidas = obterOpcoesDobraValidasComIdade(categoriaIdade);
+                  if (opcoesValidas.length === 0) {
+                    return "Esta categoria não permite dobra ou o atleta não tem idade suficiente para as opções disponíveis";
+                  }
+                  return `Selecione uma categoria adicional para dobra (${opcoesValidas.length} opção(ões) disponível(is))`;
+                })()}
               </Form.Text>
             </Form.Group>
           </Col>
@@ -1838,6 +1866,14 @@ const CompeticoesPage: React.FC = () => {
                              const categoriaIdadeDobra = CATEGORIAS_IDADE.find(cat => cat.id === e.target.value);
                              if (!categoriaIdadeDobra) return;
 
+                             // Validar se atleta pode usar a categoria de dobra
+                             const idade = calcularIdade(atleta.dataNascimento!);
+                             if (!validarIdadeParaCategoria(idade, categoriaIdadeDobra)) {
+                               toast.error(`Atleta não tem idade suficiente para categoria ${categoriaIdadeDobra.nome}`);
+                               return;
+                             }
+
+                             // Validar se a combinação é válida para dobra
                              if (!validarDobraCategoria(categorizacao?.categoriaIdade, categoriaIdadeDobra)) {
                                toast.error('Combinação de categorias inválida para dobra');
                                return;
@@ -1858,11 +1894,37 @@ const CompeticoesPage: React.FC = () => {
                            disabled={!selectedCompeticao?.permiteDobraCategoria || !categorizacao?.categoriaIdade}
                          >
                            <option value="">Sem dobra</option>
-                           {categorizacao?.categoriaIdade && obterOpcoesDobraValidas(categorizacao.categoriaIdade).map(cat => (
-                             <option key={cat.id} value={cat.id}>
-                               {cat.nome} - {cat.descricao}
-                             </option>
-                           ))}
+                           {(() => {
+                             if (!categorizacao?.categoriaIdade) {
+                               return (
+                                 <option value="" disabled>
+                                   Selecione primeiro uma categoria de idade
+                                 </option>
+                               );
+                             }
+                             
+                             const opcoesValidas = obterOpcoesDobraValidas(categorizacao.categoriaIdade);
+                             const idade = calcularIdade(atleta.dataNascimento!);
+                             
+                             // Filtrar apenas opções que o atleta pode usar baseado na idade
+                             const opcoesFiltradas = opcoesValidas.filter(cat => 
+                               validarIdadeParaCategoria(idade, cat)
+                             );
+                             
+                             if (opcoesFiltradas.length === 0) {
+                               return (
+                                 <option value="" disabled>
+                                   Nenhuma opção de dobra disponível para esta categoria
+                                 </option>
+                               );
+                             }
+                             
+                             return opcoesFiltradas.map(cat => (
+                               <option key={cat.id} value={cat.id}>
+                                 {cat.nome} - {cat.descricao}
+                               </option>
+                             ));
+                           })()}
                          </Form.Select>
                        </Form.Group>
                      </Col>
