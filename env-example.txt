@@ -1,0 +1,13 @@
+# Copie este conteúdo para um arquivo chamado .env na raiz do projeto
+
+# Configurações do Supabase
+REACT_APP_SUPABASE_URL=https://kamgocrdbdwjryvcavuo.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthbWdvY3JkYmR3anJ5dmNhdnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MzQ2MjEsImV4cCI6MjA3MTIxMDYyMX0.VsKaEP_T3RsHAr-OIs0krSSbBCok69qOVvkYVDhEZ_0
+
+# Configurações do Firebase (mantenha as existentes)
+REACT_APP_FIREBASE_API_KEY=sua-api-key
+REACT_APP_FIREBASE_AUTH_DOMAIN=seu-projeto.firebaseapp.com
+REACT_APP_FIREBASE_PROJECT_ID=seu-projeto-id
+REACT_APP_FIREBASE_STORAGE_BUCKET=seu-projeto.appspot.com
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=123456789
+REACT_APP_FIREBASE_APP_ID=seu-app-id

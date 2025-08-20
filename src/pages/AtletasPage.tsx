@@ -14,12 +14,13 @@ import {
   Badge,
   Dropdown
 } from 'react-bootstrap';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload, FaIdCard } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload, FaIdCard, FaFileAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { atletaService, equipeService, categoriaService, logService } from '../services/firebaseService';
 import { Atleta, Equipe, Categoria } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useCPFValidation } from '../hooks/useCPFValidation';
+import DocumentosModal from '../components/DocumentosModal';
 
 // Função para gerar matrícula baseada no CPF e ano atual
 const gerarMatricula = (cpf: string): string => {
@@ -36,6 +37,8 @@ const AtletasPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showDocumentosModal, setShowDocumentosModal] = useState(false);
+  const [selectedAtleta, setSelectedAtleta] = useState<Atleta | null>(null);
   const [editingAtleta, setEditingAtleta] = useState<Atleta | null>(null);
   const [formData, setFormData] = useState({
     nome: '',
@@ -219,6 +222,17 @@ const AtletasPage: React.FC = () => {
     setShowModal(true);
   };
 
+  const handleDocumentos = (atleta: Atleta) => {
+    // Verificação de segurança para usuários não-admin
+    if (user?.tipo !== 'admin' && atleta.idEquipe !== user?.idEquipe) {
+      toast.error('Você só pode acessar documentos de atletas da sua equipe');
+      return;
+    }
+    
+    setSelectedAtleta(atleta);
+    setShowDocumentosModal(true);
+  };
+
   const handleDelete = async (atleta: Atleta) => {
     // Verificação de segurança para usuários não-admin
     if (user?.tipo !== 'admin' && atleta.idEquipe !== user?.idEquipe) {
@@ -374,6 +388,10 @@ const AtletasPage: React.FC = () => {
                         <Dropdown.Item onClick={() => handleEdit(atleta)}>
                           <FaEdit className="me-2" />
                           Editar
+                        </Dropdown.Item>
+                        <Dropdown.Item onClick={() => handleDocumentos(atleta)}>
+                          <FaFileAlt className="me-2" />
+                          Documentos
                         </Dropdown.Item>
                         <Dropdown.Item onClick={() => handleDelete(atleta)}>
                           <FaTrash className="me-2" />
@@ -618,6 +636,16 @@ const AtletasPage: React.FC = () => {
           </Modal.Footer>
         </Form>
       </Modal>
+
+      {/* Modal de Documentos */}
+      <DocumentosModal
+        show={showDocumentosModal}
+        onHide={() => {
+          setShowDocumentosModal(false);
+          setSelectedAtleta(null);
+        }}
+        atleta={selectedAtleta}
+      />
     </div>
   );
 };
