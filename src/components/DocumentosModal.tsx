@@ -178,14 +178,6 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
         <Modal.Title>
           📁 Documentos do Atleta: {atleta.nome}
         </Modal.Title>
-        <Button 
-          variant="outline-info" 
-          size="sm" 
-          onClick={handleTestConnection}
-          title="Testar conectividade com Supabase"
-        >
-          🧪 Testar
-        </Button>
       </Modal.Header>
       <Modal.Body>
         {/* Seção de Upload */}
