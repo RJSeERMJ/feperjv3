@@ -64,6 +64,18 @@ const { data: urlData } = supabase.storage
 ```typescript
 // ✅ URL temporária com expiração
 const temporaryUrl = await generateTemporaryUrl(filePath, 1800);
+const response = await fetch(temporaryUrl);
+const blob = await response.blob();
+
+// Tentar showSaveFilePicker primeiro
+if ('showSaveFilePicker' in window) {
+  const handle = await window.showSaveFilePicker({...});
+  await handle.createWritable().write(blob);
+} else {
+  // Fallback para download tradicional
+  const url = window.URL.createObjectURL(blob);
+  // ... download via link
+}
 ```
 
 ## 🔧 Configuração do Supabase
@@ -93,7 +105,8 @@ const temporaryUrl = await generateTemporaryUrl(filePath, 1800);
 ### ⚡ Performance
 - **Upload otimizado**: URLs públicas para upload e listagem
 - **Download seguro**: URLs temporárias apenas quando necessário
-- **Menos overhead**: URLs temporárias geradas sob demanda
+- **Janela "Salvar como..."**: Forçada com showSaveFilePicker
+- **Fallback inteligente**: Compatibilidade com todos os navegadores
 
 ### 🛠️ Manutenibilidade
 - **Código limpo**: Função dedicada para URLs temporárias
@@ -114,7 +127,7 @@ Atleta ID → Listar arquivos → Gerar URLs públicas → Exibir
 
 ### 3. Download de Documento
 ```
-Clique Download → Gerar URL temporária (30min) → Download
+Clique Download → Gerar URL temporária (30min) → Janela "Salvar como..." → Escolher pasta → Salvar
 ```
 
 ## 🧪 Testes Recomendados

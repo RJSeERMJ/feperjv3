@@ -106,16 +106,58 @@ export const documentService = {
       
       console.log('✅ URL temporária gerada, iniciando download...');
 
-      // Criar link para download usando URL temporária
+      // Baixar arquivo da URL temporária
+      const response = await fetch(temporaryUrl);
+      if (!response.ok) {
+        throw new Error(`Erro ao baixar arquivo: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Determinar tipo MIME baseado na extensão
+      const fileExtension = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+      let mimeType = 'application/octet-stream';
+      
+      if (fileExtension === '.pdf') mimeType = 'application/pdf';
+      else if (['.jpg', '.jpeg'].includes(fileExtension)) mimeType = 'image/jpeg';
+      else if (fileExtension === '.png') mimeType = 'image/png';
+      else if (fileExtension === '.gif') mimeType = 'image/gif';
+      else if (fileExtension === '.bmp') mimeType = 'image/bmp';
+      
+      // Tentar usar showSaveFilePicker (navegadores modernos)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{
+              description: "Documento",
+              accept: { [mimeType]: [fileExtension] }
+            }]
+          });
+
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          
+          console.log('✅ Download concluído com showSaveFilePicker!');
+          return;
+        } catch (error) {
+          console.warn('⚠️ showSaveFilePicker falhou, usando fallback:', error);
+        }
+      }
+      
+      // Fallback: Download tradicional com link
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = temporaryUrl;
+      link.href = url;
       link.download = fileName;
-      link.target = '_blank';
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
-      console.log('✅ Download concluído com sucesso!');
+      console.log('✅ Download concluído com fallback!');
     } catch (error) {
       console.error('❌ Erro no download do documento:', error);
       throw error;
@@ -131,16 +173,58 @@ export const documentService = {
       const downloadUrl = await this.generateTemporaryUrl(filePath, 1800); // 30 minutos
       console.log('🔗 URL temporária gerada para download');
 
-      // Criar link para download
+      // Baixar arquivo da URL temporária
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Erro ao baixar arquivo: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Determinar tipo MIME baseado na extensão
+      const fileExtension = documento.nomeArquivo.substring(documento.nomeArquivo.lastIndexOf('.')).toLowerCase();
+      let mimeType = 'application/octet-stream';
+      
+      if (fileExtension === '.pdf') mimeType = 'application/pdf';
+      else if (['.jpg', '.jpeg'].includes(fileExtension)) mimeType = 'image/jpeg';
+      else if (fileExtension === '.png') mimeType = 'image/png';
+      else if (fileExtension === '.gif') mimeType = 'image/gif';
+      else if (fileExtension === '.bmp') mimeType = 'image/bmp';
+      
+      // Tentar usar showSaveFilePicker (navegadores modernos)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: documento.nomeArquivo,
+            types: [{
+              description: "Documento",
+              accept: { [mimeType]: [fileExtension] }
+            }]
+          });
+
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          
+          console.log('✅ Download concluído com showSaveFilePicker!');
+          return;
+        } catch (error) {
+          console.warn('⚠️ showSaveFilePicker falhou, usando fallback:', error);
+        }
+      }
+      
+      // Fallback: Download tradicional com link
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = url;
       link.download = documento.nomeArquivo;
-      link.target = '_blank';
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
-      console.log('✅ Download concluído com sucesso!');
+      console.log('✅ Download concluído com fallback!');
     } catch (error) {
       console.error('❌ Erro no download do documento:', error);
       throw error;
