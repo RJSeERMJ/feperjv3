@@ -40,5 +40,8 @@
     "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
     "GENERATE_SOURCEMAP": "false",
     "SKIP_PREFLIGHT_CHECK": "true"
-  }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ]
 }
