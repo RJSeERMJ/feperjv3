@@ -34,6 +34,61 @@ import { competicaoService, inscricaoService, atletaService, equipeService, logS
 import { Competicao, InscricaoCompeticao, Atleta, Equipe } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
+// Componente para edição de inscrição
+const EditarInscricaoForm: React.FC<{
+  inscricao: InscricaoCompeticao;
+  competicao: Competicao;
+  onSave: (categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any) => void;
+  onCancel: () => void;
+}> = ({ inscricao, competicao, onSave, onCancel }) => {
+  const [categoriaPeso, setCategoriaPeso] = useState<any>(inscricao.categoriaPeso || null);
+  const [categoriaIdade, setCategoriaIdade] = useState<any>(inscricao.categoriaIdade || null);
+  const [dobraCategoria, setDobraCategoria] = useState<any>(inscricao.dobraCategoria);
+
+  const podeEditarDobra = () => {
+    if (!competicao.permiteDobraCategoria) return false;
+    if (!competicao.dataNominacaoFinal) return true;
+    
+    const hoje = new Date();
+    const umDiaAntes = new Date(competicao.dataNominacaoFinal);
+    umDiaAntes.setDate(umDiaAntes.getDate() - 1);
+    
+    return hoje <= umDiaAntes;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!categoriaPeso || !categoriaIdade) {
+      toast.error('Selecione categoria de peso e idade');
+      return;
+    }
+
+    onSave(categoriaPeso, categoriaIdade, dobraCategoria);
+  };
+
+  return (
+    <Form onSubmit={handleSubmit}>
+      <Alert variant="info" className="mb-3">
+        <strong>ℹ️ Informação:</strong> 
+        Você pode alterar a categoria de peso, categoria de idade e gerenciar dobra de categoria.
+        {!podeEditarDobra() && (
+          <span className="text-warning"> <strong>Dobra de categoria não pode mais ser alterada.</strong></span>
+        )}
+      </Alert>
+
+      <div className="d-flex justify-content-end gap-2">
+        <Button variant="secondary" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button variant="primary" type="submit" disabled={!categoriaPeso || !categoriaIdade}>
+          Salvar Alterações
+        </Button>
+      </div>
+    </Form>
+  );
+};
+
 const CompeticoesPage: React.FC = () => {
   const [competicoes, setCompeticoes] = useState<Competicao[]>([]);
   const [atletas, setAtletas] = useState<Atleta[]>([]);
@@ -43,6 +98,8 @@ const CompeticoesPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showInscricoesModal, setShowInscricoesModal] = useState(false);
   const [showInscricaoModal, setShowInscricaoModal] = useState(false);
+  const [showEditarInscricaoModal, setShowEditarInscricaoModal] = useState(false);
+  const [inscricaoEmEdicao, setInscricaoEmEdicao] = useState<InscricaoCompeticao | null>(null);
   const [selectedCompeticao, setSelectedCompeticao] = useState<Competicao | null>(null);
   const [inscricoes, setInscricoes] = useState<InscricaoCompeticao[]>([]);
   const [editingCompeticao, setEditingCompeticao] = useState<Competicao | null>(null);
@@ -410,6 +467,67 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
+  const handleEditarInscricao = (inscricao: InscricaoCompeticao) => {
+    setInscricaoEmEdicao(inscricao);
+    setShowEditarInscricaoModal(true);
+  };
+
+  const handleSalvarEdicaoInscricao = async (categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any) => {
+    if (!inscricaoEmEdicao || !selectedCompeticao) return;
+
+    try {
+      // Preparar dados para atualização
+      const dadosAtualizacao: any = {
+        categoriaPeso,
+        categoriaIdade
+      };
+
+      // Adicionar dobraCategoria apenas se existir
+      if (dobraCategoria) {
+        dadosAtualizacao.dobraCategoria = dobraCategoria;
+      } else {
+        // Se não há dobra, remover o campo
+        dadosAtualizacao.dobraCategoria = undefined;
+      }
+
+      // Atualizar a inscrição
+      await inscricaoService.update(inscricaoEmEdicao.id!, dadosAtualizacao);
+
+      // Registrar log
+      await logService.create({
+        dataHora: new Date(),
+        usuario: user?.nome || 'Sistema',
+        acao: 'Editou inscrição',
+        detalhes: `Editou inscrição do atleta ${inscricaoEmEdicao.atleta?.nome} na competição ${selectedCompeticao.nomeCompeticao}`,
+        tipoUsuario: user?.tipo || 'usuario'
+      });
+
+      toast.success('Inscrição atualizada com sucesso!');
+      setShowEditarInscricaoModal(false);
+      setInscricaoEmEdicao(null);
+      loadData(); // Recarregar dados
+    } catch (error) {
+      console.error('Erro ao atualizar inscrição:', error);
+      toast.error(`Erro ao atualizar inscrição: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  };
+
+  // Funções para controle de prazos
+  const podeEditarInscricao = (competicao: Competicao): boolean => {
+    if (!competicao.dataNominacaoFinal) return true;
+    
+    const hoje = new Date();
+    const umDiaAntes = new Date(competicao.dataNominacaoFinal);
+    umDiaAntes.setDate(umDiaAntes.getDate() - 1);
+    
+    return hoje <= umDiaAntes;
+  };
+
+  const podeInscrever = (competicao: Competicao): boolean => {
+    const hoje = new Date();
+    return hoje <= competicao.dataFimInscricao;
+  };
+
   const resetForm = () => {
     setFormData({
       nomeCompeticao: '',
@@ -575,8 +693,14 @@ const CompeticoesPage: React.FC = () => {
                           variant="outline-success" 
                           size="sm"
                           onClick={() => handleInscreverAtletas(competicao)}
-                          disabled={competicao.status !== 'AGENDADA'}
-                          title={competicao.status !== 'AGENDADA' ? 'Apenas competições agendadas permitem inscrições' : 'Inscrever atletas'}
+                          disabled={competicao.status !== 'AGENDADA' || !podeInscrever(competicao)}
+                          title={
+                            competicao.status !== 'AGENDADA' 
+                              ? 'Apenas competições agendadas permitem inscrições' 
+                              : !podeInscrever(competicao)
+                              ? 'Prazo de inscrição encerrado'
+                              : 'Inscrever atletas'
+                          }
                         >
                           <FaUserCheck className="me-1" />
                           Inscrever
@@ -822,6 +946,7 @@ const CompeticoesPage: React.FC = () => {
                     <th>Status</th>
                     <th>Valor</th>
                     <th>Dobra</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -852,6 +977,19 @@ const CompeticoesPage: React.FC = () => {
                           <Badge bg="warning">Sim</Badge>
                         ) : (
                           <Badge bg="secondary">Não</Badge>
+                        )}
+                      </td>
+                      <td>
+                        {podeEditarInscricao(selectedCompeticao!) && (
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => handleEditarInscricao(inscricao)}
+                            title="Editar inscrição"
+                          >
+                            <FaEdit className="me-1" />
+                            Editar
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -1095,6 +1233,26 @@ const CompeticoesPage: React.FC = () => {
              )}
            </Modal.Footer>
          </Form>
+       </Modal>
+
+       {/* Modal de Edição de Inscrição */}
+       <Modal show={showEditarInscricaoModal} onHide={() => setShowEditarInscricaoModal(false)} size="lg">
+         <Modal.Header closeButton>
+           <Modal.Title>
+             <FaEdit className="me-2" />
+             Editar Inscrição - {inscricaoEmEdicao?.atleta?.nome}
+           </Modal.Title>
+         </Modal.Header>
+         <Modal.Body>
+           {inscricaoEmEdicao && selectedCompeticao && (
+             <EditarInscricaoForm
+               inscricao={inscricaoEmEdicao}
+               competicao={selectedCompeticao}
+               onSave={handleSalvarEdicaoInscricao}
+               onCancel={() => setShowEditarInscricaoModal(false)}
+             />
+           )}
+         </Modal.Body>
        </Modal>
      </div>
    );

@@ -28,7 +28,6 @@ export interface Equipe {
 export interface Categoria {
   id?: string;
   nomeCategoria: string;
-  pesoMinimo?: number;
   pesoMaximo?: number;
   sexo: 'M' | 'F';
   descricao?: string;
@@ -94,6 +93,12 @@ export interface InscricaoCompeticao {
   observacoes?: string;
   valorIndividual?: number;
   temDobra?: boolean;
+  categoriaPeso?: CategoriaPeso | null;
+  categoriaIdade?: CategoriaIdade | null;
+  dobraCategoria?: {
+    categoriaPeso: CategoriaPeso;
+    categoriaIdade: CategoriaIdade;
+  };
   atleta?: Atleta;
   competicao?: Competicao;
 }
@@ -127,6 +132,31 @@ export interface CategoriaInscricao {
   idCategoria: string;
   peso?: number;
   categoria?: Categoria;
+}
+
+export interface CategoriaPeso {
+  id: string;
+  nome: string;
+  pesoMaximo: number;
+  sexo: 'M' | 'F';
+  descricao: string;
+}
+
+export interface CategoriaIdade {
+  id: string;
+  nome: string;
+  idadeMaxima: number;
+  descricao: string;
+}
+
+export interface InscricaoCategoria {
+  idAtleta: string;
+  categoriaPeso: CategoriaPeso | null;
+  categoriaIdade: CategoriaIdade | null;
+  dobraCategoria?: {
+    categoriaPeso: CategoriaPeso;
+    categoriaIdade: CategoriaIdade;
+  };
 }
 
 export interface DashboardStats {
