@@ -42,9 +42,16 @@ const CompeticoesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showInscricoesModal, setShowInscricoesModal] = useState(false);
+  const [showInscricaoModal, setShowInscricaoModal] = useState(false);
   const [selectedCompeticao, setSelectedCompeticao] = useState<Competicao | null>(null);
   const [inscricoes, setInscricoes] = useState<InscricaoCompeticao[]>([]);
   const [editingCompeticao, setEditingCompeticao] = useState<Competicao | null>(null);
+  const [atletasDisponiveis, setAtletasDisponiveis] = useState<Atleta[]>([]);
+  const [atletasSelecionados, setAtletasSelecionados] = useState<string[]>([]);
+  const [inscricaoFormData, setInscricaoFormData] = useState({
+    temDobra: false,
+    observacoes: ''
+  });
   const [formData, setFormData] = useState({
     nomeCompeticao: '',
     dataCompeticao: '',
@@ -224,6 +231,100 @@ const CompeticoesPage: React.FC = () => {
     } catch (error) {
       toast.error('Erro ao carregar inscrições');
       console.error(error);
+    }
+  };
+
+  const handleInscreverAtletas = async (competicao: Competicao) => {
+    setSelectedCompeticao(competicao);
+    
+    try {
+      // Buscar atletas da equipe do usuário
+      let atletasDaEquipe: Atleta[];
+      
+      if (user?.tipo === 'admin') {
+        // Admin pode ver todos os atletas
+        atletasDaEquipe = atletas;
+      } else {
+        // Usuário comum só pode ver atletas da sua equipe
+        if (!user?.idEquipe) {
+          toast.error('Usuário não está vinculado a uma equipe');
+          return;
+        }
+        atletasDaEquipe = atletas.filter(atleta => atleta.idEquipe === user.idEquipe);
+      }
+
+      // Buscar inscrições existentes para filtrar atletas já inscritos
+      const inscricoesExistentes = await inscricaoService.getByCompeticao(competicao.id!);
+      const atletasInscritos = inscricoesExistentes
+        .filter(insc => insc.statusInscricao === 'INSCRITO')
+        .map(insc => insc.idAtleta);
+
+      // Filtrar apenas atletas não inscritos
+      const atletasDisponiveis = atletasDaEquipe.filter(atleta => 
+        !atletasInscritos.includes(atleta.id!)
+      );
+
+      setAtletasDisponiveis(atletasDisponiveis);
+      setAtletasSelecionados([]);
+      setInscricaoFormData({ temDobra: false, observacoes: '' });
+      setShowInscricaoModal(true);
+    } catch (error) {
+      toast.error('Erro ao carregar atletas disponíveis');
+      console.error(error);
+    }
+  };
+
+  const handleSubmitInscricao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (atletasSelecionados.length === 0) {
+      toast.error('Selecione pelo menos um atleta para inscrever');
+      return;
+    }
+
+    if (!selectedCompeticao) {
+      toast.error('Competição não selecionada');
+      return;
+    }
+
+    try {
+      const inscricoesParaCriar = atletasSelecionados.map(atletaId => ({
+        idAtleta: atletaId,
+        idCompeticao: selectedCompeticao.id!,
+        statusInscricao: 'INSCRITO' as const,
+        valorIndividual: selectedCompeticao.valorInscricao,
+        temDobra: inscricaoFormData.temDobra,
+        observacoes: inscricaoFormData.observacoes
+      }));
+
+      // Criar todas as inscrições
+      for (const inscricao of inscricoesParaCriar) {
+        await inscricaoService.create(inscricao);
+      }
+
+      // Registrar log
+      await logService.create({
+        dataHora: new Date(),
+        usuario: user?.nome || 'Sistema',
+        acao: 'Inscrição em competição',
+        detalhes: `Inscrição de ${atletasSelecionados.length} atleta(s) na competição: ${selectedCompeticao.nomeCompeticao}`,
+        tipoUsuario: user?.tipo || 'usuario'
+      });
+
+      toast.success(`${atletasSelecionados.length} atleta(s) inscrito(s) com sucesso!`);
+      setShowInscricaoModal(false);
+      loadData(); // Recarregar dados
+    } catch (error) {
+      toast.error('Erro ao realizar inscrição');
+      console.error(error);
+    }
+  };
+
+  const handleAtletaSelection = (atletaId: string, checked: boolean) => {
+    if (checked) {
+      setAtletasSelecionados(prev => [...prev, atletaId]);
+    } else {
+      setAtletasSelecionados(prev => prev.filter(id => id !== atletaId));
     }
   };
 
@@ -460,14 +561,28 @@ const CompeticoesPage: React.FC = () => {
                   </td>
                   <td>{getStatusBadge(competicao.status)}</td>
                   <td>
-                    <Button 
-                      variant="outline-info" 
-                      size="sm"
-                      onClick={() => handleInscricoes(competicao)}
-                    >
-                      <FaUsers className="me-1" />
-                      Ver Inscrições
-                    </Button>
+                    <div className="d-flex gap-1">
+                      <Button 
+                        variant="outline-info" 
+                        size="sm"
+                        onClick={() => handleInscricoes(competicao)}
+                      >
+                        <FaUsers className="me-1" />
+                        Ver Inscrições
+                      </Button>
+                      {user?.tipo === 'admin' || (user?.idEquipe && atletas.some(a => a.idEquipe === user.idEquipe)) ? (
+                        <Button 
+                          variant="outline-success" 
+                          size="sm"
+                          onClick={() => handleInscreverAtletas(competicao)}
+                          disabled={competicao.status !== 'AGENDADA'}
+                          title={competicao.status !== 'AGENDADA' ? 'Apenas competições agendadas permitem inscrições' : 'Inscrever atletas'}
+                        >
+                          <FaUserCheck className="me-1" />
+                          Inscrever
+                        </Button>
+                      ) : null}
+                    </div>
                   </td>
                   <td>
                     {user?.tipo === 'admin' && (
@@ -862,10 +977,127 @@ const CompeticoesPage: React.FC = () => {
           <Button variant="secondary" onClick={() => setShowInscricoesModal(false)}>
             Fechar
           </Button>
-        </Modal.Footer>
-      </Modal>
-    </div>
-  );
-};
+                 </Modal.Footer>
+       </Modal>
+
+       {/* Modal de Inscrição de Atletas */}
+       <Modal show={showInscricaoModal} onHide={() => setShowInscricaoModal(false)} size="lg">
+         <Modal.Header closeButton>
+           <Modal.Title>
+             <FaUserCheck className="me-2" />
+             Inscrever Atletas - {selectedCompeticao?.nomeCompeticao}
+           </Modal.Title>
+         </Modal.Header>
+         <Form onSubmit={handleSubmitInscricao}>
+           <Modal.Body>
+             <Alert variant="info" className="mb-3">
+               <strong>ℹ️ Informação:</strong> 
+               {user?.tipo === 'admin' 
+                 ? 'Administradores podem inscrever atletas de qualquer equipe.'
+                 : 'Você pode inscrever apenas atletas da sua equipe.'
+               }
+               <br />
+               <strong>💰 Valor da Inscrição:</strong> R$ {selectedCompeticao?.valorInscricao.toFixed(2)}
+               {selectedCompeticao?.valorDobra && (
+                 <span> | <strong>Valor da Dobra:</strong> R$ {selectedCompeticao.valorDobra.toFixed(2)}</span>
+               )}
+             </Alert>
+
+             {atletasDisponiveis.length === 0 ? (
+               <Alert variant="warning" className="text-center">
+                 <strong>⚠️ Nenhum atleta disponível para inscrição</strong>
+                 <br />
+                 Todos os atletas da sua equipe já estão inscritos nesta competição.
+               </Alert>
+             ) : (
+               <>
+                 <Form.Group className="mb-3">
+                   <Form.Label>Selecionar Atletas</Form.Label>
+                   <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                     {atletasDisponiveis.map((atleta) => (
+                       <Form.Check
+                         key={atleta.id}
+                         type="checkbox"
+                         id={`atleta-${atleta.id}`}
+                         label={
+                           <div className="d-flex justify-content-between align-items-center">
+                             <div>
+                               <strong>{atleta.nome}</strong>
+                               <br />
+                               <small className="text-muted">
+                                 CPF: {atleta.cpf} | Equipe: {atleta.equipe?.nomeEquipe || 'N/A'}
+                               </small>
+                             </div>
+                             <Badge bg="info">
+                               {atleta.maiorTotal ? `${atleta.maiorTotal}kg` : 'Sem total'}
+                             </Badge>
+                           </div>
+                         }
+                         checked={atletasSelecionados.includes(atleta.id!)}
+                         onChange={(e) => handleAtletaSelection(atleta.id!, e.target.checked)}
+                       />
+                     ))}
+                   </div>
+                 </Form.Group>
+
+                 {selectedCompeticao?.permiteDobraCategoria && (
+                   <Form.Group className="mb-3">
+                     <Form.Check
+                       type="checkbox"
+                       label="Aplicar dobra de categoria para todos os atletas selecionados"
+                       checked={inscricaoFormData.temDobra}
+                       onChange={(e) => setInscricaoFormData({...inscricaoFormData, temDobra: e.target.checked})}
+                     />
+                     {inscricaoFormData.temDobra && (
+                       <Form.Text className="text-muted">
+                         Valor adicional de R$ {selectedCompeticao.valorDobra?.toFixed(2)} por atleta
+                       </Form.Text>
+                     )}
+                   </Form.Group>
+                 )}
+
+                 <Form.Group className="mb-3">
+                   <Form.Label>Observações (opcional)</Form.Label>
+                   <Form.Control
+                     as="textarea"
+                     rows={3}
+                     value={inscricaoFormData.observacoes}
+                     onChange={(e) => setInscricaoFormData({...inscricaoFormData, observacoes: e.target.value})}
+                     placeholder="Observações sobre as inscrições..."
+                   />
+                 </Form.Group>
+
+                 {atletasSelecionados.length > 0 && (
+                   <Alert variant="success">
+                     <strong>📋 Resumo da Inscrição:</strong>
+                     <br />
+                     • <strong>{atletasSelecionados.length}</strong> atleta(s) selecionado(s)
+                     <br />
+                     • <strong>Valor total:</strong> R$ {
+                       selectedCompeticao ? (
+                         (atletasSelecionados.length * selectedCompeticao.valorInscricao + 
+                          (inscricaoFormData.temDobra ? atletasSelecionados.length * (selectedCompeticao.valorDobra || 0) : 0)).toFixed(2)
+                       ) : '0.00'
+                     }
+                   </Alert>
+                 )}
+               </>
+             )}
+           </Modal.Body>
+           <Modal.Footer>
+             <Button variant="secondary" onClick={() => setShowInscricaoModal(false)}>
+               Cancelar
+             </Button>
+             {atletasDisponiveis.length > 0 && (
+               <Button variant="primary" type="submit" disabled={atletasSelecionados.length === 0}>
+                 Inscrever {atletasSelecionados.length} Atleta(s)
+               </Button>
+             )}
+           </Modal.Footer>
+         </Form>
+       </Modal>
+     </div>
+   );
+ };
 
 export default CompeticoesPage;
