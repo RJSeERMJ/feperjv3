@@ -33,6 +33,14 @@ import { toast } from 'react-toastify';
 import { competicaoService, inscricaoService, atletaService, equipeService, logService } from '../services/firebaseService';
 import { Competicao, InscricaoCompeticao, Atleta, Equipe } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { 
+  CATEGORIAS_IDADE, 
+  calcularIdade, 
+  validarIdadeParaCategoria,
+  validarDobraCategoria,
+  obterOpcoesDobraValidas,
+  obterCategoriasPeso
+} from '../config/categorias';
 
 // Componente para edição de inscrição
 const EditarInscricaoForm: React.FC<{
@@ -98,8 +106,10 @@ const CompeticoesPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showInscricoesModal, setShowInscricoesModal] = useState(false);
   const [showInscricaoModal, setShowInscricaoModal] = useState(false);
+  const [showCategorizacaoModal, setShowCategorizacaoModal] = useState(false);
   const [showEditarInscricaoModal, setShowEditarInscricaoModal] = useState(false);
   const [inscricaoEmEdicao, setInscricaoEmEdicao] = useState<InscricaoCompeticao | null>(null);
+  const [categorizacaoAtletas, setCategorizacaoAtletas] = useState<Map<string, any>>(new Map());
   const [selectedCompeticao, setSelectedCompeticao] = useState<Competicao | null>(null);
   const [inscricoes, setInscricoes] = useState<InscricaoCompeticao[]>([]);
   const [editingCompeticao, setEditingCompeticao] = useState<Competicao | null>(null);
@@ -344,15 +354,64 @@ const CompeticoesPage: React.FC = () => {
       return;
     }
 
+    // Abrir modal de categorização em vez de finalizar diretamente
+    setShowInscricaoModal(false);
+    setShowCategorizacaoModal(true);
+  };
+
+  const handleAtletaSelection = (atletaId: string, checked: boolean) => {
+    if (checked) {
+      setAtletasSelecionados(prev => [...prev, atletaId]);
+    } else {
+      setAtletasSelecionados(prev => prev.filter(id => id !== atletaId));
+      // Remover categorização se o atleta for desmarcado
+      const novaCategorizacao = new Map(categorizacaoAtletas);
+      novaCategorizacao.delete(atletaId);
+      setCategorizacaoAtletas(novaCategorizacao);
+    }
+  };
+
+  const handleCategorizacaoAtleta = (atletaId: string, categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any) => {
+    const novaCategorizacao = new Map(categorizacaoAtletas);
+    novaCategorizacao.set(atletaId, { categoriaPeso, categoriaIdade, dobraCategoria });
+    setCategorizacaoAtletas(novaCategorizacao);
+  };
+
+  const handleFinalizarInscricao = async () => {
+    // Verificar se todos os atletas têm categorias definidas
+    const atletasSemCategoria = atletasSelecionados.filter(atletaId => {
+      const categorizacao = categorizacaoAtletas.get(atletaId);
+      return !categorizacao || !categorizacao.categoriaPeso || !categorizacao.categoriaIdade;
+    });
+
+    if (atletasSemCategoria.length > 0) {
+      toast.error('Todos os atletas devem ter categoria de peso e idade definidas');
+      return;
+    }
+
     try {
-      const inscricoesParaCriar = atletasSelecionados.map(atletaId => ({
-        idAtleta: atletaId,
-        idCompeticao: selectedCompeticao.id!,
-        statusInscricao: 'INSCRITO' as const,
-        valorIndividual: selectedCompeticao.valorInscricao,
-        temDobra: inscricaoFormData.temDobra,
-        observacoes: inscricaoFormData.observacoes
-      }));
+             const inscricoesParaCriar = atletasSelecionados.map(atletaId => {
+         const categorizacao = categorizacaoAtletas.get(atletaId);
+         const atleta = atletas.find(a => a.id === atletaId);
+         
+         const inscricao: any = {
+           idAtleta: atletaId,
+           idCompeticao: selectedCompeticao!.id!,
+           statusInscricao: 'INSCRITO' as const,
+           valorIndividual: selectedCompeticao!.valorInscricao,
+           temDobra: inscricaoFormData.temDobra,
+           observacoes: inscricaoFormData.observacoes,
+           categoriaPeso: categorizacao.categoriaPeso,
+           categoriaIdade: categorizacao.categoriaIdade
+         };
+
+         // Adicionar dobraCategoria apenas se existir e não for undefined
+         if (categorizacao.dobraCategoria) {
+           inscricao.dobraCategoria = categorizacao.dobraCategoria;
+         }
+
+         return inscricao;
+       });
 
       // Criar todas as inscrições
       for (const inscricao of inscricoesParaCriar) {
@@ -364,24 +423,19 @@ const CompeticoesPage: React.FC = () => {
         dataHora: new Date(),
         usuario: user?.nome || 'Sistema',
         acao: 'Inscrição em competição',
-        detalhes: `Inscrição de ${atletasSelecionados.length} atleta(s) na competição: ${selectedCompeticao.nomeCompeticao}`,
+        detalhes: `Inscrição de ${atletasSelecionados.length} atleta(s) na competição: ${selectedCompeticao!.nomeCompeticao}`,
         tipoUsuario: user?.tipo || 'usuario'
       });
 
       toast.success(`${atletasSelecionados.length} atleta(s) inscrito(s) com sucesso!`);
-      setShowInscricaoModal(false);
+      setShowCategorizacaoModal(false);
+      setCategorizacaoAtletas(new Map());
+      setAtletasSelecionados([]);
+      setInscricaoFormData({ temDobra: false, observacoes: '' });
       loadData(); // Recarregar dados
     } catch (error) {
       toast.error('Erro ao realizar inscrição');
       console.error(error);
-    }
-  };
-
-  const handleAtletaSelection = (atletaId: string, checked: boolean) => {
-    if (checked) {
-      setAtletasSelecionados(prev => [...prev, atletaId]);
-    } else {
-      setAtletasSelecionados(prev => prev.filter(id => id !== atletaId));
     }
   };
 
@@ -512,6 +566,42 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
+  const handleCancelarInscricao = async (inscricao: InscricaoCompeticao) => {
+    // Verificar permissões
+    if (!podeCancelarInscricao(inscricao)) {
+      toast.error('Você não tem permissão para cancelar esta inscrição');
+      return;
+    }
+
+    // Confirmar cancelamento
+    if (!window.confirm(`Tem certeza que deseja cancelar a inscrição do atleta ${inscricao.atleta?.nome}?`)) {
+      return;
+    }
+
+    try {
+      // Atualizar status para CANCELADO
+      await inscricaoService.update(inscricao.id!, {
+        statusInscricao: 'CANCELADO',
+        observacoes: inscricao.observacoes || 'Inscrição cancelada'
+      });
+
+      // Registrar log
+      await logService.create({
+        dataHora: new Date(),
+        usuario: user?.nome || 'Sistema',
+        acao: 'Cancelou inscrição',
+        detalhes: `Cancelou inscrição do atleta ${inscricao.atleta?.nome} na competição ${selectedCompeticao?.nomeCompeticao}`,
+        tipoUsuario: user?.tipo || 'usuario'
+      });
+
+      toast.success('Inscrição cancelada com sucesso!');
+      loadData(); // Recarregar dados
+    } catch (error) {
+      console.error('Erro ao cancelar inscrição:', error);
+      toast.error(`Erro ao cancelar inscrição: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  };
+
   // Funções para controle de prazos
   const podeEditarInscricao = (competicao: Competicao): boolean => {
     if (!competicao.dataNominacaoFinal) return true;
@@ -526,6 +616,31 @@ const CompeticoesPage: React.FC = () => {
   const podeInscrever = (competicao: Competicao): boolean => {
     const hoje = new Date();
     return hoje <= competicao.dataFimInscricao;
+  };
+
+  // Funções para controle de acesso por equipe
+  const podeGerenciarInscricao = (inscricao: InscricaoCompeticao): boolean => {
+    // Admin pode gerenciar qualquer inscrição
+    if (user?.tipo === 'admin') return true;
+    
+    // Usuário comum só pode gerenciar inscrições de atletas da sua equipe
+    if (user?.idEquipe && inscricao.atleta?.idEquipe === user.idEquipe) return true;
+    
+    return false;
+  };
+
+  const podeCancelarInscricao = (inscricao: InscricaoCompeticao): boolean => {
+    // Verificar se pode gerenciar
+    if (!podeGerenciarInscricao(inscricao)) return false;
+    
+    // Verificar se está dentro do prazo para cancelar (até 1 dia antes da competição)
+    if (!selectedCompeticao) return false;
+    
+    const hoje = new Date();
+    const umDiaAntes = new Date(selectedCompeticao.dataCompeticao);
+    umDiaAntes.setDate(umDiaAntes.getDate() - 1);
+    
+    return hoje <= umDiaAntes;
   };
 
   const resetForm = () => {
@@ -979,19 +1094,32 @@ const CompeticoesPage: React.FC = () => {
                           <Badge bg="secondary">Não</Badge>
                         )}
                       </td>
-                      <td>
-                        {podeEditarInscricao(selectedCompeticao!) && (
-                          <Button
-                            variant="outline-primary"
-                            size="sm"
-                            onClick={() => handleEditarInscricao(inscricao)}
-                            title="Editar inscrição"
-                          >
-                            <FaEdit className="me-1" />
-                            Editar
-                          </Button>
-                        )}
-                      </td>
+                                             <td>
+                         <div className="d-flex gap-1">
+                           {podeEditarInscricao(selectedCompeticao!) && podeGerenciarInscricao(inscricao) && (
+                             <Button
+                               variant="outline-primary"
+                               size="sm"
+                               onClick={() => handleEditarInscricao(inscricao)}
+                               title="Editar inscrição"
+                             >
+                               <FaEdit className="me-1" />
+                               Editar
+                             </Button>
+                           )}
+                           {podeCancelarInscricao(inscricao) && (
+                             <Button
+                               variant="outline-danger"
+                               size="sm"
+                               onClick={() => handleCancelarInscricao(inscricao)}
+                               title="Cancelar inscrição"
+                             >
+                               <FaUserTimes className="me-1" />
+                               Cancelar
+                             </Button>
+                           )}
+                         </div>
+                       </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1233,6 +1361,164 @@ const CompeticoesPage: React.FC = () => {
              )}
            </Modal.Footer>
          </Form>
+       </Modal>
+
+       {/* Modal de Categorização */}
+       <Modal show={showCategorizacaoModal} onHide={() => setShowCategorizacaoModal(false)} size="xl">
+         <Modal.Header closeButton>
+           <Modal.Title>
+             <FaUsers className="me-2" />
+             Categorização de Atletas - {selectedCompeticao?.nomeCompeticao}
+           </Modal.Title>
+         </Modal.Header>
+         <Modal.Body>
+           <Alert variant="info" className="mb-3">
+             <strong>ℹ️ Informação:</strong> 
+             Defina a categoria de peso e idade para cada atleta selecionado.
+             {selectedCompeticao?.permiteDobraCategoria && (
+               <span> Você também pode configurar dobra de categoria se desejar.</span>
+             )}
+           </Alert>
+
+           {atletasSelecionados.map(atletaId => {
+             const atleta = atletas.find(a => a.id === atletaId);
+             const categorizacao = categorizacaoAtletas.get(atletaId);
+             
+             if (!atleta) return null;
+
+             return (
+               <Card key={atletaId} className="mb-3">
+                 <Card.Header>
+                   <strong>{atleta.nome}</strong> - {atleta.equipe?.nomeEquipe || 'N/A'}
+                 </Card.Header>
+                 <Card.Body>
+                   <Row>
+                     <Col md={4}>
+                       <Form.Group className="mb-3">
+                         <Form.Label>Categoria de Peso</Form.Label>
+                         <Form.Select
+                           value={categorizacao?.categoriaPeso?.id || ''}
+                           onChange={(e) => {
+                             const cat = obterCategoriasPeso(atleta.sexo).find(c => c.id === e.target.value);
+                             handleCategorizacaoAtleta(
+                               atletaId, 
+                               cat || null, 
+                               categorizacao?.categoriaIdade || null,
+                               categorizacao?.dobraCategoria
+                             );
+                           }}
+                         >
+                           <option value="">Selecione a categoria de peso</option>
+                           {obterCategoriasPeso(atleta.sexo).map(cat => (
+                             <option key={cat.id} value={cat.id}>
+                               {cat.nome} - {cat.descricao}
+                               </option>
+                             ))}
+                         </Form.Select>
+                       </Form.Group>
+                     </Col>
+                     <Col md={4}>
+                       <Form.Group className="mb-3">
+                         <Form.Label>Categoria de Idade</Form.Label>
+                         <Form.Select
+                           value={categorizacao?.categoriaIdade?.id || ''}
+                           onChange={(e) => {
+                             const cat = CATEGORIAS_IDADE.find(c => c.id === e.target.value);
+                             if (cat) {
+                               const idade = calcularIdade(atleta.dataNascimento!);
+                               if (!validarIdadeParaCategoria(idade, cat)) {
+                                 toast.error(`Categoria de idade inválida para ${atleta.nome}. Idade real: ${idade} anos`);
+                                 return;
+                               }
+                               handleCategorizacaoAtleta(
+                                 atletaId, 
+                                 categorizacao?.categoriaPeso || null, 
+                                 cat,
+                                 categorizacao?.dobraCategoria
+                               );
+                             }
+                           }}
+                         >
+                           <option value="">Selecione a categoria de idade</option>
+                           {CATEGORIAS_IDADE.map(cat => {
+                             const idade = calcularIdade(atleta.dataNascimento!);
+                             const isValid = validarIdadeParaCategoria(idade, cat);
+                             return (
+                               <option key={cat.id} value={cat.id} disabled={!isValid}>
+                                 {cat.nome} - {cat.descricao} {!isValid && '(Idade não compatível)'}
+                               </option>
+                             );
+                           })}
+                         </Form.Select>
+                       </Form.Group>
+                     </Col>
+                     <Col md={4}>
+                       <Form.Group className="mb-3">
+                         <Form.Label>Dobra de Categoria</Form.Label>
+                         <Form.Select
+                           value={categorizacao?.dobraCategoria?.categoriaIdade?.id || ''}
+                           onChange={(e) => {
+                             if (e.target.value === '') {
+                               handleCategorizacaoAtleta(
+                                 atletaId, 
+                                 categorizacao?.categoriaPeso || null, 
+                                 categorizacao?.categoriaIdade || null
+                               );
+                               return;
+                             }
+
+                             const categoriaIdadeDobra = CATEGORIAS_IDADE.find(cat => cat.id === e.target.value);
+                             if (!categoriaIdadeDobra) return;
+
+                             if (!validarDobraCategoria(categorizacao?.categoriaIdade, categoriaIdadeDobra)) {
+                               toast.error('Combinação de categorias inválida para dobra');
+                               return;
+                             }
+
+                             const dobraCategoria = {
+                               categoriaPeso: categorizacao?.categoriaPeso,
+                               categoriaIdade: categoriaIdadeDobra
+                             };
+
+                             handleCategorizacaoAtleta(
+                               atletaId, 
+                               categorizacao?.categoriaPeso || null, 
+                               categorizacao?.categoriaIdade || null,
+                               dobraCategoria
+                             );
+                           }}
+                           disabled={!selectedCompeticao?.permiteDobraCategoria || !categorizacao?.categoriaIdade}
+                         >
+                           <option value="">Sem dobra</option>
+                           {categorizacao?.categoriaIdade && obterOpcoesDobraValidas(categorizacao.categoriaIdade).map(cat => (
+                             <option key={cat.id} value={cat.id}>
+                               {cat.nome} - {cat.descricao}
+                             </option>
+                           ))}
+                         </Form.Select>
+                       </Form.Group>
+                     </Col>
+                   </Row>
+                 </Card.Body>
+               </Card>
+             );
+           })}
+         </Modal.Body>
+         <Modal.Footer>
+           <Button variant="secondary" onClick={() => setShowCategorizacaoModal(false)}>
+             Cancelar
+           </Button>
+           <Button 
+             variant="primary" 
+             onClick={handleFinalizarInscricao}
+             disabled={atletasSelecionados.some(atletaId => {
+               const categorizacao = categorizacaoAtletas.get(atletaId);
+               return !categorizacao || !categorizacao.categoriaPeso || !categorizacao.categoriaIdade;
+             })}
+           >
+             Finalizar Inscrição
+           </Button>
+         </Modal.Footer>
        </Modal>
 
        {/* Modal de Edição de Inscrição */}
