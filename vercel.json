@@ -35,13 +35,10 @@
       "dest": "/index.html"
     }
   ],
-  "env": {
-    "CI": "false",
+  "env": {"CI": "false",
     "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
     "GENERATE_SOURCEMAP": "false",
     "SKIP_PREFLIGHT_CHECK": "true"
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ]
+  }
 }
+  
