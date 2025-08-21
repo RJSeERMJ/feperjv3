@@ -397,11 +397,129 @@ export const comprovantesAnuidadeService = {
     }
   },
 
-  // Listar todos os comprovantes (apenas para admin)
+  // Função auxiliar para listar comprovantes com dados do Firebase integrados
+  async listarComprovantesPorEquipeComFirebase(equipeId: string, pagamentosData: any[], anuidadeAtiva: any): Promise<ComprovanteAnuidade[]> {
+    try {
+      console.log('🔍 Listando comprovantes da equipe com dados do Firebase:', equipeId);
+      const comprovantes: ComprovanteAnuidade[] = [];
+
+      // Buscar dados reais da equipe
+      const equipe = await equipeService.getById(equipeId);
+      if (!equipe) {
+        console.warn('⚠️ Equipe não encontrada:', equipeId);
+        return comprovantes;
+      }
+
+      const nomePastaEquipe = criarNomePastaSeguro(equipe.nomeEquipe);
+      const pastaNome = `${COMPROVANTES_CONFIG.FOLDER_NAME}/${nomePastaEquipe}`;
+      
+      console.log(`📁 Verificando pasta: ${pastaNome}`);
+      
+      const { data, error } = await supabase.storage
+        .from(COMPROVANTES_CONFIG.BUCKET_NAME)
+        .list(pastaNome, {
+          limit: 100,
+          offset: 0
+        });
+
+      if (error) {
+        if (error.message.includes('not found')) {
+          console.log(`⚠️ Pasta ${pastaNome} não encontrada, retornando lista vazia`);
+          return comprovantes;
+        }
+        throw new Error(`Erro ao listar comprovantes: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        console.log(`📁 Pasta ${pastaNome} está vazia`);
+        return comprovantes;
+      }
+
+      // Processar cada arquivo encontrado
+      for (const item of data) {
+        if (item.name && !item.name.endsWith('/')) {
+          try {
+            const filePath = `${pastaNome}/${item.name}`;
+            
+            // Gerar URL pública
+            const { data: urlData } = supabase.storage
+              .from(COMPROVANTES_CONFIG.BUCKET_NAME)
+              .getPublicUrl(filePath);
+
+            // Extrair informações do nome do arquivo
+            const parts = item.name.split('_');
+            const timestamp = parts[0];
+            const atletaIdFromFile = parts[1];
+            const nomeOriginal = parts.slice(2).join('_');
+
+            // Buscar dados reais do atleta
+            const atleta = await atletaService.getById(atletaIdFromFile);
+            const nomeAtleta = atleta ? atleta.nome : `Atleta ${atletaIdFromFile}`;
+
+            // Buscar pagamento do Firebase para este atleta
+            const pagamentoAtleta = pagamentosData.find(p => 
+              p.idAtleta === atletaIdFromFile && p.ano === new Date().getFullYear()
+            );
+
+            // Determinar status, valor e data baseado no Firebase
+            let status: 'PENDENTE' | 'APROVADO' | 'REJEITADO' = 'PENDENTE';
+            let valor = 0;
+            let dataPagamento: Date | undefined = undefined;
+
+            if (pagamentoAtleta) {
+              if (pagamentoAtleta.status === 'PAGO') {
+                status = 'APROVADO';
+                valor = pagamentoAtleta.valor || (anuidadeAtiva?.valor || 0);
+                dataPagamento = pagamentoAtleta.dataAprovacao || undefined;
+              } else if (pagamentoAtleta.status === 'REJEITADO') {
+                status = 'REJEITADO';
+                valor = 0;
+                dataPagamento = undefined;
+              }
+            }
+
+            const comprovante: ComprovanteAnuidade = {
+              nome: nomeOriginal,
+              nomeArquivoSalvo: item.name,
+              dataUpload: new Date(parseInt(timestamp)),
+              status: status,
+              valor: valor,
+              dataPagamento: dataPagamento,
+              tamanho: item.metadata?.size || 0,
+              contentType: item.metadata?.mimetype || 'application/octet-stream',
+              url: urlData.publicUrl,
+              atletaId: atletaIdFromFile,
+              equipeId,
+              nomeAtleta,
+              nomeEquipe: equipe.nomeEquipe
+            };
+
+            comprovantes.push(comprovante);
+          } catch (itemError) {
+            console.warn(`⚠️ Erro ao processar arquivo ${item.name}:`, itemError);
+          }
+        }
+      }
+
+      console.log(`✅ ${comprovantes.length} comprovantes encontrados para equipe ${equipe.nomeEquipe} (com dados do Firebase)`);
+      return comprovantes.sort((a, b) => b.dataUpload.getTime() - a.dataUpload.getTime());
+    } catch (error) {
+      console.error('❌ Erro ao listar comprovantes com Firebase:', error);
+      throw error;
+    }
+  },
+
+  // Listar todos os comprovantes (apenas para admin) - integrado com Firebase
   async listarTodosComprovantes(): Promise<ComprovanteAnuidade[]> {
     try {
       console.log('🔍 Listando todos os comprovantes...');
       const comprovantes: ComprovanteAnuidade[] = [];
+
+      // Buscar dados do Firebase para integração
+      const [pagamentosData, anuidadeAtiva] = await Promise.all([
+        pagamentoService.getAll(),
+        anuidadeService.getAtivo()
+      ]);
 
       const { data, error } = await supabase.storage
         .from(COMPROVANTES_CONFIG.BUCKET_NAME)
@@ -434,7 +552,7 @@ export const comprovantesAnuidadeService = {
             );
 
             if (equipe) {
-              const comprovantesEquipe = await this.listarComprovantesPorEquipe(equipe.id!);
+              const comprovantesEquipe = await this.listarComprovantesPorEquipeComFirebase(equipe.id!, pagamentosData, anuidadeAtiva);
               comprovantes.push(...comprovantesEquipe);
             } else {
               console.warn(`⚠️ Equipe não encontrada para pasta: ${equipeFolder.name}`);

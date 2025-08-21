@@ -25,8 +25,7 @@ import {
   FaTimesCircle,
   FaEye,
   FaUpload,
-  FaCalendarAlt,
-  FaChartBar
+
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -39,8 +38,8 @@ import {
   pagamentoService,
   renovacaoAnualService
 } from '../services/firebaseService';
-import { documentosContabeisService, DocumentoContabil, DownloadLog, DeleteLog } from '../services/documentosContabeisService';
-import { comprovantesAnuidadeService, ComprovanteAnuidade, LogAprovacao } from '../services/comprovantesAnuidadeService';
+import { documentosContabeisService, DocumentoContabil } from '../services/documentosContabeisService';
+import { comprovantesAnuidadeService, ComprovanteAnuidade } from '../services/comprovantesAnuidadeService';
 import { Equipe, Atleta, Competicao, InscricaoCompeticao } from '../types';
 import { testSupabaseConnection } from '../config/supabase';
 
@@ -73,10 +72,7 @@ const FinanceiroPage: React.FC = () => {
   const [anuidade, setAnuidade] = useState<Anuidade | null>(null);
   const [pagamentosAnuidade, setPagamentosAnuidade] = useState<PagamentoAnuidade[]>([]);
   const [documentosContabeis, setDocumentosContabeis] = useState<DocumentoContabil[]>([]);
-  const [downloadLogs, setDownloadLogs] = useState<DownloadLog[]>([]);
-  const [deleteLogs, setDeleteLogs] = useState<DeleteLog[]>([]);
   const [comprovantes, setComprovantes] = useState<ComprovanteAnuidade[]>([]);
-  const [logsAprovacao, setLogsAprovacao] = useState<LogAprovacao[]>([]);
   
   // Estados para modais
   const [showConfigAnuidadeModal, setShowConfigAnuidadeModal] = useState(false);
@@ -134,19 +130,7 @@ const FinanceiroPage: React.FC = () => {
         inscricaoService.getAll()
       ]);
 
-      // Carregar logs de download e exclusão se for admin
-      if (user?.tipo === 'admin') {
-        try {
-          const [downloadLogsData, deleteLogsData] = await Promise.all([
-            documentosContabeisService.obterLogsDownload(50),
-            documentosContabeisService.obterLogsExclusao(50)
-          ]);
-          setDownloadLogs(downloadLogsData);
-          setDeleteLogs(deleteLogsData);
-        } catch (error) {
-          console.warn('Erro ao carregar logs:', error);
-        }
-      }
+
 
       // Carregar comprovantes da equipe do usuário
       if (user?.idEquipe) {
@@ -874,127 +858,9 @@ const FinanceiroPage: React.FC = () => {
           </Card>
         </Tab>
 
-        {/* Aba de Logs de Download (apenas para admins) */}
-        {user?.tipo === 'admin' && (
-          <Tab eventKey="logs" title="Logs de Download">
-            <Card>
-              <Card.Header>
-                <h5 className="mb-0">📊 Logs de Download de Documentos</h5>
-              </Card.Header>
-              <Card.Body>
-                {downloadLogs.length === 0 ? (
-                  <Alert variant="info" className="text-center">
-                    Nenhum log de download encontrado.
-                  </Alert>
-                ) : (
-                  <Table responsive striped>
-                    <thead>
-                      <tr>
-                        <th>Documento</th>
-                        <th>Usuário</th>
-                        <th>Data/Hora</th>
-                        <th>Status</th>
-                        <th>IP</th>
-                        <th>Erro</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {downloadLogs.map(log => (
-                        <tr key={log.id}>
-                          <td>
-                            <strong>{log.nomeDocumento}</strong>
-                            <br />
-                            <small className="text-muted">ID: {log.documentoId}</small>
-                          </td>
-                          <td>
-                            {log.usuarioEmail}
-                            <br />
-                            <small className="text-muted">ID: {log.usuarioId}</small>
-                          </td>
-                          <td>
-                            {log.dataDownload.toLocaleString('pt-BR')}
-                          </td>
-                          <td>
-                            <Badge bg={log.sucesso ? 'success' : 'danger'}>
-                              {log.sucesso ? 'Sucesso' : 'Erro'}
-                            </Badge>
-                          </td>
-                          <td>
-                            <small>{log.ipAddress || 'N/A'}</small>
-                          </td>
-                          <td>
-                            {log.erro ? (
-                              <small className="text-danger">{log.erro}</small>
-                            ) : (
-                              <span className="text-muted">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-        )}
 
-        {/* Aba de Logs de Exclusão (apenas para admins) */}
-        {user?.tipo === 'admin' && (
-          <Tab eventKey="logs-exclusao" title="Logs de Exclusão">
-            <Card>
-              <Card.Header>
-                <h5 className="mb-0">🗑️ Logs de Exclusão de Documentos</h5>
-              </Card.Header>
-              <Card.Body>
-                {deleteLogs.length === 0 ? (
-                  <Alert variant="info" className="text-center">
-                    Nenhum log de exclusão encontrado.
-                  </Alert>
-                ) : (
-                  <Table responsive striped>
-                    <thead>
-                      <tr>
-                        <th>Documento</th>
-                        <th>Usuário</th>
-                        <th>Tipo</th>
-                        <th>Data/Hora</th>
-                        <th>ID do Documento</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {deleteLogs.map(log => (
-                        <tr key={log.id}>
-                          <td>
-                            <strong>{log.nomeDocumento}</strong>
-                          </td>
-                          <td>
-                            {log.usuarioId}
-                            <br />
-                            <Badge bg={log.usuarioTipo === 'admin' ? 'danger' : 'primary'}>
-                              {log.usuarioTipo}
-                            </Badge>
-                          </td>
-                          <td>
-                            <Badge bg={log.tipoDocumento === 'DEMONSTRATIVO' ? 'primary' : 'success'}>
-                              {log.tipoDocumento}
-                            </Badge>
-                          </td>
-                          <td>
-                            {log.dataExclusao.toLocaleString('pt-BR')}
-                          </td>
-                          <td>
-                            <small className="text-muted">{log.documentoId}</small>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-        )}
+
+
 
         {/* Aba de Comprovantes de Anuidade (apenas para admins) */}
         {user?.tipo === 'admin' && (
@@ -1016,7 +882,7 @@ const FinanceiroPage: React.FC = () => {
                         <th>Equipe</th>
                         <th>Arquivo</th>
                         <th>Valor</th>
-                        <th>Data Pagamento</th>
+                        <th>Data de Aprovação</th>
                         <th>Status</th>
                         <th>Data Upload</th>
                         <th>Ações</th>
@@ -1071,7 +937,7 @@ const FinanceiroPage: React.FC = () => {
                               >
                                 <FaTimesCircle />
                               </Button>
-                              {comprovante.status === 'PENDENTE' && (
+                              {user?.tipo === 'admin' && (
                                 <Button
                                   variant="outline-success"
                                   size="sm"
@@ -1093,66 +959,7 @@ const FinanceiroPage: React.FC = () => {
           </Tab>
         )}
 
-        {/* Aba de Logs de Aprovação (apenas para admins) */}
-        {user?.tipo === 'admin' && (
-          <Tab eventKey="logs-aprovacao" title="Logs de Aprovação">
-            <Card>
-              <Card.Header>
-                <h5 className="mb-0">📊 Logs de Aprovação de Comprovantes</h5>
-              </Card.Header>
-              <Card.Body>
-                {logsAprovacao.length === 0 ? (
-                  <Alert variant="info" className="text-center">
-                    Nenhum log de aprovação encontrado.
-                  </Alert>
-                ) : (
-                  <Table responsive striped>
-                    <thead>
-                      <tr>
-                        <th>Atleta</th>
-                        <th>Equipe</th>
-                        <th>Admin</th>
-                        <th>Ação</th>
-                        <th>Data/Hora</th>
-                        <th>Observações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {logsAprovacao.map(log => (
-                        <tr key={log.id}>
-                          <td>
-                            <strong>{log.atletaId}</strong>
-                          </td>
-                          <td>{log.equipeId}</td>
-                          <td>
-                            {log.adminNome}
-                            <br />
-                            <small className="text-muted">ID: {log.adminId}</small>
-                          </td>
-                          <td>
-                            <Badge bg={log.acao === 'APROVAR' ? 'success' : 'danger'}>
-                              {log.acao}
-                            </Badge>
-                          </td>
-                          <td>
-                            {log.dataAcao.toLocaleString('pt-BR')}
-                          </td>
-                          <td>
-                            {log.observacoes ? (
-                              <small>{log.observacoes}</small>
-                            ) : (
-                              <span className="text-muted">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-        )}
+
       </Tabs>
 
       {/* Modal de Configuração de Anuidade */}
@@ -1506,7 +1313,7 @@ const FinanceiroPage: React.FC = () => {
                 <br />
                 <strong>💰 Valor:</strong> R$ {selectedComprovante.valor ? selectedComprovante.valor.toFixed(2) : 'N/A'}
                 <br />
-                <strong>📅 Data Pagamento:</strong> {selectedComprovante.dataPagamento ? selectedComprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+                <strong>📅 Data de Aprovação:</strong> {selectedComprovante.dataPagamento ? selectedComprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
                 <br />
                 <strong>📤 Data Upload:</strong> {selectedComprovante.dataUpload.toLocaleDateString('pt-BR')}
                 <br />

@@ -696,7 +696,9 @@ export const pagamentoService = {
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
-      dataPagamento: convertTimestamp(doc.data().dataPagamento)
+      dataPagamento: convertTimestamp(doc.data().dataPagamento),
+      dataAprovacao: convertTimestamp(doc.data().dataAprovacao),
+      dataRejeicao: convertTimestamp(doc.data().dataRejeicao)
     }));
   },
 
