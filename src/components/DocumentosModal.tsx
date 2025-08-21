@@ -18,14 +18,14 @@ import {
   FaFileAlt, 
   FaImage, 
   FaCertificate,
-  FaTimes,
-  FaCheck
+  FaCheck,
+  FaLock,
+  FaIdCard
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { documentService, Documento } from '../services/documentService';
 import { Atleta } from '../types';
-import { useAuth } from '../contexts/AuthContext';
-import { testSupabaseConnection } from '../config/supabase';
+import { useAdminPermission } from '../hooks/useAdminPermission';
 
 interface DocumentosModalProps {
   show: boolean;
@@ -39,7 +39,7 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDocumentType, setSelectedDocumentType] = useState<Documento['tipo']>('comprovante-residencia');
-  const { user } = useAuth();
+  const { isAdmin } = useAdminPermission();
 
   useEffect(() => {
     if (show && atleta) {
@@ -72,6 +72,12 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
   const handleUpload = async () => {
     if (!selectedFile || !atleta?.id) return;
 
+    // Verificar se é admin apenas para documentos de matrícula
+    if (selectedDocumentType === 'matricula' && !isAdmin) {
+      toast.error('Apenas administradores podem fazer upload de documentos de matrícula');
+      return;
+    }
+
     try {
       setUploading(true);
       await documentService.uploadDocument(atleta.id, selectedFile, selectedDocumentType);
@@ -98,6 +104,12 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
   };
 
   const handleDelete = async (documento: Documento) => {
+    // Verificar se é admin apenas para documentos de matrícula
+    if (documento.tipo === 'matricula' && !isAdmin) {
+      toast.error('Apenas administradores podem excluir documentos de matrícula');
+      return;
+    }
+
     if (!window.confirm(`Tem certeza que deseja excluir o documento "${documento.nomeArquivo}"?`)) {
       return;
     }
@@ -113,18 +125,7 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
     }
   };
 
-  const handleTestConnection = async () => {
-    try {
-      const isConnected = await testSupabaseConnection();
-      if (isConnected) {
-        toast.success('✅ Conectividade com Supabase OK!');
-      } else {
-        toast.error('❌ Problema na conectividade com Supabase');
-      }
-    } catch (error) {
-      toast.error('❌ Erro ao testar conectividade');
-    }
-  };
+
 
   const getDocumentTypeIcon = (tipo: Documento['tipo']) => {
     switch (tipo) {
@@ -134,6 +135,8 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
         return <FaImage className="text-success" />;
       case 'certificado-adel':
         return <FaCertificate className="text-warning" />;
+      case 'matricula':
+        return <FaIdCard className="text-info" />;
       default:
         return <FaFileAlt />;
     }
@@ -147,6 +150,8 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
         return 'Foto 3x4';
       case 'certificado-adel':
         return 'Certificado ADEL';
+      case 'matricula':
+        return 'Matrícula';
       default:
         return tipo;
     }
@@ -180,74 +185,88 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {/* Seção de Upload */}
+        {/* Seção de Upload - Para todos exceto matrícula (que é só admin) */}
         <Card className="mb-4">
-          <Card.Header>
-            <h6 className="mb-0">
-              <FaUpload className="me-2" />
-              Anexar Novo Documento
-            </h6>
-          </Card.Header>
-          <Card.Body>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Tipo de Documento *</Form.Label>
-                  <Form.Select
+            <Card.Header>
+              <h6 className="mb-0">
+                <FaUpload className="me-2" />
+                Anexar Novo Documento
+              </h6>
+            </Card.Header>
+            <Card.Body>
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Tipo de Documento *</Form.Label>
+                                      <Form.Select
                     value={selectedDocumentType}
                     onChange={(e) => setSelectedDocumentType(e.target.value as Documento['tipo'])}
                   >
                     <option value="comprovante-residencia">Comprovante de Residência</option>
                     <option value="foto-3x4">Foto 3x4</option>
                     <option value="certificado-adel">Certificado ADEL</option>
+                    <option value="matricula">Matrícula</option>
                   </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Arquivo *</Form.Label>
-                  <Form.Control
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Arquivo *</Form.Label>
+                                      <Form.Control
                     type="file"
                     onChange={handleFileSelect}
                     accept={selectedDocumentType === 'foto-3x4' ? 'image/*' : 
                            selectedDocumentType === 'comprovante-residencia' ? '.pdf,.png,.jpg,.jpeg,.gif,.bmp' :
+                           selectedDocumentType === 'matricula' ? '.pdf,.png,.jpg,.jpeg,.gif,.bmp' :
                            '.pdf,.png,.jpg,.jpeg'}
                   />
-                  <Form.Text className="text-muted">
+                                      <Form.Text className="text-muted">
                     Tamanho máximo: 20MB
+                    {selectedDocumentType === 'matricula' && !isAdmin && (
+                      <><br /><strong className="text-warning">⚠️ Apenas administradores podem fazer upload de documentos de matrícula</strong></>
+                    )}
                   </Form.Text>
-                </Form.Group>
-              </Col>
-            </Row>
-            <div className="d-flex justify-content-between align-items-center">
-              <div>
-                {selectedFile && (
-                  <Badge bg="info" className="me-2">
-                    <FaCheck className="me-1" />
-                    {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                  </Badge>
-                )}
+                  </Form.Group>
+                </Col>
+              </Row>
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  {selectedFile && (
+                    <Badge bg="info" className="me-2">
+                      <FaCheck className="me-1" />
+                      {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={handleUpload}
+                  disabled={!selectedFile || uploading || (selectedDocumentType === 'matricula' && !isAdmin)}
+                >
+                  {uploading ? (
+                    <>
+                      <Spinner animation="border" size="sm" className="me-2" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <FaUpload className="me-2" />
+                      Enviar Documento
+                    </>
+                  )}
+                </Button>
               </div>
-              <Button
-                variant="primary"
-                onClick={handleUpload}
-                disabled={!selectedFile || uploading}
-              >
-                {uploading ? (
-                  <>
-                    <Spinner animation="border" size="sm" className="me-2" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <FaUpload className="me-2" />
-                    Enviar Documento
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card.Body>
-        </Card>
+            </Card.Body>
+          </Card>
+
+        {/* Aviso para usuários não-admin sobre matrícula */}
+        {!isAdmin && (
+          <Alert variant="info" className="mb-4">
+            <FaLock className="me-2" />
+            <strong>Permissão para Matrícula:</strong> Para documentos de matrícula, você pode apenas visualizar e baixar. 
+            Apenas administradores podem fazer upload e exclusão de documentos de matrícula.
+          </Alert>
+        )}
 
         {/* Lista de Documentos */}
         <Card>
@@ -301,14 +320,16 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
                           >
                             <FaDownload />
                           </Button>
-                          <Button
-                            variant="outline-danger"
-                            size="sm"
-                            onClick={() => handleDelete(documento)}
-                            title="Excluir"
-                          >
-                            <FaTrash />
-                          </Button>
+                          {(isAdmin || documento.tipo !== 'matricula') && (
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              onClick={() => handleDelete(documento)}
+                              title="Excluir"
+                            >
+                              <FaTrash />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

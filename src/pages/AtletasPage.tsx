@@ -17,10 +17,12 @@ import {
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaEye, FaDownload, FaUpload, FaIdCard, FaFileAlt, FaFileExport } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { atletaService, equipeService, categoriaService, logService } from '../services/firebaseService';
+import { documentService } from '../services/documentService';
 import { Atleta, Equipe, Categoria } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useCPFValidation } from '../hooks/useCPFValidation';
 import DocumentosModal from '../components/DocumentosModal';
+import MatriculaModal from '../components/MatriculaModal';
 
 // Função para gerar matrícula baseada no CPF e ano atual
 const gerarMatricula = (cpf: string): string => {
@@ -38,8 +40,10 @@ const AtletasPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDocumentosModal, setShowDocumentosModal] = useState(false);
+  const [showMatriculaModal, setShowMatriculaModal] = useState(false);
   const [selectedAtleta, setSelectedAtleta] = useState<Atleta | null>(null);
   const [editingAtleta, setEditingAtleta] = useState<Atleta | null>(null);
+  const [atletasComMatricula, setAtletasComMatricula] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     nome: '',
     cpf: '',
@@ -108,11 +112,46 @@ const AtletasPage: React.FC = () => {
       setAtletas(atletasData);
       setEquipes(equipesData);
       setCategorias(categoriasData);
+      
+      // Verificar quais atletas têm documentos de matrícula
+      await verificarDocumentosMatricula(atletasData);
     } catch (error) {
       toast.error('Erro ao carregar dados');
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const verificarDocumentosMatricula = async (atletas: Atleta[]) => {
+    try {
+      const atletasComMatriculaSet = new Set<string>();
+      
+      // Verificar apenas atletas que têm ID
+      const atletasComId = atletas.filter(atleta => atleta.id);
+      
+      // Processar em paralelo para melhor performance
+      const verificacoes = atletasComId.map(async (atleta) => {
+        try {
+          const documentos = await documentService.listDocuments(atleta.id!);
+          const temMatricula = documentos.some(doc => doc.tipo === 'matricula');
+          return temMatricula ? atleta.id! : null;
+        } catch (error) {
+          console.warn(`Erro ao verificar documentos do atleta ${atleta.id}:`, error);
+          return null;
+        }
+      });
+      
+      const resultados = await Promise.all(verificacoes);
+      resultados.forEach(id => {
+        if (id) {
+          atletasComMatriculaSet.add(id);
+        }
+      });
+      
+      setAtletasComMatricula(atletasComMatriculaSet);
+    } catch (error) {
+      console.error('Erro ao verificar documentos de matrícula:', error);
     }
   };
 
@@ -231,6 +270,17 @@ const AtletasPage: React.FC = () => {
     
     setSelectedAtleta(atleta);
     setShowDocumentosModal(true);
+  };
+
+  const handleMatricula = (atleta: Atleta) => {
+    // Verificação de segurança para usuários não-admin
+    if (user?.tipo !== 'admin' && atleta.idEquipe !== user?.idEquipe) {
+      toast.error('Você só pode acessar matrículas de atletas da sua equipe');
+      return;
+    }
+    
+    setSelectedAtleta(atleta);
+    setShowMatriculaModal(true);
   };
 
   const handleDelete = async (atleta: Atleta) => {
@@ -430,10 +480,23 @@ const AtletasPage: React.FC = () => {
                   <td>{atleta.nome}</td>
                   <td>{atleta.cpf}</td>
                   <td>
-                    <Badge bg="info" className="d-flex align-items-center">
-                      <FaIdCard className="me-1" />
-                      {atleta.matricula || gerarMatricula(atleta.cpf)}
-                    </Badge>
+                    {atleta.id && atletasComMatricula.has(atleta.id) ? (
+                      <Badge 
+                        bg="info" 
+                        className="d-flex align-items-center cursor-pointer"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => handleMatricula(atleta)}
+                        title="Clique para visualizar a matrícula"
+                      >
+                        <FaIdCard className="me-1" />
+                        {atleta.matricula || gerarMatricula(atleta.cpf)}
+                      </Badge>
+                    ) : (
+                      <Badge bg="info" className="d-flex align-items-center">
+                        <FaIdCard className="me-1" />
+                        {atleta.matricula || gerarMatricula(atleta.cpf)}
+                      </Badge>
+                    )}
                   </td>
                   <td>
                     <Badge bg={atleta.sexo === 'M' ? 'primary' : 'danger'}>
@@ -711,6 +774,16 @@ S
         show={showDocumentosModal}
         onHide={() => {
           setShowDocumentosModal(false);
+          setSelectedAtleta(null);
+        }}
+        atleta={selectedAtleta}
+      />
+
+      {/* Modal da Matrícula */}
+      <MatriculaModal
+        show={showMatriculaModal}
+        onHide={() => {
+          setShowMatriculaModal(false);
           setSelectedAtleta(null);
         }}
         atleta={selectedAtleta}

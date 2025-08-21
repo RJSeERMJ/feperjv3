@@ -36,7 +36,8 @@ export const STORAGE_CONFIG = {
   ALLOWED_EXTENSIONS: {
     'comprovante-residencia': ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp'],
     'foto-3x4': ['.png', '.jpg', '.jpeg', '.gif', '.bmp'],
-    'certificado-adel': ['.pdf', '.png', '.jpg', '.jpeg']
+    'certificado-adel': ['.pdf', '.png', '.jpg', '.jpeg'],
+    'matricula': ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp']
   }
 };
 

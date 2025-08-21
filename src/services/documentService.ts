@@ -3,7 +3,7 @@ import { supabase, STORAGE_CONFIG, validateFileExtension, validateFileSize } fro
 export interface Documento {
   id?: string;
   idAtleta: string;
-  tipo: 'comprovante-residencia' | 'foto-3x4' | 'certificado-adel';
+  tipo: 'comprovante-residencia' | 'foto-3x4' | 'certificado-adel' | 'matricula';
   nomeArquivo: string;
   nomeArquivoSalvo?: string; // Nome do arquivo salvo no Supabase
   url?: string;
@@ -238,7 +238,7 @@ export const documentService = {
       const documentos: Documento[] = [];
 
       // Listar documentos de cada tipo
-      const documentTypes: Documento['tipo'][] = ['comprovante-residencia', 'foto-3x4', 'certificado-adel'];
+      const documentTypes: Documento['tipo'][] = ['comprovante-residencia', 'foto-3x4', 'certificado-adel', 'matricula'];
 
       for (const documentType of documentTypes) {
         try {
