@@ -475,66 +475,65 @@ const FinanceiroPage: React.FC = () => {
         )}
 
         <Tab eventKey="prestacao" title="Prestação de Contas">
-            <Card>
-              <Card.Header>
-                <h5 className="mb-0">📋 Documentos Contábeis</h5>
-              </Card.Header>
-              <Card.Body>
-                {documentosContabeis.length === 0 ? (
-                  <Alert variant="info" className="text-center">
-                    Nenhum documento contábil enviado ainda.
-                  </Alert>
-                ) : (
-                  <Table responsive striped>
-                    <thead>
-                      <tr>
-                        <th>Nome</th>
-                        <th>Tipo</th>
-                        <th>Formato</th>
-                        <th>Data Upload</th>
-                        <th>Status</th>
-                        <th>Ações</th>
+          <Card>
+            <Card.Header>
+              <h5 className="mb-0">📋 Documentos Contábeis</h5>
+            </Card.Header>
+            <Card.Body>
+              {documentosContabeis.length === 0 ? (
+                <Alert variant="info" className="text-center">
+                  Nenhum documento contábil enviado ainda.
+                </Alert>
+              ) : (
+                <Table responsive striped>
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Tipo</th>
+                      <th>Formato</th>
+                      <th>Data Upload</th>
+                      <th>Status</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documentosContabeis.map(doc => (
+                      <tr key={doc.id}>
+                        <td>{doc.nome}</td>
+                        <td>
+                          <Badge bg={doc.tipo === 'DEMONSTRATIVO' ? 'primary' : 'success'}>
+                            {doc.tipo}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Badge bg={doc.formato === 'PDF' ? 'danger' : 'warning'}>
+                            {doc.formato}
+                          </Badge>
+                        </td>
+                        <td>{doc.dataUpload.toLocaleDateString('pt-BR')}</td>
+                        <td>
+                          <Badge bg={doc.ativo ? 'success' : 'secondary'}>
+                            {doc.ativo ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm"
+                            onClick={() => window.open(doc.url, '_blank')}
+                          >
+                            <FaDownload className="me-1" />
+                            Download
+                          </Button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {documentosContabeis.map(doc => (
-                        <tr key={doc.id}>
-                          <td>{doc.nome}</td>
-                          <td>
-                            <Badge bg={doc.tipo === 'DEMONSTRATIVO' ? 'primary' : 'success'}>
-                              {doc.tipo}
-                            </Badge>
-                          </td>
-                          <td>
-                            <Badge bg={doc.formato === 'PDF' ? 'danger' : 'warning'}>
-                              {doc.formato}
-                            </Badge>
-                          </td>
-                          <td>{doc.dataUpload.toLocaleDateString('pt-BR')}</td>
-                          <td>
-                            <Badge bg={doc.ativo ? 'success' : 'secondary'}>
-                              {doc.ativo ? 'Ativo' : 'Inativo'}
-                            </Badge>
-                          </td>
-                                                     <td>
-                             <Button 
-                               variant="outline-primary" 
-                               size="sm"
-                               onClick={() => window.open(doc.url, '_blank')}
-                             >
-                               <FaDownload className="me-1" />
-                               Download
-                             </Button>
-                           </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Card.Body>
-            </Card>
-          </Tab>
-        )}
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </Card.Body>
+          </Card>
+        </Tab>
       </Tabs>
 
       {/* Modal de Configuração de Anuidade */}
@@ -615,7 +614,7 @@ const FinanceiroPage: React.FC = () => {
                 <Form.Control
                   type="file"
                   accept=".pdf,.csv"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  onChange={(e) => setSelectedFile((e.target as HTMLInputElement).files?.[0] || null)}
                 />
                 <Form.Text className="text-muted">
                   Aceita arquivos PDF ou CSV

@@ -456,6 +456,26 @@ export const competicaoService = {
 
 // Serviços de Inscrições
 export const inscricaoService = {
+  async getAll(): Promise<InscricaoCompeticao[]> {
+    const querySnapshot = await getDocs(collection(db, 'inscricoes_competicao'));
+    const inscricoes = await Promise.all(
+      querySnapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        const atleta = await atletaService.getById(data.idAtleta);
+        const competicao = await competicaoService.getById(data.idCompeticao);
+        
+        return {
+          id: doc.id,
+          ...data,
+          dataInscricao: convertTimestamp(data.dataInscricao),
+          atleta,
+          competicao
+        } as InscricaoCompeticao;
+      })
+    );
+    return inscricoes;
+  },
+
   async getByCompeticao(competicaoId: string): Promise<InscricaoCompeticao[]> {
     const q = query(
       collection(db, 'inscricoes_competicao'),
