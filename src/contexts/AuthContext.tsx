@@ -28,12 +28,6 @@ const LOCAL_USERS: Array<{
     senha: '49912170',
     nome: 'Administrador',
     tipo: 'admin'
-  },
-  {
-    login: 'admin',
-    senha: 'admin123',
-    nome: 'Administrador Local',
-    tipo: 'admin'
   }
 ];
 
