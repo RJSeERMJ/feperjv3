@@ -39,7 +39,9 @@ import {
   validarIdadeParaCategoria,
   validarDobraCategoria,
   obterOpcoesDobraValidas,
-  obterCategoriasPeso
+  obterCategoriasPeso,
+  obterCategoriasPesoValidas,
+  validarPesoParaCategoria
 } from '../config/categorias';
 
 // Componente para edição de inscrição
@@ -68,22 +70,26 @@ const EditarInscricaoForm: React.FC<{
     return hoje <= umDiaAntes;
   };
 
-  // Validar se atleta pode usar categoria master baseado na idade
-  const podeUsarCategoriaMaster = (categoriaIdade: any) => {
+  // Validar se atleta pode usar categoria baseado na idade real
+  const podeUsarCategoriaIdade = (categoriaIdade: any) => {
     if (!idadeAtleta || !categoriaIdade) return true;
     
-    if (categoriaIdade.id.startsWith('master')) {
-      return validarIdadeParaCategoria(idadeAtleta, categoriaIdade);
-    }
+    // Aplicar validação rigorosa baseada na idade real do atleta
+    return validarIdadeParaCategoria(idadeAtleta, categoriaIdade);
+  };
+
+  // Obter categorias de idade válidas para o atleta baseado na idade real
+  const obterCategoriasIdadeValidas = () => {
+    if (!idadeAtleta) return CATEGORIAS_IDADE;
     
-    return true;
+    return CATEGORIAS_IDADE.filter(cat => validarIdadeParaCategoria(idadeAtleta, cat));
   };
 
   // Obter opções válidas de dobra considerando a idade do atleta
   const obterOpcoesDobraValidasComIdade = (categoriaIdade: any) => {
     if (!categoriaIdade || !idadeAtleta) return [];
     
-    // Primeiro obter as opções válidas baseadas nas regras de dobra
+    // Primeiro obter as opções válidas baseadas nas regras rigorosas de dobra
     const opcoes = obterOpcoesDobraValidas(categoriaIdade);
     
     // Depois filtrar apenas categorias que o atleta pode usar baseado na idade
@@ -91,7 +97,7 @@ const EditarInscricaoForm: React.FC<{
       // Verificar se o atleta tem idade para a categoria de dobra
       const podeUsarCategoria = validarIdadeParaCategoria(idadeAtleta, cat);
       
-      // Verificar se a combinação é válida para dobra
+      // Verificar se a combinação é válida para dobra (regras rigorosas)
       const combinacaoValida = validarDobraCategoria(categoriaIdade, cat);
       
       return podeUsarCategoria && combinacaoValida;
@@ -101,7 +107,17 @@ const EditarInscricaoForm: React.FC<{
   // Validar se a combinação de categorias é válida para dobra
   const validarCombinacaoDobra = (cat1: any, cat2: any) => {
     if (!cat1 || !cat2) return true;
+    
+    // Aplicar as regras rigorosas de dobra
     return validarDobraCategoria(cat1, cat2);
+  };
+
+  // Validar se atleta pode usar a categoria de peso selecionada
+  const podeUsarCategoriaPeso = (categoriaPeso: any) => {
+    if (!categoriaPeso || !idadeAtleta) return true;
+    
+    // Aplicar validação específica para categorias restritas
+    return validarPesoParaCategoria(idadeAtleta, categoriaPeso);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -112,15 +128,21 @@ const EditarInscricaoForm: React.FC<{
       return;
     }
 
+    // Validar se atleta pode usar a categoria de peso selecionada
+    if (!podeUsarCategoriaPeso(categoriaPeso)) {
+      toast.error(`Atleta não pode usar esta categoria de peso. Restrição de idade aplicada.`);
+      return;
+    }
+
     // Validar se atleta pode usar a categoria de idade selecionada
-    if (!podeUsarCategoriaMaster(categoriaIdade)) {
+    if (!podeUsarCategoriaIdade(categoriaIdade)) {
       toast.error(`Atleta não tem idade suficiente para categoria ${categoriaIdade.nome}`);
       return;
     }
 
-    // Validar se a dobra é válida
+    // Validar se a dobra é válida (aplicar regras rigorosas)
     if (dobraCategoria && !validarCombinacaoDobra(categoriaIdade, dobraCategoria.categoriaIdade)) {
-      toast.error('Combinação de categorias inválida para dobra');
+      toast.error('Combinação de categorias inválida para dobra. Verifique as regras de dobra.');
       return;
     }
 
@@ -154,16 +176,48 @@ const EditarInscricaoForm: React.FC<{
                 const categoria = obterCategoriasPeso(atleta?.sexo || 'M')
                   .find(cat => cat.id === e.target.value);
                 setCategoriaPeso(categoria || null);
+                
+                // Limpar dobra se a categoria de peso mudar
+                if (dobraCategoria) {
+                  setDobraCategoria(null);
+                }
               }}
               required
             >
               <option value="">Selecione a categoria de peso</option>
-              {obterCategoriasPeso(atleta?.sexo || 'M').map(cat => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.nome} - {cat.descricao}
-                </option>
-              ))}
+              {(() => {
+                if (!idadeAtleta) {
+                  return obterCategoriasPeso(atleta?.sexo || 'M').map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.nome} - {cat.descricao}
+                    </option>
+                  ));
+                }
+                
+                const categoriasValidas = obterCategoriasPesoValidas(atleta?.sexo || 'M', idadeAtleta);
+                const todasCategorias = obterCategoriasPeso(atleta?.sexo || 'M');
+                
+                return todasCategorias.map(cat => {
+                  const podeUsar = categoriasValidas.some(catValida => catValida.id === cat.id);
+                  return (
+                    <option 
+                      key={cat.id} 
+                      value={cat.id}
+                      disabled={!podeUsar}
+                    >
+                      {cat.nome} - {cat.descricao}
+                      {!podeUsar && ` (Restrito a Sub-júnior: 14-18 anos)`}
+                    </option>
+                  );
+                });
+              })()}
             </Form.Select>
+            {categoriaPeso && idadeAtleta && !podeUsarCategoriaPeso(categoriaPeso) && (
+              <Form.Text className="text-danger">
+                <strong>⚠️ Restrição de Idade:</strong> Esta categoria de peso é restrita apenas para atletas Sub-júnior (14-18 anos). 
+                Sua idade atual: {idadeAtleta} anos.
+              </Form.Text>
+            )}
           </Form.Group>
         </Col>
         
@@ -183,23 +237,42 @@ const EditarInscricaoForm: React.FC<{
               required
             >
               <option value="">Selecione a categoria de idade</option>
-              {CATEGORIAS_IDADE.map(cat => {
-                const podeUsar = podeUsarCategoriaMaster(cat);
-                return (
-                  <option 
-                    key={cat.id} 
-                    value={cat.id}
-                    disabled={!podeUsar}
-                  >
-                    {cat.nome} - {cat.descricao}
-                    {!podeUsar && ` (Idade insuficiente: ${cat.idadeMaxima} anos)`}
-                  </option>
-                );
-              })}
+              {(() => {
+                if (!idadeAtleta) {
+                  return CATEGORIAS_IDADE.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.nome} - {cat.descricao}
+                    </option>
+                  ));
+                }
+                
+                const categoriasValidas = obterCategoriasIdadeValidas();
+                const todasCategorias = CATEGORIAS_IDADE;
+                
+                return todasCategorias.map(cat => {
+                  const podeUsar = categoriasValidas.some(catValida => catValida.id === cat.id);
+                  return (
+                    <option 
+                      key={cat.id} 
+                      value={cat.id}
+                      disabled={!podeUsar}
+                    >
+                      {cat.nome} - {cat.descricao}
+                      {!podeUsar && ` (Idade insuficiente: ${cat.idadeMinima || 'N/A'} - ${cat.idadeMaxima || 'N/A'} anos)`}
+                    </option>
+                  );
+                });
+              })()}
             </Form.Select>
-            {categoriaIdade && !podeUsarCategoriaMaster(categoriaIdade) && (
+            {categoriaIdade && !podeUsarCategoriaIdade(categoriaIdade) && (
               <Form.Text className="text-danger">
-                Atleta não tem idade suficiente para esta categoria
+                <strong>⚠️ Restrição de Idade:</strong> Atleta não tem idade suficiente para categoria {categoriaIdade.nome}. 
+                Idade atual: {idadeAtleta} anos. Faixa permitida: {categoriaIdade.idadeMinima || 'N/A'} - {categoriaIdade.idadeMaxima || 'N/A'} anos.
+              </Form.Text>
+            )}
+            {idadeAtleta && (
+              <Form.Text className="text-muted">
+                <strong>ℹ️ Idade do atleta:</strong> {idadeAtleta} anos. Apenas categorias compatíveis com esta idade estão habilitadas.
               </Form.Text>
             )}
           </Form.Group>
@@ -223,14 +296,14 @@ const EditarInscricaoForm: React.FC<{
                   if (!categoriaIdadeDobra) return;
 
                   // Validar se atleta pode usar a categoria de dobra
-                  if (!podeUsarCategoriaMaster(categoriaIdadeDobra)) {
-                    toast.error(`Atleta não tem idade suficiente para categoria ${categoriaIdadeDobra.nome}`);
+                  if (!podeUsarCategoriaIdade(categoriaIdadeDobra)) {
+                    toast.error(`Atleta não tem idade suficiente para categoria ${categoriaIdadeDobra.nome}. Idade atual: ${idadeAtleta} anos.`);
                     return;
                   }
 
-                  // Validar se a combinação é válida para dobra
+                  // Validar se a combinação é válida para dobra (regras rigorosas)
                   if (!validarDobraCategoria(categoriaIdade, categoriaIdadeDobra)) {
-                    toast.error('Combinação de categorias inválida para dobra');
+                    toast.error(`Combinação inválida: ${categoriaIdade.nome} + ${categoriaIdadeDobra.nome}. Verifique as regras de dobra.`);
                     return;
                   }
 
@@ -1805,12 +1878,38 @@ const CompeticoesPage: React.FC = () => {
                            }}
                          >
                            <option value="">Selecione a categoria de peso</option>
-                           {obterCategoriasPeso(atleta.sexo).map(cat => (
-                             <option key={cat.id} value={cat.id}>
-                               {cat.nome} - {cat.descricao}
-                               </option>
-                             ))}
+                           {(() => {
+                             const idade = calcularIdade(atleta.dataNascimento!);
+                             const categoriasValidas = obterCategoriasPesoValidas(atleta.sexo, idade);
+                             const todasCategorias = obterCategoriasPeso(atleta.sexo);
+                             
+                             return todasCategorias.map(cat => {
+                               const podeUsar = categoriasValidas.some(catValida => catValida.id === cat.id);
+                               return (
+                                 <option 
+                                   key={cat.id} 
+                                   value={cat.id}
+                                   disabled={!podeUsar}
+                                 >
+                                   {cat.nome} - {cat.descricao}
+                                   {!podeUsar && ` (Restrito a Sub-júnior: 14-18 anos)`}
+                                 </option>
+                               );
+                             });
+                           })()}
                          </Form.Select>
+                         {categorizacao?.categoriaPeso && (() => {
+                           const idade = calcularIdade(atleta.dataNascimento!);
+                           if (!validarPesoParaCategoria(idade, categorizacao.categoriaPeso)) {
+                             return (
+                               <Form.Text className="text-danger">
+                                 <strong>⚠️ Restrição de Idade:</strong> Esta categoria de peso é restrita apenas para atletas Sub-júnior (14-18 anos). 
+                                 Idade do atleta: {idade} anos.
+                               </Form.Text>
+                             );
+                           }
+                           return null;
+                         })()}
                        </Form.Group>
                      </Col>
                      <Col md={4}>
@@ -1836,7 +1935,7 @@ const CompeticoesPage: React.FC = () => {
                            }}
                          >
                            <option value="">Selecione a categoria de idade</option>
-                           {CATEGORIAS_IDADE.map(cat => {
+                           {obterCategoriasIdadeValidas().map(cat => {
                              const idade = calcularIdade(atleta.dataNascimento!);
                              const isValid = validarIdadeParaCategoria(idade, cat);
                              return (

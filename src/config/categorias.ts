@@ -232,6 +232,27 @@ export const obterCategoriasPeso = (sexo: 'M' | 'F'): CategoriaPeso[] => {
   return sexo === 'M' ? CATEGORIAS_PESO_MASCULINO : CATEGORIAS_PESO_FEMININO;
 };
 
+// Função para validar se um atleta pode usar uma categoria de peso específica
+export const validarPesoParaCategoria = (idade: number, categoriaPeso: CategoriaPeso): boolean => {
+  // Categorias restritas apenas para Sub-júnior (14-18 anos)
+  const categoriasRestritas = ['subjunior-junior-m', 'subjunior-junior-f'];
+  
+  if (categoriasRestritas.includes(categoriaPeso.id)) {
+    // Apenas atletas Sub-júnior (14-18 anos) podem usar estas categorias
+    return idade >= 14 && idade <= 18;
+  }
+  
+  // Para outras categorias, não há restrição de idade
+  return true;
+};
+
+// Função para obter categorias de peso válidas para um atleta baseado na idade
+export const obterCategoriasPesoValidas = (sexo: 'M' | 'F', idade: number): CategoriaPeso[] => {
+  const categorias = obterCategoriasPeso(sexo);
+  
+  return categorias.filter(categoria => validarPesoParaCategoria(idade, categoria));
+};
+
 // Função para validar dobra de categoria
 export const validarDobraCategoria = (
   categoriaIdade1: CategoriaIdade,
