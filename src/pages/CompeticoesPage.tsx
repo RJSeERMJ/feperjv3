@@ -1109,36 +1109,11 @@ const CompeticoesPage: React.FC = () => {
                     </div>
                   </td>
                   <td>{getStatusBadge(competicao.status)}</td>
-                  <td>
-                    <div className="d-flex gap-1">
-                      <Button 
-                        variant="outline-info" 
-                        size="sm"
-                        onClick={() => handleInscricoes(competicao)}
-                      >
-                        <FaUsers className="me-1" />
-                        Ver Inscrições
-                      </Button>
-                      {user?.tipo === 'admin' || (user?.idEquipe && atletas.some(a => a.idEquipe === user.idEquipe)) ? (
-                        <Button 
-                          variant="outline-success" 
-                          size="sm"
-                          onClick={() => handleInscreverAtletas(competicao)}
-                          disabled={competicao.status !== 'AGENDADA' || !podeInscrever(competicao)}
-                          title={
-                            competicao.status !== 'AGENDADA' 
-                              ? 'Apenas competições agendadas permitem inscrições' 
-                              : !podeInscrever(competicao)
-                              ? 'Prazo de inscrição encerrado'
-                              : 'Inscrever atletas'
-                          }
-                        >
-                          <FaUserCheck className="me-1" />
-                          Inscrever
-                        </Button>
-                      ) : null}
-                    </div>
-                  </td>
+                                     <td>
+                     <div className="text-muted">
+                       <small>Clique na linha para ver detalhes</small>
+                     </div>
+                   </td>
                   <td>
                     {user?.tipo === 'admin' && (
                       <Dropdown>
@@ -1404,8 +1379,10 @@ const CompeticoesPage: React.FC = () => {
                         R$ {inscricao.valorIndividual?.toFixed(2) || selectedCompeticao?.valorInscricao.toFixed(2)}
                       </td>
                       <td>
-                        {inscricao.temDobra ? (
-                          <Badge bg="warning">Sim</Badge>
+                        {inscricao.dobraCategoria ? (
+                          <Badge bg="warning">
+                            {inscricao.dobraCategoria.categoriaIdade.nome}
+                          </Badge>
                         ) : (
                           <Badge bg="secondary">Não</Badge>
                         )}
@@ -1680,8 +1657,8 @@ const CompeticoesPage: React.FC = () => {
               )}
             </Tab>
             <Tab eventKey="estatisticas" title="Estatísticas">
-              <Row>
-                <Col md={4}>
+              <Row className="justify-content-center">
+                <Col md={6}>
                   <Card className="text-center">
                     <Card.Body>
                       <h3>{inscricoes.filter(i => i.statusInscricao === 'INSCRITO').length}</h3>
@@ -1689,18 +1666,10 @@ const CompeticoesPage: React.FC = () => {
                     </Card.Body>
                   </Card>
                 </Col>
-                <Col md={4}>
+                <Col md={6}>
                   <Card className="text-center">
                     <Card.Body>
-                      <h3>{inscricoes.filter(i => i.statusInscricao === 'CANCELADO').length}</h3>
-                      <p className="text-muted">Inscrições Canceladas</p>
-                    </Card.Body>
-                  </Card>
-                </Col>
-                <Col md={4}>
-                  <Card className="text-center">
-                    <Card.Body>
-                      <h3>{inscricoes.filter(i => i.temDobra).length}</h3>
+                      <h3>{inscricoes.filter(i => i.statusInscricao === 'INSCRITO' && i.dobraCategoria).length}</h3>
                       <p className="text-muted">Atletas com Dobra</p>
                     </Card.Body>
                   </Card>
