@@ -23,7 +23,8 @@ import {
   FaCog,
   FaCheckCircle,
   FaTimesCircle,
-  FaEye
+  FaEye,
+  FaUpload
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,6 +37,7 @@ import {
   pagamentoService
 } from '../services/firebaseService';
 import { documentosContabeisService, DocumentoContabil, DownloadLog, DeleteLog } from '../services/documentosContabeisService';
+import { comprovantesAnuidadeService, ComprovanteAnuidade, LogAprovacao } from '../services/comprovantesAnuidadeService';
 import { Equipe, Atleta, Competicao, InscricaoCompeticao } from '../types';
 import { testSupabaseConnection } from '../config/supabase';
 
@@ -70,17 +72,30 @@ const FinanceiroPage: React.FC = () => {
   const [documentosContabeis, setDocumentosContabeis] = useState<DocumentoContabil[]>([]);
   const [downloadLogs, setDownloadLogs] = useState<DownloadLog[]>([]);
   const [deleteLogs, setDeleteLogs] = useState<DeleteLog[]>([]);
+  const [comprovantes, setComprovantes] = useState<ComprovanteAnuidade[]>([]);
+  const [logsAprovacao, setLogsAprovacao] = useState<LogAprovacao[]>([]);
   
   // Estados para modais
   const [showConfigAnuidadeModal, setShowConfigAnuidadeModal] = useState(false);
   const [showDetalhesEquipeModal, setShowDetalhesEquipeModal] = useState(false);
   const [showPrestacaoContasModal, setShowPrestacaoContasModal] = useState(false);
+  const [showComprovanteModal, setShowComprovanteModal] = useState(false);
+  const [showAprovacaoModal, setShowAprovacaoModal] = useState(false);
   const [selectedEquipe, setSelectedEquipe] = useState<Equipe | null>(null);
+  const [selectedAtleta, setSelectedAtleta] = useState<Atleta | null>(null);
+  const [selectedComprovante, setSelectedComprovante] = useState<ComprovanteAnuidade | null>(null);
   
   // Estados para formulários
   const [valorAnuidade, setValorAnuidade] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [tipoDocumento, setTipoDocumento] = useState<'DEMONSTRATIVO' | 'BALANCETE'>('DEMONSTRATIVO');
+  
+  // Estados para formulário de comprovante
+  const [comprovanteFile, setComprovanteFile] = useState<File | null>(null);
+  const [dataPagamento, setDataPagamento] = useState('');
+  const [valorPagamento, setValorPagamento] = useState('');
+  const [observacoesComprovante, setObservacoesComprovante] = useState('');
+  const [observacoesAprovacao, setObservacoesAprovacao] = useState('');
   
   // Estados para download com progresso
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
@@ -115,6 +130,26 @@ const FinanceiroPage: React.FC = () => {
           setDeleteLogs(deleteLogsData);
         } catch (error) {
           console.warn('Erro ao carregar logs:', error);
+        }
+      }
+
+      // Carregar comprovantes da equipe do usuário
+      if (user?.idEquipe) {
+        try {
+          const comprovantesData = await comprovantesAnuidadeService.listarComprovantesPorEquipe(user.idEquipe);
+          setComprovantes(comprovantesData);
+        } catch (error) {
+          console.warn('Erro ao carregar comprovantes:', error);
+        }
+      }
+
+      // Se for admin, carregar todos os comprovantes
+      if (user?.tipo === 'admin') {
+        try {
+          const todosComprovantes = await comprovantesAnuidadeService.listarTodosComprovantes();
+          setComprovantes(todosComprovantes);
+        } catch (error) {
+          console.warn('Erro ao carregar todos os comprovantes:', error);
         }
       }
 
@@ -188,6 +223,142 @@ const FinanceiroPage: React.FC = () => {
       toast.error('Erro ao configurar anuidade');
       console.error(error);
     }
+  };
+
+  // Funções para gerenciar comprovantes
+  const handleUploadComprovante = async () => {
+    if (!selectedAtleta || !comprovanteFile || !dataPagamento || !valorPagamento) {
+      toast.error('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      console.log('📁 Iniciando upload do comprovante...');
+      
+      // Verificar se o usuário está autenticado
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+
+      const valor = parseFloat(valorPagamento);
+      const dataPag = new Date(dataPagamento);
+
+      // Upload para Supabase Storage (seguindo o padrão da prestação de contas)
+      await comprovantesAnuidadeService.uploadComprovante(
+        comprovanteFile,
+        selectedAtleta.id!,
+        user!.idEquipe!,
+        selectedAtleta.nome,
+        user!.nomeEquipe || 'Equipe',
+        dataPag,
+        valor,
+        observacoesComprovante
+      );
+
+      console.log('✅ Upload do comprovante concluído com sucesso');
+      toast.success('Comprovante enviado com sucesso!');
+      setShowComprovanteModal(false);
+      limparFormularioComprovante();
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro no upload do comprovante:', error);
+      toast.error(`Erro ao enviar comprovante: ${errorMessage}`);
+    }
+  };
+
+  const handleDownloadComprovante = async (comprovante: ComprovanteAnuidade) => {
+    try {
+      console.log('📥 Iniciando download do comprovante...');
+      await comprovantesAnuidadeService.downloadComprovante(comprovante);
+      toast.success('Download iniciado com sucesso!');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro no download do comprovante:', error);
+      toast.error(`Erro ao baixar comprovante: ${errorMessage}`);
+    }
+  };
+
+  const handleDeletarComprovante = async (comprovante: ComprovanteAnuidade) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o comprovante "${comprovante.nome}"?`)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Iniciando exclusão do comprovante...');
+      await comprovantesAnuidadeService.deletarComprovante(
+        comprovante,
+        user!.tipo === 'admin',
+        user!.idEquipe
+      );
+      toast.success('Comprovante excluído com sucesso!');
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao excluir comprovante:', error);
+      toast.error(`Erro ao excluir comprovante: ${errorMessage}`);
+    }
+  };
+
+  const handleAprovarComprovante = async () => {
+    if (!selectedComprovante) return;
+
+    try {
+      await comprovantesAnuidadeService.aprovarComprovante(
+        selectedComprovante,
+        user!.nome || user!.login,
+        observacoesAprovacao
+      );
+      toast.success('Comprovante aprovado com sucesso!');
+      setShowAprovacaoModal(false);
+      setObservacoesAprovacao('');
+      setSelectedComprovante(null);
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao aprovar comprovante:', error);
+      toast.error(`Erro ao aprovar comprovante: ${errorMessage}`);
+    }
+  };
+
+  const handleRejeitarComprovante = async () => {
+    if (!selectedComprovante) return;
+
+    try {
+      await comprovantesAnuidadeService.rejeitarComprovante(
+        selectedComprovante,
+        user!.nome || user!.login,
+        observacoesAprovacao
+      );
+      toast.success('Comprovante rejeitado com sucesso!');
+      setShowAprovacaoModal(false);
+      setObservacoesAprovacao('');
+      setSelectedComprovante(null);
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao rejeitar comprovante:', error);
+      toast.error(`Erro ao rejeitar comprovante: ${errorMessage}`);
+    }
+  };
+
+  const limparFormularioComprovante = () => {
+    setComprovanteFile(null);
+    setDataPagamento('');
+    setValorPagamento('');
+    setObservacoesComprovante('');
+    setSelectedAtleta(null);
+  };
+
+  const abrirModalComprovante = (atleta: Atleta) => {
+    setSelectedAtleta(atleta);
+    setShowComprovanteModal(true);
+  };
+
+  const abrirModalAprovacao = (comprovante: ComprovanteAnuidade) => {
+    setSelectedComprovante(comprovante);
+    setShowAprovacaoModal(true);
   };
 
   // Funções para Prestação de Contas
@@ -456,12 +627,14 @@ const FinanceiroPage: React.FC = () => {
                           <th>Status Anuidade</th>
                           <th>Valor Anuidade</th>
                           <th>Data Pagamento</th>
+                          <th>Comprovante</th>
                         </tr>
                       </thead>
                       <tbody>
                         {getAtletasEquipe(user.idEquipe).map(atleta => {
                           const statusAnuidade = getStatusAnuidadeAtleta(atleta.id!);
                           const pagamento = pagamentosAnuidade.find(pag => pag.idAtleta === atleta.id);
+                          const comprovante = comprovantes.find(comp => comp.atletaId === atleta.id);
                           
                           return (
                             <tr key={atleta.id}>
@@ -480,6 +653,58 @@ const FinanceiroPage: React.FC = () => {
                                   ? pagamento.dataPagamento.toLocaleDateString('pt-BR')
                                   : '-'
                                 }
+                              </td>
+                              <td>
+                                <div className="d-flex gap-1">
+                                  {comprovante ? (
+                                    <>
+                                      <Badge bg={
+                                        comprovante.status === 'APROVADO' ? 'success' : 
+                                        comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
+                                      }>
+                                        {comprovante.status}
+                                      </Badge>
+                                      <Button
+                                        variant="outline-primary"
+                                        size="sm"
+                                        onClick={() => handleDownloadComprovante(comprovante)}
+                                        title="Baixar comprovante"
+                                      >
+                                        <FaDownload />
+                                      </Button>
+                                      {(user?.tipo === 'admin' || user?.idEquipe === comprovante.equipeId) && (
+                                        <Button
+                                          variant="outline-danger"
+                                          size="sm"
+                                          onClick={() => handleDeletarComprovante(comprovante)}
+                                          title="Excluir comprovante"
+                                        >
+                                          <FaTimesCircle />
+                                        </Button>
+                                      )}
+                                      {user?.tipo === 'admin' && comprovante.status === 'PENDENTE' && (
+                                        <Button
+                                          variant="outline-success"
+                                          size="sm"
+                                          onClick={() => abrirModalAprovacao(comprovante)}
+                                          title="Aprovar/Rejeitar comprovante"
+                                        >
+                                          <FaCheckCircle />
+                                        </Button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <Button
+                                      variant="outline-primary"
+                                      size="sm"
+                                      onClick={() => abrirModalComprovante(atleta)}
+                                      title="Enviar comprovante de pagamento"
+                                    >
+                                      <FaUpload />
+                                      Enviar
+                                    </Button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -759,6 +984,162 @@ const FinanceiroPage: React.FC = () => {
             </Card>
           </Tab>
         )}
+
+        {/* Aba de Comprovantes de Anuidade (apenas para admins) */}
+        {user?.tipo === 'admin' && (
+          <Tab eventKey="comprovantes" title="Comprovantes de Anuidade">
+            <Card>
+              <Card.Header>
+                <h5 className="mb-0">💰 Comprovantes de Pagamento de Anuidade</h5>
+              </Card.Header>
+              <Card.Body>
+                {comprovantes.length === 0 ? (
+                  <Alert variant="info" className="text-center">
+                    Nenhum comprovante de anuidade encontrado.
+                  </Alert>
+                ) : (
+                  <Table responsive striped>
+                    <thead>
+                      <tr>
+                        <th>Atleta</th>
+                        <th>Equipe</th>
+                        <th>Arquivo</th>
+                        <th>Valor</th>
+                        <th>Data Pagamento</th>
+                        <th>Status</th>
+                        <th>Data Upload</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comprovantes.map(comprovante => (
+                        <tr key={comprovante.id}>
+                          <td>
+                            <strong>{comprovante.nomeAtleta}</strong>
+                          </td>
+                          <td>{comprovante.nomeEquipe}</td>
+                          <td>
+                            <small>{comprovante.nome}</small>
+                            <br />
+                            <small className="text-muted">
+                              {(comprovante.tamanho / 1024 / 1024).toFixed(2)} MB
+                            </small>
+                          </td>
+                          <td>R$ {comprovante.valor ? comprovante.valor.toFixed(2) : 'N/A'}</td>
+                          <td>
+                            {comprovante.dataPagamento ? comprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+                          </td>
+                          <td>
+                            <Badge bg={
+                              comprovante.status === 'APROVADO' ? 'success' : 
+                              comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
+                            }>
+                              {comprovante.status}
+                            </Badge>
+                          </td>
+                          <td>
+                            {comprovante.dataUpload.toLocaleDateString('pt-BR')}
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1">
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => handleDownloadComprovante(comprovante)}
+                                title="Baixar comprovante"
+                              >
+                                <FaDownload />
+                              </Button>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => handleDeletarComprovante(comprovante)}
+                                title="Excluir comprovante"
+                              >
+                                <FaTimesCircle />
+                              </Button>
+                              {comprovante.status === 'PENDENTE' && (
+                                <Button
+                                  variant="outline-success"
+                                  size="sm"
+                                  onClick={() => abrirModalAprovacao(comprovante)}
+                                  title="Aprovar/Rejeitar comprovante"
+                                >
+                                  <FaCheckCircle />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+        )}
+
+        {/* Aba de Logs de Aprovação (apenas para admins) */}
+        {user?.tipo === 'admin' && (
+          <Tab eventKey="logs-aprovacao" title="Logs de Aprovação">
+            <Card>
+              <Card.Header>
+                <h5 className="mb-0">📊 Logs de Aprovação de Comprovantes</h5>
+              </Card.Header>
+              <Card.Body>
+                {logsAprovacao.length === 0 ? (
+                  <Alert variant="info" className="text-center">
+                    Nenhum log de aprovação encontrado.
+                  </Alert>
+                ) : (
+                  <Table responsive striped>
+                    <thead>
+                      <tr>
+                        <th>Atleta</th>
+                        <th>Equipe</th>
+                        <th>Admin</th>
+                        <th>Ação</th>
+                        <th>Data/Hora</th>
+                        <th>Observações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logsAprovacao.map(log => (
+                        <tr key={log.id}>
+                          <td>
+                            <strong>{log.atletaId}</strong>
+                          </td>
+                          <td>{log.equipeId}</td>
+                          <td>
+                            {log.adminNome}
+                            <br />
+                            <small className="text-muted">ID: {log.adminId}</small>
+                          </td>
+                          <td>
+                            <Badge bg={log.acao === 'APROVAR' ? 'success' : 'danger'}>
+                              {log.acao}
+                            </Badge>
+                          </td>
+                          <td>
+                            {log.dataAcao.toLocaleString('pt-BR')}
+                          </td>
+                          <td>
+                            {log.observacoes ? (
+                              <small>{log.observacoes}</small>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+        )}
       </Tabs>
 
       {/* Modal de Configuração de Anuidade */}
@@ -988,6 +1369,159 @@ const FinanceiroPage: React.FC = () => {
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDetalhesEquipeModal(false)}>
             Fechar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Upload de Comprovante */}
+      <Modal show={showComprovanteModal} onHide={() => setShowComprovanteModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaUpload className="me-2" />
+            Enviar Comprovante de Pagamento
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info">
+            <strong>ℹ️ Informação:</strong> Envie o comprovante de pagamento da anuidade do atleta.
+          </Alert>
+          
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Atleta</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={selectedAtleta?.nome || ''}
+                  disabled
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Data do Pagamento</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={dataPagamento}
+                  onChange={(e) => setDataPagamento(e.target.value)}
+                  required
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Valor Pago (R$)</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={valorPagamento}
+                  onChange={(e) => setValorPagamento(e.target.value)}
+                  placeholder="0,00"
+                  required
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Comprovante (PDF, JPG, PNG)</Form.Label>
+                <Form.Control
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setComprovanteFile((e.target as HTMLInputElement).files?.[0] || null)}
+                  required
+                />
+                <Form.Text className="text-muted">
+                  Tamanho máximo: 20MB
+                </Form.Text>
+              </Form.Group>
+            </Col>
+          </Row>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Observações (opcional)</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={observacoesComprovante}
+              onChange={(e) => setObservacoesComprovante(e.target.value)}
+              placeholder="Informações adicionais sobre o pagamento..."
+            />
+          </Form.Group>
+
+          {comprovanteFile && (
+            <Alert variant="success">
+              <strong>✅ Arquivo selecionado:</strong> {comprovanteFile.name}
+              <br />
+              <small>Tamanho: {(comprovanteFile.size / 1024 / 1024).toFixed(2)} MB</small>
+            </Alert>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowComprovanteModal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleUploadComprovante}>
+            <FaUpload className="me-2" />
+            Enviar Comprovante
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Aprovação de Comprovante */}
+      <Modal show={showAprovacaoModal} onHide={() => setShowAprovacaoModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaCheckCircle className="me-2" />
+            Aprovar/Rejeitar Comprovante
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedComprovante && (
+            <div>
+              <Alert variant="info">
+                                        <strong>Comprovante:</strong> {selectedComprovante.nome}
+                <br />
+                <strong>Atleta:</strong> {selectedComprovante.nomeAtleta}
+                <br />
+                <strong>Equipe:</strong> {selectedComprovante.nomeEquipe}
+                <br />
+                <strong>Valor:</strong> R$ {selectedComprovante.valor ? selectedComprovante.valor.toFixed(2) : 'N/A'}
+                <br />
+                <strong>Data Pagamento:</strong> {selectedComprovante.dataPagamento ? selectedComprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+              </Alert>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Observações (opcional)</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={observacoesAprovacao}
+                  onChange={(e) => setObservacoesAprovacao(e.target.value)}
+                  placeholder="Motivo da aprovação/rejeição..."
+                />
+              </Form.Group>
+
+              <Alert variant="warning">
+                <strong>⚠️ Atenção:</strong> Ao aprovar o comprovante, o status do atleta será alterado para ATIVO automaticamente.
+              </Alert>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAprovacaoModal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={handleRejeitarComprovante}>
+            <FaTimesCircle className="me-2" />
+            Rejeitar
+          </Button>
+          <Button variant="success" onClick={handleAprovarComprovante}>
+            <FaCheckCircle className="me-2" />
+            Aprovar
           </Button>
         </Modal.Footer>
       </Modal>

@@ -20,6 +20,15 @@ export const CONTABIL_CONFIG = {
   ALLOWED_MIME_TYPES: ['application/pdf', 'text/csv', 'application/csv']
 };
 
+// Configurações para comprovantes de anuidade (bucket financeiro)
+export const COMPROVANTES_CONFIG = {
+  BUCKET_NAME: 'financeiro',
+  FOLDER_NAME: 'comprovantes',
+  MAX_FILE_SIZE: 20 * 1024 * 1024, // 20MB em bytes
+  ALLOWED_EXTENSIONS: ['.pdf', '.png', '.jpg', '.jpeg'],
+  ALLOWED_MIME_TYPES: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg']
+};
+
 // Configurações para upload de arquivos de atletas (bucket feperj-2025)
 export const STORAGE_CONFIG = {
   BUCKET_NAME: 'feperj-2025',

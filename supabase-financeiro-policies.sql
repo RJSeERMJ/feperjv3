@@ -152,3 +152,133 @@ FOR SELECT USING (
     AND usuarios.tipo = 'admin'
   )
 );
+
+-- =====================================================
+-- SISTEMA DE COMPROVANTES DE ANUIDADE
+-- =====================================================
+
+-- Usar o bucket "financeiro" existente para comprovantes
+-- Os comprovantes serão armazenados em: financeiro/comprovantes/equipe_X/arquivo.pdf
+
+-- Políticas de segurança para comprovantes no bucket financeiro
+-- (As políticas existentes do bucket financeiro já cobrem upload, download e delete)
+
+-- Tabela para comprovantes de anuidade
+CREATE TABLE IF NOT EXISTS comprovantes_anuidade (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id_atleta TEXT NOT NULL,
+  id_equipe TEXT NOT NULL,
+  nome_atleta TEXT NOT NULL,
+  nome_equipe TEXT NOT NULL,
+  nome_arquivo TEXT NOT NULL,
+  nome_arquivo_salvo TEXT NOT NULL,
+  data_upload TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  data_pagamento TIMESTAMP WITH TIME ZONE NOT NULL,
+  valor DECIMAL(10,2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDENTE' CHECK (status IN ('PENDENTE', 'APROVADO', 'REJEITADO')),
+  observacoes TEXT,
+  aprovado_por TEXT,
+  data_aprovacao TIMESTAMP WITH TIME ZONE,
+  tamanho INTEGER NOT NULL,
+  content_type TEXT NOT NULL,
+  url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para melhor performance
+CREATE INDEX IF NOT EXISTS idx_comprovantes_atleta ON comprovantes_anuidade(id_atleta);
+CREATE INDEX IF NOT EXISTS idx_comprovantes_equipe ON comprovantes_anuidade(id_equipe);
+CREATE INDEX IF NOT EXISTS idx_comprovantes_status ON comprovantes_anuidade(status);
+CREATE INDEX IF NOT EXISTS idx_comprovantes_data_upload ON comprovantes_anuidade(data_upload DESC);
+
+-- Políticas de segurança para a tabela de comprovantes
+CREATE POLICY "Equipe própria pode inserir comprovantes" ON comprovantes_anuidade
+FOR INSERT WITH CHECK (
+  auth.role() = 'authenticated' 
+  AND id_equipe IN (
+    SELECT id_equipe FROM usuarios 
+    WHERE usuarios.login = auth.jwt() ->> 'email'
+  )
+);
+
+CREATE POLICY "Equipe própria e admin podem visualizar comprovantes" ON comprovantes_anuidade
+FOR SELECT USING (
+  auth.role() = 'authenticated' 
+  AND (
+    id_equipe IN (
+      SELECT id_equipe FROM usuarios 
+      WHERE usuarios.login = auth.jwt() ->> 'email'
+    )
+    OR EXISTS (
+      SELECT 1 FROM usuarios 
+      WHERE usuarios.login = auth.jwt() ->> 'email' 
+      AND usuarios.tipo = 'admin'
+    )
+  )
+);
+
+CREATE POLICY "Apenas admin pode atualizar comprovantes" ON comprovantes_anuidade
+FOR UPDATE USING (
+  auth.role() = 'authenticated' 
+  AND EXISTS (
+    SELECT 1 FROM usuarios 
+    WHERE usuarios.login = auth.jwt() ->> 'email' 
+    AND usuarios.tipo = 'admin'
+  )
+);
+
+CREATE POLICY "Equipe própria e admin podem deletar comprovantes" ON comprovantes_anuidade
+FOR DELETE USING (
+  auth.role() = 'authenticated' 
+  AND (
+    id_equipe IN (
+      SELECT id_equipe FROM usuarios 
+      WHERE usuarios.login = auth.jwt() ->> 'email'
+    )
+    OR EXISTS (
+      SELECT 1 FROM usuarios 
+      WHERE usuarios.login = auth.jwt() ->> 'email' 
+      AND usuarios.tipo = 'admin'
+    )
+  )
+);
+
+-- Tabela para logs de aprovação de anuidade
+CREATE TABLE IF NOT EXISTS logs_aprovacao_anuidade (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  comprovante_id TEXT NOT NULL,
+  atleta_id TEXT NOT NULL,
+  equipe_id TEXT NOT NULL,
+  admin_id TEXT NOT NULL,
+  admin_nome TEXT NOT NULL,
+  acao TEXT NOT NULL CHECK (acao IN ('APROVAR', 'REJEITAR')),
+  data_acao TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  observacoes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para melhor performance
+CREATE INDEX IF NOT EXISTS idx_logs_aprovacao_comprovante ON logs_aprovacao_anuidade(comprovante_id);
+CREATE INDEX IF NOT EXISTS idx_logs_aprovacao_admin ON logs_aprovacao_anuidade(admin_id);
+CREATE INDEX IF NOT EXISTS idx_logs_aprovacao_data ON logs_aprovacao_anuidade(data_acao DESC);
+
+-- Políticas de segurança para a tabela de logs de aprovação
+CREATE POLICY "Admin pode inserir logs de aprovação" ON logs_aprovacao_anuidade
+FOR INSERT WITH CHECK (
+  auth.role() = 'authenticated' 
+  AND EXISTS (
+    SELECT 1 FROM usuarios 
+    WHERE usuarios.login = auth.jwt() ->> 'email' 
+    AND usuarios.tipo = 'admin'
+  )
+);
+
+CREATE POLICY "Apenas admin pode visualizar logs de aprovação" ON logs_aprovacao_anuidade
+FOR SELECT USING (
+  auth.role() = 'authenticated' 
+  AND EXISTS (
+    SELECT 1 FROM usuarios 
+    WHERE usuarios.login = auth.jwt() ->> 'email' 
+    AND usuarios.tipo = 'admin'
+  )
+);
