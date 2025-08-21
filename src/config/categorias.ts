@@ -208,6 +208,10 @@ export const validarIdadeParaCategoria = (idade: number, categoriaIdade: Categor
     case 'junior':
       return idade >= 19 && idade <= 23;
     case 'open':
+      // Master 3 (60-69) e Master 4 (70+) NÃO podem usar categoria Open
+      if (idade >= 60) {
+        return false;
+      }
       return idade >= 19;
     case 'master1':
       return idade >= 40 && idade <= 49;
@@ -263,23 +267,22 @@ export const validarDobraCategoria = (
     return false;
   }
   
-  // Master 4 nunca pode dobrar
-  if (categoriaIdade1.id === 'master4' || categoriaIdade2.id === 'master4') {
+  // Master 3 e Master 4 nunca podem dobrar
+  if (categoriaIdade1.id === 'master3' || categoriaIdade2.id === 'master3' ||
+      categoriaIdade1.id === 'master4' || categoriaIdade2.id === 'master4') {
     return false;
   }
   
   // Apenas combinações específicas são permitidas:
   // 1. Open + Júnior (e vice-versa)
-  // 2. Open + Master 1,2,3 (e vice-versa)
+  // 2. Open + Master 1,2 (e vice-versa) - Master 3 e 4 removidos
   const combinacoesValidas = [
     { cat1: 'open', cat2: 'junior' },
     { cat1: 'open', cat2: 'master1' },
     { cat1: 'open', cat2: 'master2' },
-    { cat1: 'open', cat2: 'master3' },
     { cat1: 'junior', cat2: 'open' },
     { cat1: 'master1', cat2: 'open' },
-    { cat1: 'master2', cat2: 'open' },
-    { cat1: 'master3', cat2: 'open' }
+    { cat1: 'master2', cat2: 'open' }
   ];
   
   return combinacoesValidas.some(combo => 
@@ -295,15 +298,15 @@ export const obterOpcoesDobraValidas = (categoriaIdade: CategoriaIdade): Categor
     return [];
   }
   
-  // Master 4 nunca pode dobrar
-  if (categoriaIdade.id === 'master4') {
+  // Master 3 e Master 4 nunca podem dobrar
+  if (categoriaIdade.id === 'master3' || categoriaIdade.id === 'master4') {
     return [];
   }
   
-  // Open pode dobrar com Júnior, Master 1, 2 e 3
+  // Open pode dobrar com Júnior, Master 1 e 2 (Master 3 e 4 removidos)
   if (categoriaIdade.id === 'open') {
     return CATEGORIAS_IDADE.filter(cat => 
-      cat.id === 'junior' || cat.id === 'master1' || cat.id === 'master2' || cat.id === 'master3'
+      cat.id === 'junior' || cat.id === 'master1' || cat.id === 'master2'
     );
   }
   
@@ -312,8 +315,8 @@ export const obterOpcoesDobraValidas = (categoriaIdade: CategoriaIdade): Categor
     return CATEGORIAS_IDADE.filter(cat => cat.id === 'open');
   }
   
-  // Master 1, 2 e 3 podem dobrar apenas com Open
-  if (categoriaIdade.id === 'master1' || categoriaIdade.id === 'master2' || categoriaIdade.id === 'master3') {
+  // Master 1 e 2 podem dobrar apenas com Open (Master 3 removido)
+  if (categoriaIdade.id === 'master1' || categoriaIdade.id === 'master2') {
     return CATEGORIAS_IDADE.filter(cat => cat.id === 'open');
   }
   
