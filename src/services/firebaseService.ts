@@ -589,3 +589,152 @@ export const dashboardService = {
     };
   }
 };
+
+// Serviços Financeiros
+export const anuidadeService = {
+  async getAtivo(): Promise<any> {
+    const q = query(
+      collection(db, 'anuidades'), 
+      where('ativo', '==', true),
+      orderBy('dataCriacao', 'desc'),
+      limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return {
+        id: doc.id,
+        ...doc.data(),
+        dataCriacao: convertTimestamp(doc.data().dataCriacao),
+        dataAtualizacao: convertTimestamp(doc.data().dataAtualizacao)
+      };
+    }
+    return null;
+  },
+
+  async create(anuidade: any): Promise<string> {
+    // Desativar anuidades anteriores
+    const q = query(collection(db, 'anuidades'), where('ativo', '==', true));
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    
+    querySnapshot.docs.forEach((doc) => {
+      batch.update(doc.ref, { ativo: false });
+    });
+
+    // Criar nova anuidade
+    const docRef = await addDoc(collection(db, 'anuidades'), {
+      ...anuidade,
+      dataCriacao: Timestamp.now(),
+      ativo: true
+    });
+    
+    await batch.commit();
+    return docRef.id;
+  },
+
+  async update(id: string, anuidade: any): Promise<void> {
+    const docRef = doc(db, 'anuidades', id);
+    await updateDoc(docRef, {
+      ...anuidade,
+      dataAtualizacao: Timestamp.now()
+    });
+  },
+
+  async getAll(): Promise<any[]> {
+    const q = query(collection(db, 'anuidades'), orderBy('dataCriacao', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      dataCriacao: convertTimestamp(doc.data().dataCriacao),
+      dataAtualizacao: convertTimestamp(doc.data().dataAtualizacao)
+    }));
+  }
+};
+
+export const pagamentoService = {
+  async getAll(): Promise<any[]> {
+    const querySnapshot = await getDocs(collection(db, 'pagamentos_anuidade'));
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      dataPagamento: convertTimestamp(doc.data().dataPagamento)
+    }));
+  },
+
+  async getByAtleta(idAtleta: string): Promise<any[]> {
+    const q = query(collection(db, 'pagamentos_anuidade'), where('idAtleta', '==', idAtleta));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      dataPagamento: convertTimestamp(doc.data().dataPagamento)
+    }));
+  },
+
+  async getByEquipe(idEquipe: string): Promise<any[]> {
+    const q = query(collection(db, 'pagamentos_anuidade'), where('idEquipe', '==', idEquipe));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      dataPagamento: convertTimestamp(doc.data().dataPagamento)
+    }));
+  },
+
+  async create(pagamento: any): Promise<string> {
+    const docRef = await addDoc(collection(db, 'pagamentos_anuidade'), {
+      ...pagamento,
+      dataPagamento: Timestamp.now()
+    });
+    return docRef.id;
+  },
+
+  async update(id: string, pagamento: any): Promise<void> {
+    const docRef = doc(db, 'pagamentos_anuidade', id);
+    await updateDoc(docRef, pagamento);
+  },
+
+  async delete(id: string): Promise<void> {
+    const docRef = doc(db, 'pagamentos_anuidade', id);
+    await deleteDoc(docRef);
+  }
+};
+
+export const documentoService = {
+  async getAll(): Promise<any[]> {
+    const q = query(collection(db, 'documentos_contabeis'), orderBy('dataUpload', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      dataUpload: convertTimestamp(doc.data().dataUpload)
+    }));
+  },
+
+  async create(documento: any): Promise<string> {
+    const docRef = await addDoc(collection(db, 'documentos_contabeis'), {
+      ...documento,
+      dataUpload: Timestamp.now(),
+      ativo: true
+    });
+    return docRef.id;
+  },
+
+  async update(id: string, documento: any): Promise<void> {
+    const docRef = doc(db, 'documentos_contabeis', id);
+    await updateDoc(docRef, documento);
+  },
+
+  async delete(id: string): Promise<void> {
+    const docRef = doc(db, 'documentos_contabeis', id);
+    await deleteDoc(docRef);
+  },
+
+  async uploadDocumento(file: File, tipo: string): Promise<string> {
+    const fileName = `documentos_contabeis/${Date.now()}_${file.name}`;
+    const url = await fileService.uploadFile(file, fileName);
+    return url;
+  }
+};
