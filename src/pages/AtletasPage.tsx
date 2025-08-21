@@ -768,7 +768,7 @@ const AtletasPage: React.FC = () => {
           </Modal.Footer>
         </Form>
       </Modal>
-S
+
       {/* Modal de Documentos */}
       <DocumentosModal
         show={showDocumentosModal}
