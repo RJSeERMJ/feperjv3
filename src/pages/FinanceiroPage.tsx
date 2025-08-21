@@ -12,21 +12,18 @@ import {
   Badge,
   Tabs,
   Tab,
-  InputGroup
+  InputGroup,
+  ProgressBar
 } from 'react-bootstrap';
 import { 
   FaMoneyBillWave, 
   FaUsers, 
   FaFileUpload, 
-  FaFileAlt,
   FaDownload,
-  FaEdit,
   FaCog,
-  FaChartBar,
   FaCheckCircle,
   FaTimesCircle,
-  FaEye,
-  FaPlus
+  FaEye
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,10 +33,11 @@ import {
   competicaoService, 
   inscricaoService,
   anuidadeService,
-  pagamentoService,
-  documentoService
+  pagamentoService
 } from '../services/firebaseService';
+import { documentosContabeisService, DocumentoContabil, DownloadLog, DeleteLog } from '../services/documentosContabeisService';
 import { Equipe, Atleta, Competicao, InscricaoCompeticao } from '../types';
+import { testSupabaseConnection } from '../config/supabase';
 
 interface Anuidade {
   id?: string;
@@ -59,15 +57,7 @@ interface PagamentoAnuidade {
   observacoes?: string;
 }
 
-interface DocumentoContabil {
-  id?: string;
-  nome: string;
-  tipo: 'DEMONSTRATIVO' | 'BALANCETE';
-  formato: 'PDF' | 'CSV';
-  url: string;
-  dataUpload: Date;
-  ativo: boolean;
-}
+
 
 const FinanceiroPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -78,6 +68,8 @@ const FinanceiroPage: React.FC = () => {
   const [anuidade, setAnuidade] = useState<Anuidade | null>(null);
   const [pagamentosAnuidade, setPagamentosAnuidade] = useState<PagamentoAnuidade[]>([]);
   const [documentosContabeis, setDocumentosContabeis] = useState<DocumentoContabil[]>([]);
+  const [downloadLogs, setDownloadLogs] = useState<DownloadLog[]>([]);
+  const [deleteLogs, setDeleteLogs] = useState<DeleteLog[]>([]);
   
   // Estados para modais
   const [showConfigAnuidadeModal, setShowConfigAnuidadeModal] = useState(false);
@@ -89,6 +81,10 @@ const FinanceiroPage: React.FC = () => {
   const [valorAnuidade, setValorAnuidade] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [tipoDocumento, setTipoDocumento] = useState<'DEMONSTRATIVO' | 'BALANCETE'>('DEMONSTRATIVO');
+  
+  // Estados para download com progresso
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   
   const { user } = useAuth();
 
@@ -108,16 +104,30 @@ const FinanceiroPage: React.FC = () => {
         inscricaoService.getAll()
       ]);
 
+      // Carregar logs de download e exclusão se for admin
+      if (user?.tipo === 'admin') {
+        try {
+          const [downloadLogsData, deleteLogsData] = await Promise.all([
+            documentosContabeisService.obterLogsDownload(50),
+            documentosContabeisService.obterLogsExclusao(50)
+          ]);
+          setDownloadLogs(downloadLogsData);
+          setDeleteLogs(deleteLogsData);
+        } catch (error) {
+          console.warn('Erro ao carregar logs:', error);
+        }
+      }
+
       setEquipes(equipesData);
       setAtletas(atletasData);
       setCompeticoes(competicoesData);
       setInscricoes(inscricoesData);
 
-      // Carregar dados financeiros do Firebase
+      // Carregar dados financeiros do Firebase e Supabase
       const [anuidadeData, pagamentosData, documentosData] = await Promise.all([
         anuidadeService.getAtivo(),
         pagamentoService.getAll(),
-        documentoService.getAll()
+        documentosContabeisService.listarDocumentos()
       ]);
 
       setAnuidade(anuidadeData);
@@ -188,27 +198,28 @@ const FinanceiroPage: React.FC = () => {
     }
 
     try {
-      // Upload para Firebase Storage
-      const url = await documentoService.uploadDocumento(selectedFile, tipoDocumento);
+      console.log('📁 Supabase: Iniciando upload do documento');
       
-      const documento: DocumentoContabil = {
-        nome: selectedFile.name,
-        tipo: tipoDocumento,
-        formato: selectedFile.name.endsWith('.pdf') ? 'PDF' : 'CSV',
-        url: url,
-        dataUpload: new Date(),
-        ativo: true
-      };
+      // Verificar se o usuário está autenticado
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
 
-      await documentoService.create(documento);
+      // Bucket "financeiro" já existe - não precisa verificar
+
+      // Upload para Supabase Storage
+      await documentosContabeisService.uploadDocumento(selectedFile, tipoDocumento);
       
+      console.log('✅ Supabase: Upload concluído com sucesso');
       toast.success('Documento enviado com sucesso!');
       setShowPrestacaoContasModal(false);
       setSelectedFile(null);
       loadData();
     } catch (error) {
-      toast.error('Erro ao enviar documento');
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Supabase: Erro no upload:', error);
+      toast.error(`Erro ao enviar documento: ${errorMessage}`);
     }
   };
 
@@ -272,13 +283,26 @@ const FinanceiroPage: React.FC = () => {
               <FaCog className="me-2" />
               Configurar Anuidade
             </Button>
-            <Button 
-              variant="outline-success" 
-              onClick={() => setShowPrestacaoContasModal(true)}
-            >
-              <FaFileUpload className="me-2" />
-              Prestação de Contas
-            </Button>
+                         <Button 
+               variant="outline-success" 
+               onClick={() => setShowPrestacaoContasModal(true)}
+             >
+               <FaFileUpload className="me-2" />
+               Prestação de Contas
+             </Button>
+             <Button 
+               variant="outline-info" 
+               onClick={async () => {
+                 const result = await testSupabaseConnection();
+                 if (result.success) {
+                   toast.success(result.message || 'Conectividade OK!');
+                 } else {
+                   toast.error(`Erro: ${result.error}`);
+                 }
+               }}
+             >
+               🧪 Testar Supabase
+             </Button>
           </div>
         )}
       </div>
@@ -479,6 +503,13 @@ const FinanceiroPage: React.FC = () => {
               <h5 className="mb-0">📋 Documentos Contábeis</h5>
             </Card.Header>
             <Card.Body>
+              {/* Informação sobre permissões */}
+              {user?.tipo !== 'admin' && (
+                <Alert variant="info" className="mb-3">
+                  <strong>ℹ️ Informação:</strong> Você pode baixar todos os documentos. 
+                  Apenas administradores podem excluir arquivos.
+                </Alert>
+              )}
               {documentosContabeis.length === 0 ? (
                 <Alert variant="info" className="text-center">
                   Nenhum documento contábil enviado ainda.
@@ -516,15 +547,88 @@ const FinanceiroPage: React.FC = () => {
                           </Badge>
                         </td>
                         <td>
-                          <Button 
-                            variant="outline-primary" 
-                            size="sm"
-                            onClick={() => window.open(doc.url, '_blank')}
-                          >
-                            <FaDownload className="me-1" />
-                            Download
-                          </Button>
-                        </td>
+                          {downloadingFile === doc.id && (
+                            <div className="mb-2">
+                              <ProgressBar 
+                                now={downloadProgress} 
+                                label={`${downloadProgress}%`}
+                                variant="success"
+                              />
+                            </div>
+                          )}
+                                                    <div className="d-flex gap-1">
+                             <Button 
+                               variant="outline-primary" 
+                               size="sm"
+                               disabled={downloadingFile === doc.id}
+                               onClick={async () => {
+                                 if (!user) {
+                                   toast.error('Usuário não autenticado');
+                                   return;
+                                 }
+                                 
+                                 setDownloadingFile(doc.id || '');
+                                 setDownloadProgress(0);
+                                 
+                                 try {
+                                   await documentosContabeisService.downloadDocumento(
+                                     doc,
+                                     user.id || user.login,
+                                     user.login,
+                                     (progress) => setDownloadProgress(progress)
+                                   );
+                                   toast.success('Download concluído com sucesso!');
+                                 } catch (error) {
+                                   console.error('Erro no download:', error);
+                                   toast.error('Erro ao baixar documento');
+                                 } finally {
+                                   setDownloadingFile(null);
+                                   setDownloadProgress(0);
+                                 }
+                               }}
+                             >
+                               {downloadingFile === doc.id ? (
+                                 <>
+                                   <Spinner animation="border" size="sm" className="me-1" />
+                                   {downloadProgress}%
+                                 </>
+                               ) : (
+                                 <>
+                                   <FaDownload className="me-1" />
+                                   Download
+                                 </>
+                               )}
+                             </Button>
+                             {/* Botão de Exclusão - Apenas para Administradores */}
+                             {user?.tipo === 'admin' && (
+                               <Button 
+                                 variant="outline-danger" 
+                                 size="sm"
+                                 title="Apenas administradores podem excluir documentos"
+                                 onClick={async () => {
+                                   if (window.confirm(`Tem certeza que deseja excluir o documento "${doc.nome}"?`)) {
+                                     try {
+                                       await documentosContabeisService.deletarDocumento(
+                                         doc.nomeArquivoSalvo!, 
+                                         doc.tipo,
+                                         user.id || user.login,
+                                         user.tipo
+                                       );
+                                       toast.success('Documento excluído com sucesso!');
+                                       loadData();
+                                     } catch (error) {
+                                       toast.error('Erro ao excluir documento');
+                                       console.error(error);
+                                     }
+                                   }
+                                 }}
+                               >
+                                 <FaTimesCircle className="me-1" />
+                                 Excluir
+                               </Button>
+                             )}
+                           </div>
+                         </td>
                       </tr>
                     ))}
                   </tbody>
@@ -533,6 +637,128 @@ const FinanceiroPage: React.FC = () => {
             </Card.Body>
           </Card>
         </Tab>
+
+        {/* Aba de Logs de Download (apenas para admins) */}
+        {user?.tipo === 'admin' && (
+          <Tab eventKey="logs" title="Logs de Download">
+            <Card>
+              <Card.Header>
+                <h5 className="mb-0">📊 Logs de Download de Documentos</h5>
+              </Card.Header>
+              <Card.Body>
+                {downloadLogs.length === 0 ? (
+                  <Alert variant="info" className="text-center">
+                    Nenhum log de download encontrado.
+                  </Alert>
+                ) : (
+                  <Table responsive striped>
+                    <thead>
+                      <tr>
+                        <th>Documento</th>
+                        <th>Usuário</th>
+                        <th>Data/Hora</th>
+                        <th>Status</th>
+                        <th>IP</th>
+                        <th>Erro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {downloadLogs.map(log => (
+                        <tr key={log.id}>
+                          <td>
+                            <strong>{log.nomeDocumento}</strong>
+                            <br />
+                            <small className="text-muted">ID: {log.documentoId}</small>
+                          </td>
+                          <td>
+                            {log.usuarioEmail}
+                            <br />
+                            <small className="text-muted">ID: {log.usuarioId}</small>
+                          </td>
+                          <td>
+                            {log.dataDownload.toLocaleString('pt-BR')}
+                          </td>
+                          <td>
+                            <Badge bg={log.sucesso ? 'success' : 'danger'}>
+                              {log.sucesso ? 'Sucesso' : 'Erro'}
+                            </Badge>
+                          </td>
+                          <td>
+                            <small>{log.ipAddress || 'N/A'}</small>
+                          </td>
+                          <td>
+                            {log.erro ? (
+                              <small className="text-danger">{log.erro}</small>
+                            ) : (
+                              <span className="text-muted">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+        )}
+
+        {/* Aba de Logs de Exclusão (apenas para admins) */}
+        {user?.tipo === 'admin' && (
+          <Tab eventKey="logs-exclusao" title="Logs de Exclusão">
+            <Card>
+              <Card.Header>
+                <h5 className="mb-0">🗑️ Logs de Exclusão de Documentos</h5>
+              </Card.Header>
+              <Card.Body>
+                {deleteLogs.length === 0 ? (
+                  <Alert variant="info" className="text-center">
+                    Nenhum log de exclusão encontrado.
+                  </Alert>
+                ) : (
+                  <Table responsive striped>
+                    <thead>
+                      <tr>
+                        <th>Documento</th>
+                        <th>Usuário</th>
+                        <th>Tipo</th>
+                        <th>Data/Hora</th>
+                        <th>ID do Documento</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deleteLogs.map(log => (
+                        <tr key={log.id}>
+                          <td>
+                            <strong>{log.nomeDocumento}</strong>
+                          </td>
+                          <td>
+                            {log.usuarioId}
+                            <br />
+                            <Badge bg={log.usuarioTipo === 'admin' ? 'danger' : 'primary'}>
+                              {log.usuarioTipo}
+                            </Badge>
+                          </td>
+                          <td>
+                            <Badge bg={log.tipoDocumento === 'DEMONSTRATIVO' ? 'primary' : 'success'}>
+                              {log.tipoDocumento}
+                            </Badge>
+                          </td>
+                          <td>
+                            {log.dataExclusao.toLocaleString('pt-BR')}
+                          </td>
+                          <td>
+                            <small className="text-muted">{log.documentoId}</small>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+        )}
       </Tabs>
 
       {/* Modal de Configuração de Anuidade */}

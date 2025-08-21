@@ -1174,16 +1174,16 @@ const CompeticoesPage: React.FC = () => {
                     </div>
                   </td>
                   <td>{getStatusBadge(competicao.status)}</td>
-                                     <td>
+                  <td>
+                     <div className="text-muted">
+                       <small>Clique na linha para ver detalhes</small>
+                    </div>
+                  </td>
+                  <td>
                      <div className="text-muted">
                        <small>Clique na linha para ver detalhes</small>
                      </div>
-                   </td>
-                                     <td>
-                     <div className="text-muted">
-                       <small>Clique na linha para ver detalhes</small>
-                     </div>
-                   </td>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1965,9 +1965,9 @@ const CompeticoesPage: React.FC = () => {
                                    value={cat.id}
                                    disabled={!podeUsar}
                                  >
-                                   {cat.nome} - {cat.descricao}
+                               {cat.nome} - {cat.descricao}
                                    {!podeUsar && ` (Restrito a Sub-júnior: 14-18 anos)`}
-                                 </option>
+                               </option>
                                );
                              });
                            })()}
@@ -2012,12 +2012,12 @@ const CompeticoesPage: React.FC = () => {
                            {(() => {
                              const idade = calcularIdade(atleta.dataNascimento!);
                              return CATEGORIAS_IDADE.map(cat => {
-                               const isValid = validarIdadeParaCategoria(idade, cat);
-                               return (
-                                 <option key={cat.id} value={cat.id} disabled={!isValid}>
-                                   {cat.nome} - {cat.descricao} {!isValid && '(Idade não compatível)'}
-                                 </option>
-                               );
+                             const isValid = validarIdadeParaCategoria(idade, cat);
+                             return (
+                               <option key={cat.id} value={cat.id} disabled={!isValid}>
+                                 {cat.nome} - {cat.descricao} {!isValid && '(Idade não compatível)'}
+                               </option>
+                             );
                              });
                            })()}
                          </Form.Select>
@@ -2095,9 +2095,9 @@ const CompeticoesPage: React.FC = () => {
                              }
                              
                              return opcoesFiltradas.map(cat => (
-                               <option key={cat.id} value={cat.id}>
-                                 {cat.nome} - {cat.descricao}
-                               </option>
+                             <option key={cat.id} value={cat.id}>
+                               {cat.nome} - {cat.descricao}
+                             </option>
                              ));
                            })()}
                          </Form.Select>

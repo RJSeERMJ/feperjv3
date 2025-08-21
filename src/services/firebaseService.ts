@@ -552,9 +552,24 @@ export const logService = {
 // Serviços de Upload de Arquivos
 export const fileService = {
   async uploadFile(file: File, path: string): Promise<string> {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
+    try {
+      console.log('📁 FileService: Iniciando upload para path:', path);
+      console.log('📁 FileService: Tamanho do arquivo:', file.size, 'bytes');
+      
+      const storageRef = ref(storage, path);
+      console.log('📁 FileService: Referência do storage criada');
+      
+      await uploadBytes(storageRef, file);
+      console.log('📁 FileService: Upload de bytes concluído');
+      
+      const url = await getDownloadURL(storageRef);
+      console.log('📁 FileService: URL de download obtida:', url);
+      
+      return url;
+    } catch (error) {
+      console.error('❌ FileService: Erro no upload:', error);
+      throw error;
+    }
   },
 
   async deleteFile(path: string): Promise<void> {
@@ -755,8 +770,17 @@ export const documentoService = {
   },
 
   async uploadDocumento(file: File, tipo: string): Promise<string> {
-    const fileName = `documentos_contabeis/${Date.now()}_${file.name}`;
-    const url = await fileService.uploadFile(file, fileName);
-    return url;
+    try {
+      console.log('📁 Iniciando upload do documento:', file.name);
+      const fileName = `documentos_contabeis/${Date.now()}_${file.name}`;
+      console.log('📁 Nome do arquivo no storage:', fileName);
+      
+      const url = await fileService.uploadFile(file, fileName);
+      console.log('✅ Upload concluído com sucesso. URL:', url);
+      return url;
+    } catch (error) {
+      console.error('❌ Erro no upload do documento:', error);
+      throw error;
+    }
   }
 };
