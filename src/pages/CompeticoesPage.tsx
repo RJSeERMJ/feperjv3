@@ -27,7 +27,8 @@ import {
   FaFileExport,
   FaUserCheck,
   FaUserTimes,
-  FaChartBar
+  FaChartBar,
+  FaDownload
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { competicaoService, inscricaoService, atletaService, equipeService, logService } from '../services/firebaseService';
@@ -989,6 +990,70 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
+  // Função para exportar a nominação completa em CSV
+  const exportarNominacaoCSV = () => {
+    if (!selectedCompeticao) return;
+    
+    // Filtrar apenas inscrições válidas
+    const inscricoesValidas = inscricoes.filter(i => 
+      i.statusInscricao === 'INSCRITO' && 
+      i.atleta && 
+      i.categoriaPeso && 
+      i.categoriaIdade
+    );
+    
+    if (inscricoesValidas.length === 0) {
+      toast.error('Nenhuma inscrição válida para exportar');
+      return;
+    }
+    
+    // Preparar dados para CSV
+    const dadosCSV = inscricoesValidas.map(insc => ({
+      'Nome': insc.atleta?.nome || '',
+      'CPF': insc.atleta?.cpf || '',
+      'Data Nascimento': insc.atleta?.dataNascimento ? 
+        new Date(insc.atleta.dataNascimento).toLocaleDateString('pt-BR') : '',
+      'Idade': insc.atleta?.dataNascimento ? 
+        calcularIdade(insc.atleta.dataNascimento) : '',
+      'Sexo': insc.atleta?.sexo === 'M' ? 'Masculino' : 'Feminino',
+      'Equipe': insc.atleta?.equipe?.nomeEquipe || '',
+      'Categoria Peso': insc.categoriaPeso?.nome || '',
+      'Categoria Idade': insc.categoriaIdade?.nome || '',
+      'Dobra': insc.dobraCategoria ? 
+        `${insc.dobraCategoria.categoriaIdade.nome} - ${insc.dobraCategoria.categoriaPeso.nome}` : 'Não',
+      'Status': insc.statusInscricao || ''
+    }));
+    
+    // Converter para CSV
+    const headers = Object.keys(dadosCSV[0]);
+    const csvContent = [
+      headers.join(','),
+      ...dadosCSV.map(row => 
+        headers.map(header => {
+          const value = row[header as keyof typeof row];
+          // Escapar vírgulas e aspas no CSV
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        }).join(',')
+      )
+    ].join('\n');
+    
+    // Criar e baixar arquivo
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `nominacao_${selectedCompeticao.nomeCompeticao.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`Nominação exportada com sucesso! ${inscricoesValidas.length} atletas incluídos.`);
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
@@ -1431,6 +1496,21 @@ const CompeticoesPage: React.FC = () => {
                   <br />
                   Atletas organizados por categoria de peso e sexo para facilitar a organização da competição.
                 </Alert>
+                
+                {/* Botão de Exportar CSV - Apenas para Administradores */}
+                {user?.tipo === 'admin' && (
+                  <div className="d-flex justify-content-end mb-3">
+                    <Button 
+                      variant="success" 
+                      size="sm"
+                      onClick={() => exportarNominacaoCSV()}
+                      disabled={inscricoes.filter(i => i.statusInscricao === 'INSCRITO').length === 0}
+                    >
+                      <FaDownload className="me-2" />
+                      Exportar Nominação (CSV)
+                    </Button>
+                  </div>
+                )}
               </div>
               
               {/* Tabela Masculino */}
