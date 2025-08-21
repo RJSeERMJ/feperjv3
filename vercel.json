@@ -5,7 +5,8 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "build"
+        "distDir": "build",
+        "buildCommand": "npm run vercel-build"
       }
     }
   ],
@@ -35,10 +36,13 @@
       "dest": "/index.html"
     }
   ],
-  "env": {"CI": "false",
+  "env": {
+    "CI": "false",
     "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
     "GENERATE_SOURCEMAP": "false",
-    "SKIP_PREFLIGHT_CHECK": "true"
+    "SKIP_PREFLIGHT_CHECK": "true",
+    "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org/",
+    "NPM_CONFIG_STRICT_SSL": "false"
   }
 }
   
