@@ -163,9 +163,8 @@ const FinanceiroPage: React.FC = () => {
     }
 
     try {
-      const novaAnuidade: Anuidade = {
+      const novaAnuidade = {
         valor: parseFloat(valorAnuidade),
-        dataCriacao: new Date(),
         ativo: true
       };
 

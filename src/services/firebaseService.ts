@@ -615,19 +615,21 @@ export const anuidadeService = {
   async getAtivo(): Promise<any> {
     const q = query(
       collection(db, 'anuidades'), 
-      where('ativo', '==', true),
-      orderBy('dataCriacao', 'desc'),
-      limit(1)
+      where('ativo', '==', true)
     );
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
-      const doc = querySnapshot.docs[0];
-      return {
+      // Pegar o mais recente baseado na data de criação
+      const docs = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         dataCriacao: convertTimestamp(doc.data().dataCriacao),
         dataAtualizacao: convertTimestamp(doc.data().dataAtualizacao)
-      };
+      }));
+      
+      // Ordenar por data de criação e pegar o mais recente
+      docs.sort((a, b) => b.dataCriacao.getTime() - a.dataCriacao.getTime());
+      return docs[0];
     }
     return null;
   },
