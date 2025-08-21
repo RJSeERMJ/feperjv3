@@ -195,6 +195,83 @@ export const equipeService = {
   async delete(id: string): Promise<void> {
     const docRef = doc(db, 'equipes', id);
     await deleteDoc(docRef);
+  },
+
+  // Função para aprovar comprovante de inscrição
+  async aprovarComprovanteInscricao(equipeId: string, competicaoId: string, adminNome: string, observacoes?: string): Promise<void> {
+    try {
+      console.log(`✅ Aprovando comprovante de inscrição para equipe ${equipeId} na competição ${competicaoId}`);
+      
+      // 1. Atualizar status da equipe para PAGO
+      const equipeRef = doc(db, 'equipes', equipeId);
+      await updateDoc(equipeRef, {
+        status: 'PAGO',
+        dataAtualizacao: Timestamp.now()
+      });
+      console.log(`✅ Status da equipe ${equipeId} atualizado para PAGO no Firebase`);
+      
+      // 2. Atualizar status das inscrições da equipe para esta competição
+      const inscricoesExistentes = await inscricaoService.getByCompeticao(competicaoId);
+      const inscricoesEquipe = inscricoesExistentes.filter(insc => {
+        // Buscar o atleta para verificar se pertence à equipe
+        return insc.atleta && insc.atleta.idEquipe === equipeId;
+      });
+      
+      // Atualizar status de todas as inscrições da equipe para esta competição
+      for (const inscricao of inscricoesEquipe) {
+        const inscricaoRef = doc(db, 'inscricoes_competicao', inscricao.id!);
+        await updateDoc(inscricaoRef, {
+          statusInscricao: 'INSCRITO',
+          dataAprovacao: Timestamp.now(),
+          aprovadoPor: adminNome,
+          observacoes: observacoes || 'Aprovado via comprovante de inscrição'
+        });
+      }
+      
+      console.log(`✅ Comprovante de inscrição aprovado com sucesso para equipe ${equipeId}`);
+    } catch (error) {
+      console.error('❌ Erro ao aprovar comprovante de inscrição:', error);
+      throw error;
+    }
+  },
+
+  // Função para rejeitar comprovante de inscrição
+  async rejeitarComprovanteInscricao(equipeId: string, competicaoId: string, adminNome: string, observacoes?: string): Promise<void> {
+    try {
+      console.log(`❌ Rejeitando comprovante de inscrição para equipe ${equipeId} na competição ${competicaoId}`);
+      
+      // 1. Atualizar status da equipe para PENDENTE
+      const equipeRef = doc(db, 'equipes', equipeId);
+      await updateDoc(equipeRef, {
+        status: 'PENDENTE',
+        dataAtualizacao: Timestamp.now()
+      });
+      console.log(`✅ Status da equipe ${equipeId} atualizado para PENDENTE no Firebase`);
+      
+      // 2. Registrar a rejeição das inscrições
+      
+      const inscricoesExistentes = await inscricaoService.getByCompeticao(competicaoId);
+      const inscricoesEquipe = inscricoesExistentes.filter(insc => {
+        // Buscar o atleta para verificar se pertence à equipe
+        return insc.atleta && insc.atleta.idEquipe === equipeId;
+      });
+      
+      // Atualizar status de todas as inscrições da equipe para esta competição
+      for (const inscricao of inscricoesEquipe) {
+        const inscricaoRef = doc(db, 'inscricoes_competicao', inscricao.id!);
+        await updateDoc(inscricaoRef, {
+          statusInscricao: 'CANCELADO',
+          dataRejeicao: Timestamp.now(),
+          rejeitadoPor: adminNome,
+          observacoes: observacoes || 'Rejeitado via comprovante de inscrição'
+        });
+      }
+      
+      console.log(`❌ Comprovante de inscrição rejeitado com sucesso para equipe ${equipeId}`);
+    } catch (error) {
+      console.error('❌ Erro ao rejeitar comprovante de inscrição:', error);
+      throw error;
+    }
   }
 };
 
@@ -468,6 +545,8 @@ export const inscricaoService = {
           id: doc.id,
           ...data,
           dataInscricao: convertTimestamp(data.dataInscricao),
+          dataAprovacao: convertTimestamp(data.dataAprovacao),
+          dataRejeicao: convertTimestamp(data.dataRejeicao),
           atleta,
           competicao
         } as InscricaoCompeticao;
@@ -492,6 +571,8 @@ export const inscricaoService = {
           id: doc.id,
           ...data,
           dataInscricao: convertTimestamp(data.dataInscricao),
+          dataAprovacao: convertTimestamp(data.dataAprovacao),
+          dataRejeicao: convertTimestamp(data.dataRejeicao),
           atleta,
           competicao
         } as InscricaoCompeticao;
@@ -838,7 +919,9 @@ export const pagamentoService = {
       console.error('❌ Erro ao rejeitar comprovante:', error);
       throw error;
     }
-  }
+  },
+
+
 };
 
 // Serviço para renovação anual automática

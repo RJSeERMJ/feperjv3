@@ -14,7 +14,7 @@ import {
   FaClipboardList,
   FaFileAlt,
   FaHistory,
-  FaMoneyBillWave
+  FaMoneyBillWave,
 } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
@@ -45,6 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     ] : []),
     { path: '/competicoes', label: 'Competições', icon: <FaTrophy /> },
     { path: '/financeiro', label: 'Financeiro', icon: <FaMoneyBillWave /> },
+
     { path: '/relatorios', label: 'Relatórios', icon: <FaChartBar /> },
     ...(user?.tipo === 'admin' ? [
       { path: '/usuarios', label: 'Usuários', icon: <FaUserCog /> },

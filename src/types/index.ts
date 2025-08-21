@@ -22,6 +22,7 @@ export interface Equipe {
   telefone?: string;
   email?: string;
   idChefe?: string; // ID do usuário que é chefe da equipe
+  status?: 'ATIVA' | 'INATIVA' | 'SUSPENSA' | 'PAGO' | 'PENDENTE';
   dataCriacao?: Date;
 }
 
@@ -99,6 +100,10 @@ export interface InscricaoCompeticao {
     categoriaPeso: CategoriaPeso;
     categoriaIdade: CategoriaIdade;
   };
+  dataAprovacao?: Date;
+  dataRejeicao?: Date;
+  aprovadoPor?: string;
+  rejeitadoPor?: string;
   atleta?: Atleta;
   competicao?: Competicao;
 }

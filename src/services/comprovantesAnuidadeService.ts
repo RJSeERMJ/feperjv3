@@ -553,7 +553,7 @@ export const comprovantesAnuidadeService = {
 
             if (equipe) {
               const comprovantesEquipe = await this.listarComprovantesPorEquipeComFirebase(equipe.id!, pagamentosData, anuidadeAtiva);
-              comprovantes.push(...comprovantesEquipe);
+            comprovantes.push(...comprovantesEquipe);
             } else {
               console.warn(`⚠️ Equipe não encontrada para pasta: ${equipeFolder.name}`);
             }
@@ -666,8 +666,8 @@ export const comprovantesAnuidadeService = {
       console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
       console.log(`💰 Valor: R$ ${valorAnuidade.toFixed(2)}`);
       
-      if (observacoes) {
-        console.log(`📝 Observações: ${observacoes}`);
+    if (observacoes) {
+      console.log(`📝 Observações: ${observacoes}`);
       }
       
       console.log('✅ Status do atleta atualizado automaticamente para ATIVO');
@@ -695,8 +695,8 @@ export const comprovantesAnuidadeService = {
       console.log(`👤 Atleta: ${comprovante.nomeAtleta} (${comprovante.atletaId})`);
       console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
       
-      if (observacoes) {
-        console.log(`📝 Observações: ${observacoes}`);
+    if (observacoes) {
+      console.log(`📝 Observações: ${observacoes}`);
       }
       
       console.log('✅ Status do atleta mantido (não alterado)');

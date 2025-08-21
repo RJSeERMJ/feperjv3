@@ -33,13 +33,14 @@ import {
   equipeService, 
   atletaService, 
   competicaoService, 
-  inscricaoService, 
-  anuidadeService, 
+  inscricaoService,
+  anuidadeService,
   pagamentoService,
   renovacaoAnualService
 } from '../services/firebaseService';
 import { documentosContabeisService, DocumentoContabil } from '../services/documentosContabeisService';
 import { comprovantesAnuidadeService, ComprovanteAnuidade } from '../services/comprovantesAnuidadeService';
+import { comprovantesInscricaoService, ComprovanteInscricao } from '../services/comprovantesInscricaoService';
 import { Equipe, Atleta, Competicao, InscricaoCompeticao } from '../types';
 import { testSupabaseConnection } from '../config/supabase';
 
@@ -73,6 +74,7 @@ const FinanceiroPage: React.FC = () => {
   const [pagamentosAnuidade, setPagamentosAnuidade] = useState<PagamentoAnuidade[]>([]);
   const [documentosContabeis, setDocumentosContabeis] = useState<DocumentoContabil[]>([]);
   const [comprovantes, setComprovantes] = useState<ComprovanteAnuidade[]>([]);
+  const [comprovantesInscricao, setComprovantesInscricao] = useState<ComprovanteInscricao[]>([]);
   
   // Estados para modais
   const [showConfigAnuidadeModal, setShowConfigAnuidadeModal] = useState(false);
@@ -80,9 +82,15 @@ const FinanceiroPage: React.FC = () => {
   const [showPrestacaoContasModal, setShowPrestacaoContasModal] = useState(false);
   const [showComprovanteModal, setShowComprovanteModal] = useState(false);
   const [showAprovacaoModal, setShowAprovacaoModal] = useState(false);
+  const [showInscricaoModal, setShowInscricaoModal] = useState(false);
+  const [showAprovacaoInscricaoModal, setShowAprovacaoInscricaoModal] = useState(false);
   const [selectedEquipe, setSelectedEquipe] = useState<Equipe | null>(null);
   const [selectedAtleta, setSelectedAtleta] = useState<Atleta | null>(null);
   const [selectedComprovante, setSelectedComprovante] = useState<ComprovanteAnuidade | null>(null);
+  const [selectedCompeticao, setSelectedCompeticao] = useState<Competicao | null>(null);
+  const [selectedComprovanteInscricao, setSelectedComprovanteInscricao] = useState<ComprovanteInscricao | null>(null);
+  const [selectedEquipeInscricao, setSelectedEquipeInscricao] = useState<Equipe | null>(null);
+  const [viewMode, setViewMode] = useState<'competicoes' | 'equipes' | 'comprovantes'>('competicoes');
   
   // Estados para formulários
   const [valorAnuidade, setValorAnuidade] = useState('');
@@ -95,6 +103,9 @@ const FinanceiroPage: React.FC = () => {
   const [valorPagamento, setValorPagamento] = useState('');
   const [observacoesComprovante, setObservacoesComprovante] = useState('');
   const [observacoesAprovacao, setObservacoesAprovacao] = useState('');
+  const [observacoesInscricao, setObservacoesInscricao] = useState('');
+  const [observacoesAprovacaoInscricao, setObservacoesAprovacaoInscricao] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
   // Estados para download com progresso
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
@@ -149,6 +160,26 @@ const FinanceiroPage: React.FC = () => {
           setComprovantes(todosComprovantes);
         } catch (error) {
           console.warn('Erro ao carregar todos os comprovantes:', error);
+        }
+      }
+
+      // Carregar comprovantes de inscrição
+      if (user?.idEquipe) {
+        try {
+          const comprovantesInscricaoData = await comprovantesInscricaoService.listarComprovantesPorEquipe(user.idEquipe);
+          setComprovantesInscricao(comprovantesInscricaoData);
+        } catch (error) {
+          console.warn('Erro ao carregar comprovantes de inscrição:', error);
+        }
+      }
+
+      // Se for admin, carregar todos os comprovantes de inscrição
+      if (user?.tipo === 'admin') {
+        try {
+          const todosComprovantesInscricao = await comprovantesInscricaoService.listarTodosComprovantes();
+          setComprovantesInscricao(todosComprovantesInscricao);
+        } catch (error) {
+          console.warn('Erro ao carregar todos os comprovantes de inscrição:', error);
         }
       }
 
@@ -360,6 +391,211 @@ const FinanceiroPage: React.FC = () => {
     setShowAprovacaoModal(true);
   };
 
+  // Funções para Comprovantes de Inscrição
+  const handleUploadComprovanteInscricao = async () => {
+    if (!selectedCompeticao || selectedFiles.length === 0) {
+      toast.error('Por favor, selecione uma competição e pelo menos um arquivo');
+      return;
+    }
+
+    try {
+      console.log('📁 Iniciando upload de comprovantes de inscrição...');
+      
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+
+      // Determinar a equipe (do usuário ou da equipe selecionada pelo admin)
+      const equipeId = selectedEquipeInscricao ? selectedEquipeInscricao.id! : user.idEquipe!;
+      const equipe = equipes.find(e => e.id === equipeId);
+      if (!equipe) {
+        toast.error('Equipe não encontrada');
+        return;
+      }
+
+      // Upload de múltiplos arquivos para Supabase Storage (bucket financeiro)
+      for (const file of selectedFiles) {
+        await comprovantesInscricaoService.uploadComprovante(
+          file,
+          equipeId,
+          selectedCompeticao.id!,
+          equipe.nomeEquipe,
+          selectedCompeticao.nomeCompeticao,
+          selectedCompeticao.valorInscricao, // valor da competição
+          observacoesInscricao
+        );
+      }
+
+      console.log('✅ Upload de comprovantes de inscrição concluído');
+      toast.success(`${selectedFiles.length} comprovante(s) enviado(s) com sucesso para ${selectedCompeticao.nomeCompeticao}!`);
+      setShowInscricaoModal(false);
+      limparFormularioInscricao();
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro no upload de comprovantes de inscrição:', error);
+      toast.error(`Erro ao enviar comprovantes: ${errorMessage}`);
+    }
+  };
+
+  const handleDownloadComprovanteInscricao = async (comprovante: ComprovanteInscricao) => {
+    try {
+      await comprovantesInscricaoService.downloadComprovante(comprovante);
+      toast.success(`Download do comprovante de inscrição concluído!`);
+    } catch (error) {
+      console.error('❌ Erro no download:', error);
+      toast.error('Erro ao baixar comprovante');
+    }
+  };
+
+  const handleDeletarComprovanteInscricao = async (comprovante: ComprovanteInscricao) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o comprovante de inscrição "${comprovante.nome}"?`)) {
+      return;
+    }
+
+    try {
+      await comprovantesInscricaoService.deletarComprovante(
+        comprovante,
+        user!.tipo === 'admin',
+        user!.idEquipe
+      );
+      toast.success(`Comprovante de inscrição excluído com sucesso!`);
+      loadData();
+    } catch (error) {
+      console.error('❌ Erro ao deletar:', error);
+      toast.error('Erro ao excluir comprovante');
+    }
+  };
+
+  const handleAprovarComprovanteInscricao = async () => {
+    if (!selectedComprovanteInscricao) return;
+
+    try {
+      await comprovantesInscricaoService.aprovarComprovante(
+        selectedComprovanteInscricao,
+        user!.nome || 'Admin',
+        observacoesAprovacaoInscricao
+      );
+      toast.success(`Comprovante de inscrição aprovado com sucesso!`);
+      setShowAprovacaoInscricaoModal(false);
+      setObservacoesAprovacaoInscricao('');
+      setSelectedComprovanteInscricao(null);
+      loadData();
+    } catch (error) {
+      console.error('❌ Erro ao aprovar:', error);
+      toast.error('Erro ao aprovar comprovante');
+    }
+  };
+
+  const handleRejeitarComprovanteInscricao = async () => {
+    if (!selectedComprovanteInscricao) return;
+
+    try {
+      await comprovantesInscricaoService.rejeitarComprovante(
+        selectedComprovanteInscricao,
+        user!.nome || 'Admin',
+        observacoesAprovacaoInscricao
+      );
+      toast.success(`Comprovante de inscrição rejeitado com sucesso!`);
+      setShowAprovacaoInscricaoModal(false);
+      setObservacoesAprovacaoInscricao('');
+      setSelectedComprovanteInscricao(null);
+      loadData();
+    } catch (error) {
+      console.error('❌ Erro ao rejeitar:', error);
+      toast.error('Erro ao rejeitar comprovante');
+    }
+  };
+
+  const limparFormularioInscricao = () => {
+    setSelectedFiles([]);
+    setObservacoesInscricao('');
+    setSelectedCompeticao(null);
+  };
+
+  const abrirModalInscricao = (competicao: Competicao) => {
+    setSelectedCompeticao(competicao);
+    setShowInscricaoModal(true);
+  };
+
+  const abrirModalAprovacaoInscricao = (comprovante: ComprovanteInscricao) => {
+    setSelectedComprovanteInscricao(comprovante);
+    setShowAprovacaoInscricaoModal(true);
+  };
+
+  // Funções para navegação hierárquica
+  const voltarParaCompeticoes = () => {
+    setViewMode('competicoes');
+    setSelectedCompeticao(null);
+    setSelectedEquipeInscricao(null);
+  };
+
+  const voltarParaEquipes = () => {
+    setViewMode('equipes');
+    setSelectedEquipeInscricao(null);
+  };
+
+  const selecionarCompeticao = (competicao: Competicao) => {
+    setSelectedCompeticao(competicao);
+    setViewMode('equipes');
+  };
+
+  const selecionarEquipe = (equipe: Equipe) => {
+    setSelectedEquipeInscricao(equipe);
+    setViewMode('comprovantes');
+  };
+
+  const getEquipesInscritasNaCompeticao = (competicaoId: string) => {
+    const inscricoesCompeticao = inscricoes.filter(insc => insc.idCompeticao === competicaoId);
+    const atletasInscritos = atletas.filter(atleta => 
+      inscricoesCompeticao.some(insc => insc.idAtleta === atleta.id)
+    );
+    const equipesIds = Array.from(new Set(atletasInscritos.map(atleta => atleta.idEquipe)));
+    return equipes.filter(equipe => equipesIds.includes(equipe.id!));
+  };
+
+  const getComprovantesDaEquipeNaCompeticao = (equipeId: string, competicaoId: string) => {
+    return comprovantesInscricao.filter(comp => 
+      comp.equipeId === equipeId && comp.competicaoId === competicaoId
+    );
+  };
+
+  // Função helper para calcular valor da equipe em uma competição
+  const calcularValorEquipeNaCompeticao = (equipeId: string, competicaoId: string) => {
+    const inscricoesEquipe = inscricoes.filter(insc => 
+      insc.idCompeticao === competicaoId && 
+      insc.atleta && 
+      insc.atleta.idEquipe === equipeId
+    );
+    
+    console.log(`🔍 Calculando valor para equipe ${equipeId} na competição ${competicaoId}`);
+    console.log(`🔍 Inscrições encontradas: ${inscricoesEquipe.length}`);
+    
+    if (inscricoesEquipe.length === 0) {
+      console.log(`⚠️ Nenhuma inscrição encontrada para equipe ${equipeId} na competição ${competicaoId}`);
+      return 0;
+    }
+    
+    const total = inscricoesEquipe.reduce((total, insc) => {
+      // Verificar se tem valor individual definido
+      const temValorIndividual = insc.valorIndividual !== undefined && insc.valorIndividual !== null && insc.valorIndividual > 0;
+      
+      // Buscar competição para valor padrão
+      const competicao = competicoes.find(comp => comp.id === competicaoId);
+      const valorPadrao = competicao?.valorInscricao || 0;
+      
+      // Usar valor individual se disponível, senão usar valor padrão da competição
+      const valorAtleta = temValorIndividual ? insc.valorIndividual! : valorPadrao;
+      
+      console.log(`🔍 Inscrição ${insc.id}: atleta=${insc.atleta?.nome}, valorIndividual=${insc.valorIndividual}, temValorIndividual=${temValorIndividual}, valorAtleta=${valorAtleta}, total=${total + valorAtleta}`);
+      return total + valorAtleta;
+    }, 0);
+    
+    console.log(`💰 Valor total da equipe ${equipeId}: R$ ${total.toFixed(2)}`);
+    return total;
+  };
+
   // Funções para Prestação de Contas
   const handleUploadDocumento = async () => {
     if (!selectedFile) {
@@ -478,7 +714,7 @@ const FinanceiroPage: React.FC = () => {
       </div>
 
       <Tabs defaultActiveKey="dashboard" className="mb-4">
-        <Tab eventKey="dashboard" title="Dashboard Financeiro">
+        <Tab eventKey="dashboard" title="Dashboard Financeiro Geral - FEPERJ">
           <Row className="mb-4">
             <Col md={3}>
               <Card className="text-center">
@@ -959,6 +1195,516 @@ const FinanceiroPage: React.FC = () => {
           </Tab>
         )}
 
+        <Tab eventKey="comprovantes-inscricao" title="Comprovantes de Inscrição">
+            <Card>
+              <Card.Header>
+              <div className="d-flex justify-content-between align-items-center">
+                <h5 className="mb-0">
+                  {viewMode === 'competicoes' && '🏆 Competições'}
+                  {viewMode === 'equipes' && selectedCompeticao && `🏆 ${selectedCompeticao.nomeCompeticao} - Equipes`}
+                  {viewMode === 'comprovantes' && selectedEquipeInscricao && selectedCompeticao && 
+                   `🏆 ${selectedCompeticao.nomeCompeticao} - ${selectedEquipeInscricao.nomeEquipe} - Comprovantes`}
+                </h5>
+                <div>
+                  {viewMode === 'equipes' && (
+                    <Button variant="outline-secondary" size="sm" onClick={voltarParaCompeticoes}>
+                      ← Voltar para Competições
+                    </Button>
+                  )}
+                  {viewMode === 'comprovantes' && (
+                    <Button variant="outline-secondary" size="sm" onClick={voltarParaEquipes}>
+                      ← Voltar para Equipes
+                    </Button>
+                  )}
+                </div>
+              </div>
+              </Card.Header>
+              <Card.Body>
+              {user?.tipo === 'admin' ? (
+                // Visão do Admin - Navegação hierárquica
+                <div>
+                  {viewMode === 'competicoes' && (
+                    <div>
+                      <Row className="mb-4">
+                        <Col>
+                          <h6>📋 Competições (Agendadas/Realizadas)</h6>
+                        </Col>
+                      </Row>
+                      
+                      {competicoes.length === 0 ? (
+                        <Alert variant="info">
+                          <FaEye className="me-2" />
+                          Nenhuma competição encontrada.
+                  </Alert>
+                ) : (
+                        <Table responsive striped hover>
+                    <thead>
+                      <tr>
+                              <th>Competição</th>
+                              <th>Data</th>
+                              <th>Status</th>
+                              <th>Equipes Inscritas</th>
+                              <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                            {competicoes.map(competicao => {
+                              const equipesInscritas = getEquipesInscritasNaCompeticao(competicao.id!);
+                              const comprovantesCompeticao = comprovantesInscricao.filter(
+                                comp => comp.competicaoId === competicao.id
+                              );
+                              const comprovantesPendentes = comprovantesCompeticao.filter(
+                                comp => comp.status === 'PENDENTE'
+                              );
+                              const comprovantesAprovados = comprovantesCompeticao.filter(
+                                comp => comp.status === 'APROVADO'
+                              );
+                              const comprovantesRejeitados = comprovantesCompeticao.filter(
+                                comp => comp.status === 'REJEITADO'
+                              );
+
+                              return (
+                                <tr key={competicao.id}>
+                                  <td>
+                                    <strong>{competicao.nomeCompeticao}</strong>
+                                    <br />
+                                    <small className="text-muted">{competicao.local}</small>
+                          </td>
+                                  <td>{competicao.dataCompeticao.toLocaleDateString('pt-BR')}</td>
+                                  <td>
+                                    <Badge bg={
+                                      competicao.status === 'REALIZADA' ? 'success' : 
+                                      competicao.status === 'CANCELADA' ? 'danger' : 'warning'
+                                    }>
+                                      {competicao.status}
+                            </Badge>
+                          </td>
+                          <td>
+                                    <div>
+                                      <Badge bg="info" className="me-2">
+                                        {equipesInscritas.length} Equipes
+                            </Badge>
+                                      <small>
+                                        <Badge bg="warning" className="me-1">
+                                          {comprovantesPendentes.length} Pendentes
+                                        </Badge>
+                                        <Badge bg="success" className="me-1">
+                                          {comprovantesAprovados.length} Aprovados
+                                        </Badge>
+                                        <Badge bg="danger">
+                                          {comprovantesRejeitados.length} Rejeitados
+                                        </Badge>
+                                      </small>
+                                    </div>
+                          </td>
+                          <td>
+                                    <Button
+                                      variant="outline-primary"
+                                      size="sm"
+                                      onClick={() => selecionarCompeticao(competicao)}
+                                    >
+                                      <FaEye className="me-1" />
+                                      Ver Equipes
+                                    </Button>
+                          </td>
+                        </tr>
+                              );
+                            })}
+                    </tbody>
+                  </Table>
+                )}
+                    </div>
+                  )}
+
+                  {viewMode === 'equipes' && selectedCompeticao && (
+                    <div>
+                      <Row className="mb-4">
+                        <Col>
+                          <h6>📋 Equipes Inscritas em {selectedCompeticao.nomeCompeticao}</h6>
+                        </Col>
+                      </Row>
+                      
+                      {(() => {
+                        const equipesInscritas = getEquipesInscritasNaCompeticao(selectedCompeticao.id!);
+                        
+                        if (equipesInscritas.length === 0) {
+                          return (
+                            <Alert variant="info">
+                              <FaEye className="me-2" />
+                              Nenhuma equipe inscrita nesta competição.
+                  </Alert>
+                          );
+                        }
+
+                        return (
+                          <Table responsive striped hover>
+                    <thead>
+                      <tr>
+                        <th>Equipe</th>
+                                <th>Cidade</th>
+                                <th>Status da Equipe</th>
+                                <th>Valor</th>
+                                <th>Atletas Inscritos</th>
+                                <th>Status dos Comprovantes</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                              {equipesInscritas.map(equipe => {
+                                const atletasEquipe = atletas.filter(atleta => atleta.idEquipe === equipe.id);
+                                const inscricoesEquipe = inscricoes.filter(insc => 
+                                  insc.idCompeticao === selectedCompeticao.id && 
+                                  atletasEquipe.some(atleta => atleta.id === insc.idAtleta)
+                                );
+                                const comprovantesEquipe = getComprovantesDaEquipeNaCompeticao(equipe.id!, selectedCompeticao.id!);
+                                const comprovantesPendentes = comprovantesEquipe.filter(comp => comp.status === 'PENDENTE');
+                                const comprovantesAprovados = comprovantesEquipe.filter(comp => comp.status === 'APROVADO');
+                                const comprovantesRejeitados = comprovantesEquipe.filter(comp => comp.status === 'REJEITADO');
+
+                                return (
+                                  <tr key={equipe.id}>
+                                    <td>
+                                      <strong>{equipe.nomeEquipe}</strong>
+                          </td>
+                                    <td>{equipe.cidade}</td>
+                                    <td>
+                                      <Badge bg={
+                                        equipe.status === 'PAGO' ? 'success' : 
+                                        equipe.status === 'ATIVA' ? 'primary' : 
+                                        equipe.status === 'PENDENTE' ? 'warning' : 'secondary'
+                                      }>
+                                        {equipe.status || 'PENDENTE'}
+                                      </Badge>
+                                    </td>
+                                    <td>
+                                      <strong>R$ {calcularValorEquipeNaCompeticao(equipe.id || '', selectedCompeticao.id || '').toFixed(2)}</strong>
+                                    </td>
+                                    <td>
+                                      <Badge bg="info">
+                                        {inscricoesEquipe.length} Atletas
+                                      </Badge>
+                                    </td>
+                                    <td>
+                                      <div>
+                                        <small>
+                                          <Badge bg="warning" className="me-1">
+                                            {comprovantesPendentes.length} Pendentes
+                                          </Badge>
+                                          <Badge bg="success" className="me-1">
+                                            {comprovantesAprovados.length} Aprovados
+                                          </Badge>
+                                          <Badge bg="danger">
+                                            {comprovantesRejeitados.length} Rejeitados
+                                          </Badge>
+                            </small>
+                                      </div>
+                          </td>
+                                    <td>
+                                      <div className="d-flex gap-1">
+                                        <Button
+                                          variant="outline-primary"
+                                          size="sm"
+                                          onClick={() => selecionarEquipe(equipe)}
+                                        >
+                                          <FaEye className="me-1" />
+                                          Ver Comprovantes
+                                        </Button>
+                                        <Button
+                                          variant="outline-success"
+                                          size="sm"
+                                          onClick={() => {
+                                            setSelectedEquipeInscricao(equipe);
+                                            abrirModalInscricao(selectedCompeticao);
+                                          }}
+                                        >
+                                          <FaUpload className="me-1" />
+                                          Upload
+                                        </Button>
+                                      </div>
+                          </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </Table>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {viewMode === 'comprovantes' && selectedEquipeInscricao && selectedCompeticao && (
+                    <div>
+                      <Row className="mb-4">
+                        <Col>
+                          <h6>📄 Comprovantes de {selectedEquipeInscricao.nomeEquipe} - {selectedCompeticao.nomeCompeticao}</h6>
+                        </Col>
+                        <Col xs="auto">
+                          <Button
+                            variant="outline-success"
+                            size="sm"
+                            onClick={() => abrirModalInscricao(selectedCompeticao)}
+                          >
+                            <FaUpload className="me-1" />
+                            Upload Comprovante
+                          </Button>
+                        </Col>
+                      </Row>
+                      
+                      {(() => {
+                        const comprovantesEquipe = getComprovantesDaEquipeNaCompeticao(selectedEquipeInscricao.id!, selectedCompeticao.id!);
+                        
+                        if (comprovantesEquipe.length === 0) {
+                          return (
+                            <Alert variant="info">
+                              <FaEye className="me-2" />
+                              Nenhum comprovante encontrado para esta equipe nesta competição.
+                            </Alert>
+                          );
+                        }
+
+                        return (
+                          <Table responsive striped hover>
+                            <thead>
+                              <tr>
+                                <th>Arquivo</th>
+                                <th>Data Upload</th>
+                                <th>Valor</th>
+                                <th>Status do Comprovante</th>
+                                <th>Ações</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {comprovantesEquipe.map(comprovante => (
+                                <tr key={comprovante.nomeArquivoSalvo}>
+                                  <td>
+                                    <small className="text-muted">{comprovante.nome}</small>
+                                  </td>
+                                  <td>{comprovante.dataUpload.toLocaleDateString('pt-BR')}</td>
+                                  <td>R$ {calcularValorEquipeNaCompeticao(selectedEquipeInscricao?.id || '', comprovante.competicaoId).toFixed(2)}</td>
+                          <td>
+                            <Badge bg={
+                              comprovante.status === 'APROVADO' ? 'success' : 
+                              comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
+                            }>
+                                      {comprovante.status === 'APROVADO' ? 'COMPROVANTE APROVADO' : 
+                                       comprovante.status === 'REJEITADO' ? 'COMPROVANTE REJEITADO' : 
+                                       'PENDENTE'}
+                            </Badge>
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1">
+                              <Button
+                                size="sm"
+                                        variant="outline-primary"
+                                        onClick={() => handleDownloadComprovanteInscricao(comprovante)}
+                                        title="Baixar"
+                              >
+                                <FaDownload />
+                              </Button>
+                                      
+                              <Button
+                                size="sm"
+                                        variant="outline-danger"
+                                        onClick={() => handleDeletarComprovanteInscricao(comprovante)}
+                                        title="Excluir"
+                              >
+                                <FaTimesCircle />
+                              </Button>
+                                      
+                                <Button
+                                  size="sm"
+                                        variant="outline-success"
+                                        onClick={() => abrirModalAprovacaoInscricao(comprovante)}
+                                        title="Aprovar/Rejeitar"
+                                >
+                                  <FaCheckCircle />
+                                </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Visão do Usuário - Lista de competições da equipe
+                <div>
+                  <Row className="mb-4">
+                    <Col>
+                      <h6>📋 Competições da Minha Equipe</h6>
+                      {user?.idEquipe && (() => {
+                        const minhaEquipe = equipes.find(e => e.id === user.idEquipe);
+                        return minhaEquipe ? (
+                          <Alert variant={minhaEquipe.status === 'PAGO' ? 'success' : 'info'} className="mb-3">
+                            <strong>🏆 Status da Equipe:</strong> 
+                            <Badge bg={
+                              minhaEquipe.status === 'PAGO' ? 'success' : 
+                              minhaEquipe.status === 'ATIVA' ? 'primary' : 
+                              minhaEquipe.status === 'PENDENTE' ? 'warning' : 'secondary'
+                            } className="ms-2">
+                              {minhaEquipe.status || 'PENDENTE'}
+                            </Badge>
+                          </Alert>
+                        ) : null;
+                      })()}
+                    </Col>
+                  </Row>
+                  
+                  {competicoes.length === 0 ? (
+                    <Alert variant="info">
+                      <FaEye className="me-2" />
+                      Nenhuma competição encontrada.
+                  </Alert>
+                ) : (
+                    <Table responsive striped hover>
+                    <thead>
+                      <tr>
+                          <th>Competição</th>
+                          <th>Data</th>
+                          <th>Status da Competição</th>
+                          <th>Valor da Equipe</th>
+                          <th>Status dos Meus Comprovantes</th>
+                          <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                        {competicoes.map(competicao => {
+                          const comprovantesCompeticao = comprovantesInscricao.filter(
+                            comp => comp.competicaoId === competicao.id && comp.equipeId === user?.idEquipe
+                          );
+                          const comprovantesPendentes = comprovantesCompeticao.filter(
+                            comp => comp.status === 'PENDENTE'
+                          );
+                          const comprovantesAprovados = comprovantesCompeticao.filter(
+                            comp => comp.status === 'APROVADO'
+                          );
+                          const comprovantesRejeitados = comprovantesCompeticao.filter(
+                            comp => comp.status === 'REJEITADO'
+                          );
+
+                          return (
+                            <tr key={competicao.id}>
+                              <td>
+                                <strong>{competicao.nomeCompeticao}</strong>
+                            <br />
+                                <small className="text-muted">{competicao.local}</small>
+                          </td>
+                              <td>{competicao.dataCompeticao.toLocaleDateString('pt-BR')}</td>
+                                                            <td>
+                                <Badge bg={
+                                  competicao.status === 'REALIZADA' ? 'success' : 
+                                  competicao.status === 'CANCELADA' ? 'danger' : 'warning'
+                                }>
+                                  {competicao.status}
+                            </Badge>
+                          </td>
+                          <td>
+                            <strong>R$ {calcularValorEquipeNaCompeticao(user?.idEquipe || '', competicao.id || '').toFixed(2)}</strong>
+                          </td>
+                          <td>
+                            <div>
+                              <small>
+                                <Badge bg="warning" className="me-1">
+                                  {comprovantesPendentes.length} Pendentes
+                                </Badge>
+                                <Badge bg="success" className="me-1">
+                                  {comprovantesAprovados.length} Aprovados
+                                </Badge>
+                                <Badge bg="danger">
+                                  {comprovantesRejeitados.length} Rejeitados
+                                </Badge>
+                              </small>
+                            </div>
+                          </td>
+                          <td>
+                                <Button
+                                  variant="outline-primary"
+                                  size="sm"
+                                  onClick={() => abrirModalInscricao(competicao)}
+                                >
+                                  <FaUpload className="me-1" />
+                                  Enviar Comprovantes
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </Table>
+                  )}
+
+                  {/* Lista de Comprovantes do Usuário */}
+                  {comprovantesInscricao.filter(comp => comp.equipeId === user?.idEquipe).length > 0 && (
+                    <div className="mt-4">
+                      <h6>📄 Meus Comprovantes Enviados</h6>
+                      <Table responsive striped hover>
+                        <thead>
+                          <tr>
+                            <th>Competição</th>
+                            <th>Arquivo</th>
+                            <th>Data Upload</th>
+                            <th>Valor</th>
+                            <th>Status do Comprovante</th>
+                            <th>Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {comprovantesInscricao
+                            .filter(comp => comp.equipeId === user?.idEquipe)
+                            .map(comprovante => (
+                            <tr key={comprovante.nomeArquivoSalvo}>
+                              <td>{comprovante.nomeCompeticao}</td>
+                              <td>
+                                <small className="text-muted">{comprovante.nome}</small>
+                              </td>
+                              <td>{comprovante.dataUpload.toLocaleDateString('pt-BR')}</td>
+                              <td>R$ {calcularValorEquipeNaCompeticao(user?.idEquipe || '', comprovante.competicaoId).toFixed(2)}</td>
+                              <td>
+                                <Badge bg={
+                                  comprovante.status === 'APROVADO' ? 'success' : 
+                                  comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
+                                }>
+                                  {comprovante.status === 'APROVADO' ? 'COMPROVANTE APROVADO' : 
+                                   comprovante.status === 'REJEITADO' ? 'COMPROVANTE REJEITADO' : 
+                                   'PENDENTE'}
+                                </Badge>
+                              </td>
+                              <td>
+                                <div className="d-flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline-primary"
+                                    onClick={() => handleDownloadComprovanteInscricao(comprovante)}
+                                    title="Baixar"
+                                  >
+                                    <FaDownload />
+                                  </Button>
+                                  
+                                  <Button
+                                    size="sm"
+                                    variant="outline-danger"
+                                    onClick={() => handleDeletarComprovanteInscricao(comprovante)}
+                                    title="Excluir"
+                                  >
+                                    <FaTimesCircle />
+                                  </Button>
+                                </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                    </div>
+                  )}
+                </div>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
 
       </Tabs>
 
@@ -1346,6 +2092,159 @@ const FinanceiroPage: React.FC = () => {
             Rejeitar
           </Button>
           <Button variant="success" onClick={handleAprovarComprovante}>
+            <FaCheckCircle className="me-2" />
+            Aprovar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Upload de Comprovantes de Inscrição */}
+      <Modal show={showInscricaoModal} onHide={() => setShowInscricaoModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaUpload className="me-2" />
+            Enviar Comprovantes de Inscrição
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedCompeticao && (
+            <div>
+              <Alert variant="info">
+                <strong>🏆 Competição:</strong> {selectedCompeticao.nomeCompeticao}
+                <br />
+                <strong>📅 Data:</strong> {selectedCompeticao.dataCompeticao.toLocaleDateString('pt-BR')}
+                <br />
+                <strong>📍 Local:</strong> {selectedCompeticao.local || 'Não informado'}
+                {selectedEquipeInscricao && (
+                  <>
+                    <br />
+                    <strong>🏆 Equipe:</strong> {selectedEquipeInscricao.nomeEquipe}
+                  </>
+                )}
+              </Alert>
+
+              <Alert variant="warning">
+                <strong>⚠️ Importante:</strong> Você pode enviar múltiplos documentos para esta competição.
+              </Alert>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Arquivos *</Form.Label>
+                <Form.Control
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from((e.target as HTMLInputElement).files || []);
+                    setSelectedFiles(files);
+                  }}
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  required
+                />
+                <Form.Text className="text-muted">
+                  Formatos aceitos: PDF, PNG, JPG, JPEG (máx. 20MB cada arquivo)
+                </Form.Text>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Observações (opcional)</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={observacoesInscricao}
+                  onChange={(e) => setObservacoesInscricao(e.target.value)}
+                  placeholder="Observações sobre os comprovantes..."
+                />
+              </Form.Group>
+
+              {selectedFiles.length > 0 && (
+                <Alert variant="success">
+                  <strong>✅ {selectedFiles.length} arquivo(s) selecionado(s):</strong>
+                  <ul className="mb-0 mt-2">
+                    {selectedFiles.map((file, index) => (
+                      <li key={index}>
+                        {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                      </li>
+                    ))}
+                  </ul>
+                </Alert>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowInscricaoModal(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleUploadComprovanteInscricao}
+            disabled={selectedFiles.length === 0}
+          >
+            <FaUpload className="me-2" />
+            Enviar Comprovantes
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Aprovação de Comprovantes de Inscrição */}
+      <Modal show={showAprovacaoInscricaoModal} onHide={() => setShowAprovacaoInscricaoModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaCheckCircle className="me-2" />
+            Aprovar/Rejeitar Comprovante de Inscrição
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedComprovanteInscricao && (
+            <div>
+              <Alert variant="info">
+                <strong>📋 Detalhes do Comprovante:</strong>
+                <br />
+                <strong>🏆 Competição:</strong> {selectedComprovanteInscricao.nomeCompeticao}
+                <br />
+                <strong>🏆 Equipe:</strong> {selectedComprovanteInscricao.nomeEquipe}
+                <br />
+                <strong>📁 Arquivo:</strong> {selectedComprovanteInscricao.nome}
+                <br />
+                <strong>💰 Valor:</strong> R$ {selectedComprovanteInscricao.valor.toFixed(2)}
+                <br />
+                <strong>📅 Data Upload:</strong> {selectedComprovanteInscricao.dataUpload.toLocaleDateString('pt-BR')}
+                <br />
+                <strong>📊 Status Atual:</strong> {selectedComprovanteInscricao.status}
+              </Alert>
+              
+              <Form.Group className="mb-3">
+                <Form.Label>Observações</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={observacoesAprovacaoInscricao}
+                  onChange={(e) => setObservacoesAprovacaoInscricao(e.target.value)}
+                  placeholder="Observações sobre a aprovação/rejeição..."
+                />
+              </Form.Group>
+
+              <Alert variant="warning">
+                <strong>⚠️ Atenção:</strong> Ao aprovar o comprovante, o status da equipe será atualizado automaticamente.
+              </Alert>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAprovacaoInscricaoModal(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={handleRejeitarComprovanteInscricao}
+            className="me-2"
+          >
+            <FaTimesCircle className="me-2" />
+            Rejeitar
+          </Button>
+          <Button 
+            variant="success" 
+            onClick={handleAprovarComprovanteInscricao}
+          >
             <FaCheckCircle className="me-2" />
             Aprovar
           </Button>
