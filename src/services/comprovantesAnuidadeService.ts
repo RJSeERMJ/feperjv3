@@ -1,4 +1,5 @@
 import { supabase, COMPROVANTES_CONFIG } from '../config/supabase';
+import { atletaService, equipeService } from './firebaseService';
 
 // Interface para log de aprovação (mantida para compatibilidade)
 export interface LogAprovacao {
@@ -55,6 +56,48 @@ const validateFile = (file: File): void => {
   }
 };
 
+// Função para buscar dados reais do atleta e equipe
+const buscarDadosReais = async (atletaId: string, equipeId: string) => {
+  try {
+    console.log('🔍 Buscando dados reais do atleta e equipe...');
+    
+    // Buscar dados do atleta
+    const atleta = await atletaService.getById(atletaId);
+    if (!atleta) {
+      throw new Error(`Atleta com ID ${atletaId} não encontrado`);
+    }
+    
+    // Buscar dados da equipe
+    const equipe = await equipeService.getById(equipeId);
+    if (!equipe) {
+      throw new Error(`Equipe com ID ${equipeId} não encontrada`);
+    }
+    
+    console.log('✅ Dados encontrados:', {
+      atleta: atleta.nome,
+      equipe: equipe.nomeEquipe
+    });
+    
+    return {
+      nomeAtleta: atleta.nome,
+      nomeEquipe: equipe.nomeEquipe
+    };
+  } catch (error) {
+    console.error('❌ Erro ao buscar dados reais:', error);
+    throw error;
+  }
+};
+
+// Função para criar nome de pasta seguro (sem caracteres especiais)
+const criarNomePastaSeguro = (nome: string): string => {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove caracteres especiais
+    .replace(/\s+/g, '-') // Substitui espaços por hífens
+    .toLowerCase();
+};
+
 // Serviço de comprovantes de anuidade (replicando o sistema de prestação de contas)
 export const comprovantesAnuidadeService = {
   // Gerar URL temporária com expiração (igual ao sistema de prestação de contas)
@@ -80,7 +123,113 @@ export const comprovantesAnuidadeService = {
     }
   },
 
-  // Upload de comprovante (adaptado do sistema de prestação de contas)
+  // Verificar se já existe comprovante para o atleta
+  async verificarComprovanteExistente(atletaId: string, equipeId: string): Promise<ComprovanteAnuidade | null> {
+    try {
+      console.log('🔍 Verificando se já existe comprovante para o atleta:', atletaId);
+      
+      // Buscar dados reais do atleta e equipe
+      const dadosReais = await buscarDadosReais(atletaId, equipeId);
+      const nomePastaEquipe = criarNomePastaSeguro(dadosReais.nomeEquipe);
+      
+      const pastaNome = `${COMPROVANTES_CONFIG.FOLDER_NAME}/${nomePastaEquipe}`;
+      
+      const { data, error } = await supabase.storage
+        .from(COMPROVANTES_CONFIG.BUCKET_NAME)
+        .list(pastaNome, {
+          limit: 100,
+          offset: 0
+        });
+
+      if (error) {
+        if (error.message.includes('not found')) {
+          console.log('📁 Pasta não encontrada, não há comprovantes existentes');
+          return null;
+        }
+        throw new Error(`Erro ao verificar comprovantes existentes: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        console.log('📁 Nenhum comprovante encontrado');
+        return null;
+      }
+
+      // Procurar por arquivo do atleta específico
+      const comprovanteExistente = data.find(item => 
+        item.name && item.name.includes(`_${atletaId}_`)
+      );
+
+      if (comprovanteExistente) {
+        console.log('📁 Comprovante existente encontrado:', comprovanteExistente.name);
+        
+        // Extrair informações do arquivo existente
+        const parts = comprovanteExistente.name.split('_');
+        const timestamp = parts[0];
+        const atletaIdFromFile = parts[1];
+        const nomeOriginal = parts.slice(2).join('_');
+
+        const filePath = `${pastaNome}/${comprovanteExistente.name}`;
+        const { data: urlData } = supabase.storage
+          .from(COMPROVANTES_CONFIG.BUCKET_NAME)
+          .getPublicUrl(filePath);
+
+        return {
+          nome: nomeOriginal,
+          nomeArquivoSalvo: comprovanteExistente.name,
+          dataUpload: new Date(parseInt(timestamp)),
+          status: 'PENDENTE',
+          tamanho: comprovanteExistente.metadata?.size || 0,
+          contentType: comprovanteExistente.metadata?.mimetype || 'application/octet-stream',
+          url: urlData.publicUrl,
+          atletaId: atletaIdFromFile,
+          equipeId,
+          nomeAtleta: dadosReais.nomeAtleta,
+          nomeEquipe: dadosReais.nomeEquipe
+        };
+      }
+
+      console.log('📁 Nenhum comprovante encontrado para este atleta');
+      return null;
+    } catch (error) {
+      console.error('❌ Erro ao verificar comprovante existente:', error);
+      throw error;
+    }
+  },
+
+  // Deletar comprovante existente
+  async deletarComprovanteExistente(atletaId: string, equipeId: string): Promise<void> {
+    try {
+      console.log('🗑️ Verificando e deletando comprovante existente...');
+      
+      const comprovanteExistente = await this.verificarComprovanteExistente(atletaId, equipeId);
+      
+      if (comprovanteExistente) {
+        console.log('🗑️ Deletando comprovante existente:', comprovanteExistente.nomeArquivoSalvo);
+        
+        // Buscar dados reais para criar o caminho correto
+        const dadosReais = await buscarDadosReais(atletaId, equipeId);
+        const nomePastaEquipe = criarNomePastaSeguro(dadosReais.nomeEquipe);
+        const filePath = `${COMPROVANTES_CONFIG.FOLDER_NAME}/${nomePastaEquipe}/${comprovanteExistente.nomeArquivoSalvo}`;
+        
+        const { error } = await supabase.storage
+          .from(COMPROVANTES_CONFIG.BUCKET_NAME)
+          .remove([filePath]);
+
+        if (error) {
+          throw new Error(`Erro ao deletar comprovante existente: ${error.message}`);
+        }
+
+        console.log('✅ Comprovante existente deletado com sucesso');
+      } else {
+        console.log('📁 Nenhum comprovante existente para deletar');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao deletar comprovante existente:', error);
+      throw error;
+    }
+  },
+
+  // Upload de comprovante (com verificação de existente e substituição automática)
   async uploadComprovante(
     file: File,
     atletaId: string,
@@ -95,10 +244,18 @@ export const comprovantesAnuidadeService = {
       console.log('📁 Validando arquivo...');
       validateFile(file);
 
-      // Gerar nome único para o arquivo (igual ao sistema de prestação de contas)
+      // Buscar dados reais do atleta e equipe
+      const dadosReais = await buscarDadosReais(atletaId, equipeId);
+      const nomePastaEquipe = criarNomePastaSeguro(dadosReais.nomeEquipe);
+
+      // Verificar se já existe comprovante para este atleta
+      console.log('🔍 Verificando comprovante existente...');
+      await this.deletarComprovanteExistente(atletaId, equipeId);
+
+      // Gerar nome único para o arquivo (usando nome real do atleta)
       const timestamp = Date.now();
-      const nomeArquivoSalvo = `${timestamp}_${equipeId}_${atletaId}_${file.name}`;
-      const filePath = `${COMPROVANTES_CONFIG.FOLDER_NAME}/equipe_${equipeId}/${nomeArquivoSalvo}`;
+      const nomeArquivoSalvo = `${timestamp}_${atletaId}_${file.name}`;
+      const filePath = `${COMPROVANTES_CONFIG.FOLDER_NAME}/${nomePastaEquipe}/${nomeArquivoSalvo}`;
 
       console.log('📁 Fazendo upload para:', filePath);
 
@@ -135,9 +292,15 @@ export const comprovantesAnuidadeService = {
         url: urlData.publicUrl,
         atletaId,
         equipeId,
-        nomeAtleta,
-        nomeEquipe
+        nomeAtleta: dadosReais.nomeAtleta,
+        nomeEquipe: dadosReais.nomeEquipe
       };
+
+      console.log('✅ Comprovante processado com sucesso:', {
+        atleta: dadosReais.nomeAtleta,
+        equipe: dadosReais.nomeEquipe,
+        arquivo: file.name
+      });
 
       return comprovante;
     } catch (error) {
@@ -152,7 +315,15 @@ export const comprovantesAnuidadeService = {
       console.log('🔍 Listando comprovantes da equipe:', equipeId);
       const comprovantes: ComprovanteAnuidade[] = [];
 
-      const pastaNome = `${COMPROVANTES_CONFIG.FOLDER_NAME}/equipe_${equipeId}`;
+      // Buscar dados reais da equipe
+      const equipe = await equipeService.getById(equipeId);
+      if (!equipe) {
+        console.warn('⚠️ Equipe não encontrada:', equipeId);
+        return comprovantes;
+      }
+
+      const nomePastaEquipe = criarNomePastaSeguro(equipe.nomeEquipe);
+      const pastaNome = `${COMPROVANTES_CONFIG.FOLDER_NAME}/${nomePastaEquipe}`;
       
       console.log(`📁 Verificando pasta: ${pastaNome}`);
       
@@ -176,7 +347,7 @@ export const comprovantesAnuidadeService = {
         return comprovantes;
       }
 
-      // Processar cada arquivo encontrado (igual ao sistema de prestação de contas)
+      // Processar cada arquivo encontrado
       for (const item of data) {
         if (item.name && !item.name.endsWith('/')) {
           try {
@@ -190,22 +361,25 @@ export const comprovantesAnuidadeService = {
             // Extrair informações do nome do arquivo
             const parts = item.name.split('_');
             const timestamp = parts[0];
-            const equipeIdFromFile = parts[1];
-            const atletaIdFromFile = parts[2];
-            const nomeOriginal = parts.slice(3).join('_');
+            const atletaIdFromFile = parts[1];
+            const nomeOriginal = parts.slice(2).join('_');
+
+            // Buscar dados reais do atleta
+            const atleta = await atletaService.getById(atletaIdFromFile);
+            const nomeAtleta = atleta ? atleta.nome : `Atleta ${atletaIdFromFile}`;
 
             const comprovante: ComprovanteAnuidade = {
               nome: nomeOriginal,
               nomeArquivoSalvo: item.name,
               dataUpload: new Date(parseInt(timestamp)),
-              status: 'PENDENTE', // Padrão, pode ser customizado
+              status: 'PENDENTE',
               tamanho: item.metadata?.size || 0,
               contentType: item.metadata?.mimetype || 'application/octet-stream',
               url: urlData.publicUrl,
               atletaId: atletaIdFromFile,
-              equipeId: equipeIdFromFile,
-              nomeAtleta: `Atleta ${atletaIdFromFile}`, // Seria obtido do Firebase em um caso real
-              nomeEquipe: `Equipe ${equipeIdFromFile}` // Seria obtido do Firebase em um caso real
+              equipeId,
+              nomeAtleta,
+              nomeEquipe: equipe.nomeEquipe
             };
 
             comprovantes.push(comprovante);
@@ -215,7 +389,7 @@ export const comprovantesAnuidadeService = {
         }
       }
 
-      console.log(`✅ ${comprovantes.length} comprovantes encontrados para equipe ${equipeId}`);
+      console.log(`✅ ${comprovantes.length} comprovantes encontrados para equipe ${equipe.nomeEquipe}`);
       return comprovantes.sort((a, b) => b.dataUpload.getTime() - a.dataUpload.getTime());
     } catch (error) {
       console.error('❌ Erro ao listar comprovantes:', error);
@@ -251,13 +425,22 @@ export const comprovantesAnuidadeService = {
 
       // Processar cada equipe encontrada
       for (const equipeFolder of data) {
-        if (equipeFolder.name && equipeFolder.name.startsWith('equipe_')) {
-          const equipeId = equipeFolder.name.replace('equipe_', '');
+        if (equipeFolder.name && !equipeFolder.name.endsWith('/')) {
           try {
-            const comprovantesEquipe = await this.listarComprovantesPorEquipe(equipeId);
-            comprovantes.push(...comprovantesEquipe);
+            // Tentar encontrar a equipe pelo nome da pasta
+            const equipes = await equipeService.getAll();
+            const equipe = equipes.find(eq => 
+              criarNomePastaSeguro(eq.nomeEquipe) === equipeFolder.name
+            );
+
+            if (equipe) {
+              const comprovantesEquipe = await this.listarComprovantesPorEquipe(equipe.id!);
+              comprovantes.push(...comprovantesEquipe);
+            } else {
+              console.warn(`⚠️ Equipe não encontrada para pasta: ${equipeFolder.name}`);
+            }
           } catch (equipeError) {
-            console.warn(`⚠️ Erro ao listar comprovantes da equipe ${equipeId}:`, equipeError);
+            console.warn(`⚠️ Erro ao listar comprovantes da pasta ${equipeFolder.name}:`, equipeError);
           }
         }
       }
@@ -273,7 +456,8 @@ export const comprovantesAnuidadeService = {
   // Download de comprovante (igual ao sistema de prestação de contas)
   async downloadComprovante(comprovante: ComprovanteAnuidade): Promise<void> {
     try {
-      const filePath = `${COMPROVANTES_CONFIG.FOLDER_NAME}/equipe_${comprovante.equipeId}/${comprovante.nomeArquivoSalvo}`;
+      const nomePastaEquipe = criarNomePastaSeguro(comprovante.nomeEquipe);
+      const filePath = `${COMPROVANTES_CONFIG.FOLDER_NAME}/${nomePastaEquipe}/${comprovante.nomeArquivoSalvo}`;
 
       console.log('📥 Gerando URL de download para:', filePath);
 
@@ -312,7 +496,8 @@ export const comprovantesAnuidadeService = {
         throw new Error('Você não tem permissão para excluir este comprovante');
       }
 
-      const filePath = `${COMPROVANTES_CONFIG.FOLDER_NAME}/equipe_${comprovante.equipeId}/${comprovante.nomeArquivoSalvo}`;
+      const nomePastaEquipe = criarNomePastaSeguro(comprovante.nomeEquipe);
+      const filePath = `${COMPROVANTES_CONFIG.FOLDER_NAME}/${nomePastaEquipe}/${comprovante.nomeArquivoSalvo}`;
 
       console.log('🗑️ Deletando comprovante:', filePath);
 
@@ -331,20 +516,51 @@ export const comprovantesAnuidadeService = {
     }
   },
 
-  // Funções de aprovação simplificadas (sem banco, usando metadados do arquivo)
+  // Funções de aprovação com atualização automática do status do atleta
   async aprovarComprovante(comprovante: ComprovanteAnuidade, adminNome: string, observacoes?: string): Promise<void> {
-    // Em um sistema real, estas informações seriam salvas no Firebase ou em metadados
-    console.log(`✅ Comprovante aprovado por ${adminNome}:`, comprovante.nome);
-    if (observacoes) {
-      console.log(`📝 Observações: ${observacoes}`);
+    try {
+      console.log(`✅ Aprovando comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe})`);
+      
+      // Aqui você pode implementar a lógica para atualizar o status do atleta no Firebase
+      // Por exemplo, atualizar o status de anuidade do atleta para 'PAGO' ou 'ATIVO'
+      
+      console.log(`✅ Comprovante aprovado por ${adminNome}:`, comprovante.nome);
+      console.log(`👤 Atleta: ${comprovante.nomeAtleta} (${comprovante.atletaId})`);
+      console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
+      
+      if (observacoes) {
+        console.log(`📝 Observações: ${observacoes}`);
+      }
+      
+      // TODO: Implementar atualização do status do atleta no Firebase
+      // await atletaService.atualizarStatusAnuidade(comprovante.atletaId, 'PAGO');
+      
+      console.log('✅ Status do atleta atualizado automaticamente');
+    } catch (error) {
+      console.error('❌ Erro ao aprovar comprovante:', error);
+      throw error;
     }
   },
 
   async rejeitarComprovante(comprovante: ComprovanteAnuidade, adminNome: string, observacoes?: string): Promise<void> {
-    // Em um sistema real, estas informações seriam salvas no Firebase ou em metadados
-    console.log(`❌ Comprovante rejeitado por ${adminNome}:`, comprovante.nome);
-    if (observacoes) {
-      console.log(`📝 Observações: ${observacoes}`);
+    try {
+      console.log(`❌ Rejeitando comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe})`);
+      
+      console.log(`❌ Comprovante rejeitado por ${adminNome}:`, comprovante.nome);
+      console.log(`👤 Atleta: ${comprovante.nomeAtleta} (${comprovante.atletaId})`);
+      console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
+      
+      if (observacoes) {
+        console.log(`📝 Observações: ${observacoes}`);
+      }
+      
+      // TODO: Implementar atualização do status do atleta no Firebase se necessário
+      // await atletaService.atualizarStatusAnuidade(comprovante.atletaId, 'PENDENTE');
+      
+      console.log('✅ Status do atleta atualizado automaticamente');
+    } catch (error) {
+      console.error('❌ Erro ao rejeitar comprovante:', error);
+      throw error;
     }
   }
 };

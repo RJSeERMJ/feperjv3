@@ -257,7 +257,7 @@ const FinanceiroPage: React.FC = () => {
       );
 
       console.log('✅ Upload do comprovante concluído com sucesso');
-      toast.success('Comprovante enviado com sucesso!');
+      toast.success(`Comprovante enviado com sucesso para ${selectedAtleta.nome} (${user!.nomeEquipe || 'Equipe'})!`);
       setShowComprovanteModal(false);
       limparFormularioComprovante();
       loadData();
@@ -272,7 +272,7 @@ const FinanceiroPage: React.FC = () => {
     try {
       console.log('📥 Iniciando download do comprovante...');
       await comprovantesAnuidadeService.downloadComprovante(comprovante);
-      toast.success('Download iniciado com sucesso!');
+      toast.success(`Download do comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe}) iniciado com sucesso!`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       console.error('❌ Erro no download do comprovante:', error);
@@ -281,7 +281,7 @@ const FinanceiroPage: React.FC = () => {
   };
 
   const handleDeletarComprovante = async (comprovante: ComprovanteAnuidade) => {
-    if (!window.confirm(`Tem certeza que deseja excluir o comprovante "${comprovante.nome}"?`)) {
+    if (!window.confirm(`Tem certeza que deseja excluir o comprovante "${comprovante.nome}" do atleta ${comprovante.nomeAtleta} (${comprovante.nomeEquipe})?`)) {
       return;
     }
 
@@ -292,7 +292,7 @@ const FinanceiroPage: React.FC = () => {
         user!.tipo === 'admin',
         user!.idEquipe
       );
-      toast.success('Comprovante excluído com sucesso!');
+      toast.success(`Comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe}) excluído com sucesso!`);
       loadData();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -310,7 +310,7 @@ const FinanceiroPage: React.FC = () => {
         user!.nome || user!.login,
         observacoesAprovacao
       );
-      toast.success('Comprovante aprovado com sucesso!');
+      toast.success(`Comprovante de ${selectedComprovante.nomeAtleta} (${selectedComprovante.nomeEquipe}) aprovado com sucesso!`);
       setShowAprovacaoModal(false);
       setObservacoesAprovacao('');
       setSelectedComprovante(null);
@@ -331,7 +331,7 @@ const FinanceiroPage: React.FC = () => {
         user!.nome || user!.login,
         observacoesAprovacao
       );
-      toast.success('Comprovante rejeitado com sucesso!');
+      toast.success(`Comprovante de ${selectedComprovante.nomeAtleta} (${selectedComprovante.nomeEquipe}) rejeitado com sucesso!`);
       setShowAprovacaoModal(false);
       setObservacoesAprovacao('');
       setSelectedComprovante(null);
@@ -640,6 +640,8 @@ const FinanceiroPage: React.FC = () => {
                             <tr key={atleta.id}>
                               <td>
                                 <strong>{atleta.nome}</strong>
+                                <br />
+                                <small className="text-muted">ID: {atleta.id}</small>
                               </td>
                               <td>{atleta.cpf}</td>
                               <td>
@@ -1384,6 +1386,8 @@ const FinanceiroPage: React.FC = () => {
         <Modal.Body>
           <Alert variant="info">
             <strong>ℹ️ Informação:</strong> Envie o comprovante de pagamento da anuidade do atleta.
+            <br />
+            <strong>⚠️ Importante:</strong> Se já existir um comprovante para este atleta, ele será substituído automaticamente.
           </Alert>
           
           <Row>
@@ -1483,15 +1487,19 @@ const FinanceiroPage: React.FC = () => {
           {selectedComprovante && (
             <div>
               <Alert variant="info">
-                                        <strong>Comprovante:</strong> {selectedComprovante.nome}
+                <strong>📄 Comprovante:</strong> {selectedComprovante.nome}
                 <br />
-                <strong>Atleta:</strong> {selectedComprovante.nomeAtleta}
+                <strong>👤 Atleta:</strong> {selectedComprovante.nomeAtleta} (ID: {selectedComprovante.atletaId})
                 <br />
-                <strong>Equipe:</strong> {selectedComprovante.nomeEquipe}
+                <strong>🏆 Equipe:</strong> {selectedComprovante.nomeEquipe} (ID: {selectedComprovante.equipeId})
                 <br />
-                <strong>Valor:</strong> R$ {selectedComprovante.valor ? selectedComprovante.valor.toFixed(2) : 'N/A'}
+                <strong>💰 Valor:</strong> R$ {selectedComprovante.valor ? selectedComprovante.valor.toFixed(2) : 'N/A'}
                 <br />
-                <strong>Data Pagamento:</strong> {selectedComprovante.dataPagamento ? selectedComprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+                <strong>📅 Data Pagamento:</strong> {selectedComprovante.dataPagamento ? selectedComprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+                <br />
+                <strong>📤 Data Upload:</strong> {selectedComprovante.dataUpload.toLocaleDateString('pt-BR')}
+                <br />
+                <strong>📏 Tamanho:</strong> {(selectedComprovante.tamanho / 1024 / 1024).toFixed(2)} MB
               </Alert>
 
               <Form.Group className="mb-3">
