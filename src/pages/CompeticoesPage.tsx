@@ -258,7 +258,7 @@ const EditarInscricaoForm: React.FC<{
                       disabled={!podeUsar}
                     >
                       {cat.nome} - {cat.descricao}
-                      {!podeUsar && ` (Idade insuficiente: ${cat.idadeMinima || 'N/A'} - ${cat.idadeMaxima || 'N/A'} anos)`}
+                      {!podeUsar && ` (Idade insuficiente: ${idadeMinima} - ${cat.idadeMaxima} anos)`}
                     </option>
                   );
                 });
@@ -267,7 +267,26 @@ const EditarInscricaoForm: React.FC<{
             {categoriaIdade && !podeUsarCategoriaIdade(categoriaIdade) && (
               <Form.Text className="text-danger">
                 <strong>⚠️ Restrição de Idade:</strong> Atleta não tem idade suficiente para categoria {categoriaIdade.nome}. 
-                Idade atual: {idadeAtleta} anos. Faixa permitida: {categoriaIdade.idadeMinima || 'N/A'} - {categoriaIdade.idadeMaxima || 'N/A'} anos.
+                Idade atual: {idadeAtleta} anos. 
+                {(() => {
+                  let idadeMinima = 0;
+                  if (categoriaIdade.id === 'subjunior') {
+                    idadeMinima = 14;
+                  } else if (categoriaIdade.id === 'junior') {
+                    idadeMinima = 19;
+                  } else if (categoriaIdade.id === 'open') {
+                    idadeMinima = 19;
+                  } else if (categoriaIdade.id === 'master1') {
+                    idadeMinima = 40;
+                  } else if (categoriaIdade.id === 'master2') {
+                    idadeMinima = 50;
+                  } else if (categoriaIdade.id === 'master3') {
+                    idadeMinima = 60;
+                  } else if (categoriaIdade.id === 'master4') {
+                    idadeMinima = 70;
+                  }
+                  return `Faixa permitida: ${idadeMinima} - ${categoriaIdade.idadeMaxima} anos.`;
+                })()}
               </Form.Text>
             )}
             {idadeAtleta && (
@@ -1885,6 +1904,25 @@ const CompeticoesPage: React.FC = () => {
                              
                              return todasCategorias.map(cat => {
                                const podeUsar = categoriasValidas.some(catValida => catValida.id === cat.id);
+                               
+                               // Calcular idade mínima baseada nas regras das categorias
+                               let idadeMinima = 0;
+                               if (cat.id === 'subjunior') {
+                                 idadeMinima = 14;
+                               } else if (cat.id === 'junior') {
+                                 idadeMinima = 19;
+                               } else if (cat.id === 'open') {
+                                 idadeMinima = 19;
+                               } else if (cat.id === 'master1') {
+                                 idadeMinima = 40;
+                               } else if (cat.id === 'master2') {
+                                 idadeMinima = 50;
+                               } else if (cat.id === 'master3') {
+                                 idadeMinima = 60;
+                               } else if (cat.id === 'master4') {
+                                 idadeMinima = 70;
+                               }
+                               
                                return (
                                  <option 
                                    key={cat.id} 
@@ -1892,7 +1930,7 @@ const CompeticoesPage: React.FC = () => {
                                    disabled={!podeUsar}
                                  >
                                    {cat.nome} - {cat.descricao}
-                                   {!podeUsar && ` (Restrito a Sub-júnior: 14-18 anos)`}
+                                   {!podeUsar && ` (Idade insuficiente: ${idadeMinima} - ${cat.idadeMaxima} anos)`}
                                  </option>
                                );
                              });
@@ -1935,15 +1973,17 @@ const CompeticoesPage: React.FC = () => {
                            }}
                          >
                            <option value="">Selecione a categoria de idade</option>
-                           {obterCategoriasIdadeValidas().map(cat => {
+                           {(() => {
                              const idade = calcularIdade(atleta.dataNascimento!);
-                             const isValid = validarIdadeParaCategoria(idade, cat);
-                             return (
-                               <option key={cat.id} value={cat.id} disabled={!isValid}>
-                                 {cat.nome} - {cat.descricao} {!isValid && '(Idade não compatível)'}
-                               </option>
-                             );
-                           })}
+                             return CATEGORIAS_IDADE.map(cat => {
+                               const isValid = validarIdadeParaCategoria(idade, cat);
+                               return (
+                                 <option key={cat.id} value={cat.id} disabled={!isValid}>
+                                   {cat.nome} - {cat.descricao} {!isValid && '(Idade não compatível)'}
+                                 </option>
+                               );
+                             });
+                           })()}
                          </Form.Select>
                        </Form.Group>
                      </Col>
