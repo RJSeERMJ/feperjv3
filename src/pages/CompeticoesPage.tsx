@@ -1179,25 +1179,11 @@ const CompeticoesPage: React.FC = () => {
                        <small>Clique na linha para ver detalhes</small>
                      </div>
                    </td>
-                  <td>
-                    {user?.tipo === 'admin' && (
-                      <Dropdown>
-                        <Dropdown.Toggle variant="outline-secondary" size="sm">
-                          Ações
-                        </Dropdown.Toggle>
-                        <Dropdown.Menu>
-                          <Dropdown.Item onClick={() => handleEdit(competicao)}>
-                            <FaEdit className="me-2" />
-                            Editar
-                          </Dropdown.Item>
-                          <Dropdown.Item onClick={() => handleDelete(competicao)}>
-                            <FaTrash className="me-2" />
-                            Excluir
-                          </Dropdown.Item>
-                        </Dropdown.Menu>
-                      </Dropdown>
-                    )}
-                  </td>
+                                     <td>
+                     <div className="text-muted">
+                       <small>Clique na linha para ver detalhes</small>
+                     </div>
+                   </td>
                 </tr>
               ))}
             </tbody>
@@ -2295,43 +2281,55 @@ const CompeticoesPage: React.FC = () => {
            )}
          </Modal.Body>
          <Modal.Footer>
-           <div className="d-flex gap-2">
-             <Button 
-               variant="outline-info" 
-               onClick={() => {
-                 setShowDetalhesCompeticaoModal(false);
-                 handleInscricoes(competicaoDetalhes!);
-               }}
-             >
-               <FaUsers className="me-2" />
-               Ver Inscrições
-             </Button>
-             {user?.tipo === 'admin' && (
-               <Button 
-                 variant="outline-primary" 
-                 onClick={() => {
-                   setShowDetalhesCompeticaoModal(false);
-                   handleEdit(competicaoDetalhes!);
-                 }}
-               >
-                 <FaEdit className="me-2" />
-                 Editar Competição
-               </Button>
-             )}
-             {user?.tipo === 'admin' || (user?.idEquipe && atletas.some(a => a.idEquipe === user.idEquipe)) ? (
-               <Button 
-                 variant="outline-success" 
-                 onClick={() => {
-                   setShowDetalhesCompeticaoModal(false);
-                   handleInscreverAtletas(competicaoDetalhes!);
-                 }}
-                 disabled={competicaoDetalhes?.status !== 'AGENDADA' || !podeInscrever(competicaoDetalhes!)}
-               >
-                 <FaUserCheck className="me-2" />
-                 Inscrever Atletas
-               </Button>
-             ) : null}
-           </div>
+                       <div className="d-flex gap-2">
+              <Button 
+                variant="outline-info" 
+                onClick={() => {
+                  setShowDetalhesCompeticaoModal(false);
+                  handleInscricoes(competicaoDetalhes!);
+                }}
+              >
+                <FaUsers className="me-2" />
+                Ver Inscrições
+              </Button>
+              {user?.tipo === 'admin' || (user?.idEquipe && atletas.some(a => a.idEquipe === user.idEquipe)) ? (
+                <Button 
+                  variant="outline-success" 
+                  onClick={() => {
+                    setShowDetalhesCompeticaoModal(false);
+                    handleInscreverAtletas(competicaoDetalhes!);
+                  }}
+                  disabled={competicaoDetalhes?.status !== 'AGENDADA' || !podeInscrever(competicaoDetalhes!)}
+                >
+                  <FaUserCheck className="me-2" />
+                  Inscrever Atletas
+                </Button>
+              ) : null}
+              {user?.tipo === 'admin' && (
+                <>
+                  <Button 
+                    variant="outline-primary" 
+                    onClick={() => {
+                      setShowDetalhesCompeticaoModal(false);
+                      handleEdit(competicaoDetalhes!);
+                    }}
+                  >
+                    <FaEdit className="me-2" />
+                    Editar Competição
+                  </Button>
+                  <Button 
+                    variant="outline-danger" 
+                    onClick={() => {
+                      setShowDetalhesCompeticaoModal(false);
+                      handleDelete(competicaoDetalhes!);
+                    }}
+                  >
+                    <FaTrash className="me-2" />
+                    Excluir Competição
+                  </Button>
+                </>
+              )}
+            </div>
            <Button variant="secondary" onClick={() => setShowDetalhesCompeticaoModal(false)}>
              Fechar
            </Button>
