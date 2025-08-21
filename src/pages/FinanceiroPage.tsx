@@ -714,7 +714,7 @@ const FinanceiroPage: React.FC = () => {
       </div>
 
       <Tabs defaultActiveKey="dashboard" className="mb-4">
-        <Tab eventKey="dashboard" title="Dashboard Financeiro Geral - FEPERJ">
+SY        <Tab eventKey="dashboard" title="Dashboard Financeiro Geral - FEPERJ">
           <Row className="mb-4">
             <Col md={3}>
               <Card className="text-center">
