@@ -1924,24 +1924,6 @@ const CompeticoesPage: React.FC = () => {
                              return todasCategorias.map(cat => {
                                const podeUsar = categoriasValidas.some(catValida => catValida.id === cat.id);
                                
-                               // Calcular idade mínima baseada nas regras das categorias
-                               let idadeMinima = 0;
-                               if (cat.id === 'subjunior') {
-                                 idadeMinima = 14;
-                               } else if (cat.id === 'junior') {
-                                 idadeMinima = 19;
-                               } else if (cat.id === 'open') {
-                                 idadeMinima = 19;
-                               } else if (cat.id === 'master1') {
-                                 idadeMinima = 40;
-                               } else if (cat.id === 'master2') {
-                                 idadeMinima = 50;
-                               } else if (cat.id === 'master3') {
-                                 idadeMinima = 60;
-                               } else if (cat.id === 'master4') {
-                                 idadeMinima = 70;
-                               }
-                               
                                return (
                                  <option 
                                    key={cat.id} 
@@ -1949,7 +1931,7 @@ const CompeticoesPage: React.FC = () => {
                                    disabled={!podeUsar}
                                  >
                                    {cat.nome} - {cat.descricao}
-                                   {!podeUsar && ` (Idade insuficiente: ${idadeMinima} - ${cat.idadeMaxima} anos)`}
+                                   {!podeUsar && ` (Restrito a Sub-júnior: 14-18 anos)`}
                                  </option>
                                );
                              });
