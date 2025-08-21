@@ -24,7 +24,9 @@ import {
   FaCheckCircle,
   FaTimesCircle,
   FaEye,
-  FaUpload
+  FaUpload,
+  FaCalendarAlt,
+  FaChartBar
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,9 +34,10 @@ import {
   equipeService, 
   atletaService, 
   competicaoService, 
-  inscricaoService,
-  anuidadeService,
-  pagamentoService
+  inscricaoService, 
+  anuidadeService, 
+  pagamentoService,
+  renovacaoAnualService
 } from '../services/firebaseService';
 import { documentosContabeisService, DocumentoContabil, DownloadLog, DeleteLog } from '../services/documentosContabeisService';
 import { comprovantesAnuidadeService, ComprovanteAnuidade, LogAprovacao } from '../services/comprovantesAnuidadeService';
@@ -105,7 +108,19 @@ const FinanceiroPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    // Verificar renovação anual automaticamente
+    verificarRenovacaoAnual();
   }, []);
+
+  const verificarRenovacaoAnual = async () => {
+    try {
+      console.log('🔄 Verificando renovação anual...');
+      await renovacaoAnualService.verificarEExecutarRenovacao();
+    } catch (error) {
+      console.error('❌ Erro ao verificar renovação anual:', error);
+      // Não mostrar erro para o usuário, apenas log
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -660,12 +675,6 @@ const FinanceiroPage: React.FC = () => {
                                 <div className="d-flex gap-1">
                                   {comprovante ? (
                                     <>
-                                      <Badge bg={
-                                        comprovante.status === 'APROVADO' ? 'success' : 
-                                        comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
-                                      }>
-                                        {comprovante.status}
-                                      </Badge>
                                       <Button
                                         variant="outline-primary"
                                         size="sm"
@@ -1036,7 +1045,9 @@ const FinanceiroPage: React.FC = () => {
                               comprovante.status === 'APROVADO' ? 'success' : 
                               comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
                             }>
-                              {comprovante.status}
+                              {comprovante.status === 'APROVADO' ? 'COMPROVANTE APROVADO' : 
+                               comprovante.status === 'REJEITADO' ? 'COMPROVANTE REJEITADO' : 
+                               'PENDENTE'}
                             </Badge>
                           </td>
                           <td>

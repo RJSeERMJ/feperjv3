@@ -1,5 +1,5 @@
 import { supabase, COMPROVANTES_CONFIG } from '../config/supabase';
-import { atletaService, equipeService } from './firebaseService';
+import { atletaService, equipeService, pagamentoService, anuidadeService } from './firebaseService';
 
 // Interface para log de aprovação (mantida para compatibilidade)
 export interface LogAprovacao {
@@ -516,26 +516,43 @@ export const comprovantesAnuidadeService = {
     }
   },
 
-  // Funções de aprovação com atualização automática do status do atleta
+  // Funções de aprovação com integração completa ao Firebase
   async aprovarComprovante(comprovante: ComprovanteAnuidade, adminNome: string, observacoes?: string): Promise<void> {
     try {
       console.log(`✅ Aprovando comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe})`);
       
-      // Aqui você pode implementar a lógica para atualizar o status do atleta no Firebase
-      // Por exemplo, atualizar o status de anuidade do atleta para 'PAGO' ou 'ATIVO'
+      // Buscar valor da anuidade configurada
+      const anuidade = await anuidadeService.getAtivo();
+      if (!anuidade) {
+        throw new Error('Nenhuma anuidade ativa configurada no sistema');
+      }
       
-      console.log(`✅ Comprovante aprovado por ${adminNome}:`, comprovante.nome);
+      const valorAnuidade = anuidade.valor || 0;
+      console.log(`💰 Valor da anuidade: R$ ${valorAnuidade.toFixed(2)}`);
+      
+      // Aprovar comprovante no Firebase
+      await pagamentoService.aprovarComprovante(
+        comprovante.atletaId,
+        valorAnuidade,
+        adminNome,
+        observacoes
+      );
+      
+      // Atualizar o status do comprovante localmente
+      comprovante.status = 'APROVADO';
+      comprovante.valor = valorAnuidade;
+      comprovante.dataPagamento = new Date();
+      
+      console.log(`✅ Comprovante aprovado com sucesso por ${adminNome}:`, comprovante.nome);
       console.log(`👤 Atleta: ${comprovante.nomeAtleta} (${comprovante.atletaId})`);
       console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
+      console.log(`💰 Valor: R$ ${valorAnuidade.toFixed(2)}`);
       
       if (observacoes) {
         console.log(`📝 Observações: ${observacoes}`);
       }
       
-      // TODO: Implementar atualização do status do atleta no Firebase
-      // await atletaService.atualizarStatusAnuidade(comprovante.atletaId, 'PAGO');
-      
-      console.log('✅ Status do atleta atualizado automaticamente');
+      console.log('✅ Status do atleta atualizado automaticamente para ATIVO');
     } catch (error) {
       console.error('❌ Erro ao aprovar comprovante:', error);
       throw error;
@@ -546,7 +563,17 @@ export const comprovantesAnuidadeService = {
     try {
       console.log(`❌ Rejeitando comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe})`);
       
-      console.log(`❌ Comprovante rejeitado por ${adminNome}:`, comprovante.nome);
+      // Rejeitar comprovante no Firebase
+      await pagamentoService.rejeitarComprovante(
+        comprovante.atletaId,
+        adminNome,
+        observacoes
+      );
+      
+      // Atualizar o status do comprovante localmente
+      comprovante.status = 'REJEITADO';
+      
+      console.log(`❌ Comprovante rejeitado com sucesso por ${adminNome}:`, comprovante.nome);
       console.log(`👤 Atleta: ${comprovante.nomeAtleta} (${comprovante.atletaId})`);
       console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
       
@@ -554,10 +581,7 @@ export const comprovantesAnuidadeService = {
         console.log(`📝 Observações: ${observacoes}`);
       }
       
-      // TODO: Implementar atualização do status do atleta no Firebase se necessário
-      // await atletaService.atualizarStatusAnuidade(comprovante.atletaId, 'PENDENTE');
-      
-      console.log('✅ Status do atleta atualizado automaticamente');
+      console.log('✅ Status do atleta mantido (não alterado)');
     } catch (error) {
       console.error('❌ Erro ao rejeitar comprovante:', error);
       throw error;

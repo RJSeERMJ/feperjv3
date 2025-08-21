@@ -736,6 +736,176 @@ export const pagamentoService = {
   async delete(id: string): Promise<void> {
     const docRef = doc(db, 'pagamentos_anuidade', id);
     await deleteDoc(docRef);
+  },
+
+  // Função para aprovar comprovante de anuidade
+  async aprovarComprovante(atletaId: string, valorAnuidade: number, adminNome: string, observacoes?: string): Promise<void> {
+    try {
+      console.log(`✅ Aprovando comprovante para atleta ${atletaId}`);
+      
+      // 1. Atualizar status do atleta para ATIVO
+      const atletaRef = doc(db, 'atletas', atletaId);
+      await updateDoc(atletaRef, {
+        status: 'ATIVO',
+        dataAtualizacao: Timestamp.now()
+      });
+      
+      // 2. Criar ou atualizar registro de pagamento
+      const pagamentosExistentes = await this.getByAtleta(atletaId);
+      const pagamentoAtual = pagamentosExistentes.find(p => p.ano === new Date().getFullYear());
+      
+      if (pagamentoAtual) {
+        // Atualizar pagamento existente
+        await this.update(pagamentoAtual.id, {
+          status: 'PAGO',
+          valor: valorAnuidade,
+          dataAprovacao: Timestamp.now(),
+          aprovadoPor: adminNome,
+          observacoes: observacoes || 'Aprovado via comprovante'
+        });
+      } else {
+        // Criar novo pagamento
+        const atleta = await atletaService.getById(atletaId);
+        if (!atleta) {
+          throw new Error('Atleta não encontrado');
+        }
+        
+        await this.create({
+          idAtleta: atletaId,
+          idEquipe: atleta.idEquipe,
+          nomeAtleta: atleta.nome,
+          nomeEquipe: atleta.equipe?.nomeEquipe || 'N/A',
+          valor: valorAnuidade,
+          status: 'PAGO',
+          ano: new Date().getFullYear(),
+          dataAprovacao: Timestamp.now(),
+          aprovadoPor: adminNome,
+          observacoes: observacoes || 'Aprovado via comprovante'
+        });
+      }
+      
+      console.log(`✅ Comprovante aprovado com sucesso para atleta ${atletaId}`);
+    } catch (error) {
+      console.error('❌ Erro ao aprovar comprovante:', error);
+      throw error;
+    }
+  },
+
+  // Função para rejeitar comprovante de anuidade
+  async rejeitarComprovante(atletaId: string, adminNome: string, observacoes?: string): Promise<void> {
+    try {
+      console.log(`❌ Rejeitando comprovante para atleta ${atletaId}`);
+      
+      // Não alterar status do atleta (manter como está)
+      // Apenas registrar a rejeição
+      
+      const pagamentosExistentes = await this.getByAtleta(atletaId);
+      const pagamentoAtual = pagamentosExistentes.find(p => p.ano === new Date().getFullYear());
+      
+      if (pagamentoAtual) {
+        // Atualizar pagamento existente
+        await this.update(pagamentoAtual.id, {
+          status: 'REJEITADO',
+          dataRejeicao: Timestamp.now(),
+          rejeitadoPor: adminNome,
+          observacoes: observacoes || 'Rejeitado via comprovante'
+        });
+      } else {
+        // Criar registro de rejeição
+        const atleta = await atletaService.getById(atletaId);
+        if (!atleta) {
+          throw new Error('Atleta não encontrado');
+        }
+        
+        await this.create({
+          idAtleta: atletaId,
+          idEquipe: atleta.idEquipe,
+          nomeAtleta: atleta.nome,
+          nomeEquipe: atleta.equipe?.nomeEquipe || 'N/A',
+          valor: 0,
+          status: 'REJEITADO',
+          ano: new Date().getFullYear(),
+          dataRejeicao: Timestamp.now(),
+          rejeitadoPor: adminNome,
+          observacoes: observacoes || 'Rejeitado via comprovante'
+        });
+      }
+      
+      console.log(`❌ Comprovante rejeitado com sucesso para atleta ${atletaId}`);
+    } catch (error) {
+      console.error('❌ Erro ao rejeitar comprovante:', error);
+      throw error;
+    }
+  }
+};
+
+// Serviço para renovação anual automática
+export const renovacaoAnualService = {
+  // Verificar se precisa fazer renovação anual
+  async verificarRenovacaoAnual(): Promise<boolean> {
+    try {
+      const anoAtual = new Date().getFullYear();
+      const ultimaRenovacao = localStorage.getItem('ultimaRenovacaoAnual');
+      
+      if (!ultimaRenovacao || parseInt(ultimaRenovacao) < anoAtual) {
+        console.log(`🔄 Verificando renovação anual para ${anoAtual}`);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('❌ Erro ao verificar renovação anual:', error);
+      return false;
+    }
+  },
+
+  // Executar renovação anual
+  async executarRenovacaoAnual(): Promise<void> {
+    try {
+      const anoAtual = new Date().getFullYear();
+      console.log(`🔄 Iniciando renovação anual para ${anoAtual}`);
+      
+      // Buscar todos os atletas
+      const atletas = await atletaService.getAll();
+      
+      // Atualizar status de todos os atletas para INATIVO
+      const batch = writeBatch(db);
+      
+      atletas.forEach(atleta => {
+        if (atleta.id) {
+          const atletaRef = doc(db, 'atletas', atleta.id);
+          batch.update(atletaRef, {
+            status: 'INATIVO',
+            dataAtualizacao: Timestamp.now()
+          });
+        }
+      });
+      
+      // Executar todas as atualizações
+      await batch.commit();
+      
+      // Marcar renovação como executada
+      localStorage.setItem('ultimaRenovacaoAnual', anoAtual.toString());
+      
+      console.log(`✅ Renovação anual executada com sucesso. ${atletas.length} atletas atualizados.`);
+    } catch (error) {
+      console.error('❌ Erro ao executar renovação anual:', error);
+      throw error;
+    }
+  },
+
+  // Verificar e executar renovação se necessário
+  async verificarEExecutarRenovacao(): Promise<void> {
+    try {
+      const precisaRenovacao = await this.verificarRenovacaoAnual();
+      
+      if (precisaRenovacao) {
+        await this.executarRenovacaoAnual();
+      }
+    } catch (error) {
+      console.error('❌ Erro ao verificar e executar renovação:', error);
+      throw error;
+    }
   }
 };
 
