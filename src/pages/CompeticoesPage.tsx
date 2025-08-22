@@ -28,7 +28,8 @@ import {
   FaUserCheck,
   FaUserTimes,
   FaChartBar,
-  FaDownload
+  FaDownload,
+  FaTrophy
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { competicaoService, inscricaoService, atletaService, equipeService, logService } from '../services/firebaseService';
