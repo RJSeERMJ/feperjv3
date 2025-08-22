@@ -17,6 +17,7 @@ import FinanceiroPage from './pages/FinanceiroPage';
 import RelatoriosPage from './pages/RelatoriosPage';
 import UsuariosPage from './pages/UsuariosPage';
 import LogPage from './pages/LogPage';
+import BarraProntaPage from './pages/BarraProntaPage';
 
 // Componente para proteger rotas
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -99,7 +100,13 @@ const App: React.FC = () => {
               </ProtectedRoute>
             } />
             
-
+            <Route path="/barra-pronta" element={
+              <ProtectedRoute>
+                <AdminRoute>
+                  <BarraProntaPage />
+                </AdminRoute>
+              </ProtectedRoute>
+            } />
             
             <Route path="/relatorios" element={
               <ProtectedRoute>
