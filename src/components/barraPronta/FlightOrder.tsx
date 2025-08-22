@@ -38,9 +38,37 @@ const FlightOrder: React.FC = () => {
     return true;
   });
 
-  // Agrupar por grupos
+  // Função para calcular total parcial baseado nos movimentos
+  const getPartialTotal = (entry: Entry): number => {
+    const movements = entry.movements || 'AST';
+    let total = 0;
+
+    // Verificar se inclui Agachamento (A)
+    if (movements.includes('A')) {
+      const squat = entry.squat1 || 0;
+      total += squat;
+    }
+
+    // Verificar se inclui Supino (S)
+    if (movements.includes('S')) {
+      const bench = entry.bench1 || 0;
+      total += bench;
+    }
+
+    // Verificar se inclui Terra (T)
+    if (movements.includes('T')) {
+      const deadlift = entry.deadlift1 || 0;
+      total += deadlift;
+    }
+
+    return total;
+  };
+
+  // Agrupar por grupos e ordenar por total parcial (decrescente)
   const entriesByFlight = flights.reduce((acc, flight) => {
-    acc[flight] = filteredEntries.filter(entry => entry.flight === flight);
+    const flightEntries = filteredEntries.filter(entry => entry.flight === flight);
+    // Ordenar por total parcial (decrescente)
+    acc[flight] = flightEntries.sort((a, b) => getPartialTotal(b) - getPartialTotal(a));
     return acc;
   }, {} as Record<Flight, Entry[]>);
 
@@ -215,38 +243,64 @@ const FlightOrder: React.FC = () => {
         </Col>
       </Row>
 
-              {/* Estatísticas dos Grupos */}
+              {/* Organização por Grupos */}
       <Row className="mb-4">
         <Col>
           <Card>
             <Card.Header>
-              <h5>Estatísticas dos Grupos</h5>
+              <h5>Organização por Grupos</h5>
+              <small className="text-muted">Atletas organizados por grupo e ordenados por total parcial (decrescente)</small>
             </Card.Header>
             <Card.Body>
-              <Row>
-                {flights.map(flight => {
-                  const stats = getFlightStats(flight);
-                  return (
-                    <Col key={flight} md={2} className="mb-3">
-                      <div className="text-center p-3 border rounded">
-                        <h4 className="text-primary mb-2">Grupo {flight}</h4>
-                        <div className="mb-2">
-                          <Badge bg="primary" className="me-1">{stats.total}</Badge>
-                          <small>Total</small>
-                        </div>
-                        <div className="mb-2">
-                          <Badge bg="success" className="me-1">{stats.weighed}</Badge>
-                          <small>Pesados</small>
-                        </div>
-                        <div className="mb-2">
-                          <Badge bg="info" className="me-1">{stats.men}M</Badge>
-                          <Badge bg="warning" className="me-1">{stats.women}F</Badge>
-                        </div>
-                      </div>
-                    </Col>
-                  );
-                })}
-              </Row>
+              {flights.map(flight => {
+                const flightEntries = entriesByFlight[flight];
+                if (flightEntries.length === 0) return null;
+                
+                return (
+                  <div key={flight} className="mb-4">
+                                         <h6 className="text-primary border-bottom pb-2">
+                       <Badge bg="primary" className="me-2">Grupo {flight}</Badge>
+                     </h6>
+                    <Table responsive striped hover size="sm">
+                      <thead>
+                        <tr>
+                          <th>Pos</th>
+                          <th>Nome</th>
+                          <th>Total Parcial</th>
+                          <th>Movimentos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {flightEntries.map((entry, index) => (
+                          <tr key={entry.id}>
+                            <td>
+                              <Badge bg={index === 0 ? 'warning' : index === 1 ? 'secondary' : index === 2 ? 'warning' : 'light'} text="dark">
+                                {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
+                              </Badge>
+                            </td>
+                            <td>
+                              <strong>{entry.name}</strong>
+                              {entry.team && (
+                                <div className="text-muted small">{entry.team}</div>
+                              )}
+                            </td>
+                            <td>
+                              <Badge bg="success" className="fs-6">
+                                {getPartialTotal(entry)} kg
+                              </Badge>
+                            </td>
+                            <td>
+                              <Badge bg="info">
+                                {entry.movements || 'AST'}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                );
+              })}
             </Card.Body>
           </Card>
         </Col>

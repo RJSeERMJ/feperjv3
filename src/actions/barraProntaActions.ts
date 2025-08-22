@@ -97,7 +97,7 @@ export const createNewMeet = () => {
         weightClassesKgMen: [59, 66, 74, 83, 93, 105, 120, 120],
         weightClassesKgWomen: [47, 52, 57, 63, 69, 76, 84, 84],
         weightClassesKgMx: [],
-        formula: 'IPF' as const,
+        formula: 'IPF GL Points' as const,
         combineSleevesAndWraps: false,
         combineSingleAndMulti: false,
         allow4thAttempts: false,

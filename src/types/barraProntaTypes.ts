@@ -2,7 +2,7 @@
 
 export type Language = 'en' | 'pt';
 
-export type Formula = 'IPF' | 'Wilks' | 'Dots' | 'Glossbrenner' | 'Schwartz' | 'NASA' | 'Reshel';
+export type Formula = 'IPF GL Points' | 'IPF' | 'Wilks' | 'Dots' | 'Glossbrenner' | 'Schwartz' | 'NASA' | 'Reshel';
 
 export type Lift = 'S' | 'B' | 'D';
 
@@ -47,6 +47,7 @@ export type Entry = {
   readonly platform: number | null;
   readonly flight: Flight | null;
   readonly day: number | null;
+  readonly movements: string; // A/S/T/AS/AT/ST/AST
   readonly sessionNumber: number | null;
   readonly team: string;
   readonly country: string;

@@ -91,6 +91,7 @@ const Registration: React.FC = () => {
       platform: null,
       flight: null,
       day: null,
+      movements: 'AST', // Padrão: Agachamento + Supino + Terra
       sessionNumber: null,
       tested: false
     };
