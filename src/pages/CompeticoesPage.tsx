@@ -416,6 +416,12 @@ const CompeticoesPage: React.FC = () => {
   const [competicaoDetalhes, setCompeticaoDetalhes] = useState<Competicao | null>(null);
   const [inscricaoEmEdicao, setInscricaoEmEdicao] = useState<InscricaoCompeticao | null>(null);
   const [categorizacaoAtletas, setCategorizacaoAtletas] = useState<Map<string, any>>(new Map());
+  const [showNominacaoModal, setShowNominacaoModal] = useState(false);
+  const [nominacaoCompeticao, setNominacaoCompeticao] = useState<Competicao | null>(null);
+  const [nominacaoData, setNominacaoData] = useState<InscricaoCompeticao[]>([]);
+  const [loadingNominacao, setLoadingNominacao] = useState(false);
+  const [filtroModalidade, setFiltroModalidade] = useState<string>('');
+  const [filtroEquipe, setFiltroEquipe] = useState<string>('');
   const [selectedCompeticao, setSelectedCompeticao] = useState<Competicao | null>(null);
   const [inscricoes, setInscricoes] = useState<InscricaoCompeticao[]>([]);
   const [editingCompeticao, setEditingCompeticao] = useState<Competicao | null>(null);
@@ -898,6 +904,134 @@ const CompeticoesPage: React.FC = () => {
     setShowEditarInscricaoModal(true);
   };
 
+  const handleNominacao = async (competicao: Competicao) => {
+    try {
+      setLoadingNominacao(true);
+      setNominacaoCompeticao(competicao);
+      
+      // Carregar todas as inscrições da competição
+      const inscricoesCompeticao = await inscricaoService.getByCompeticao(competicao.id!);
+      
+      // Filtrar apenas inscrições aprovadas/confirmadas
+      const inscricoesAprovadas = inscricoesCompeticao.filter(insc => 
+        insc.statusInscricao === 'INSCRITO' && insc.categoriaPeso && insc.categoriaIdade
+      );
+      
+      setNominacaoData(inscricoesAprovadas);
+      setShowNominacaoModal(true);
+    } catch (error) {
+      toast.error('Erro ao carregar nominação');
+      console.error(error);
+    } finally {
+      setLoadingNominacao(false);
+    }
+  };
+
+  const exportarNominacaoCSV = () => {
+    if (!nominacaoCompeticao || nominacaoData.length === 0) {
+      toast.error('Nenhum dado disponível para exportar');
+      return;
+    }
+
+    try {
+      // Filtrar dados baseado nos filtros aplicados
+      let dadosFiltrados = nominacaoData;
+      
+      if (filtroModalidade) {
+        dadosFiltrados = dadosFiltrados.filter(insc => insc.modalidade === filtroModalidade);
+      }
+      
+      if (filtroEquipe) {
+        dadosFiltrados = dadosFiltrados.filter(insc => insc.atleta?.equipe?.nomeEquipe === filtroEquipe);
+      }
+
+      // Agrupar primeiro por sexo, depois por categoria de peso
+      const agrupadoPorSexo = dadosFiltrados.reduce((acc, inscricao) => {
+        const sexo = inscricao.atleta?.sexo || 'N/A';
+        if (!acc[sexo]) {
+          acc[sexo] = {};
+        }
+        
+        const categoriaPeso = inscricao.categoriaPeso?.nome || 'Sem Categoria';
+        if (!acc[sexo][categoriaPeso]) {
+          acc[sexo][categoriaPeso] = [];
+        }
+        acc[sexo][categoriaPeso].push(inscricao);
+        return acc;
+      }, {} as Record<string, Record<string, typeof dadosFiltrados>>);
+
+      // Ordenar sexos (M primeiro, depois F)
+      const sexosOrdenados = Object.keys(agrupadoPorSexo).sort((a, b) => {
+        if (a === 'M') return -1;
+        if (b === 'M') return 1;
+        return a.localeCompare(b);
+      });
+
+      // Preparar dados para CSV com agrupamento por sexo e categoria
+      let csvContent: string[][] = [];
+      
+      sexosOrdenados.forEach(sexo => {
+        const categoriasDoSexo = agrupadoPorSexo[sexo];
+        const totalAtletasSexo = Object.values(categoriasDoSexo).reduce((total, categoria) => total + categoria.length, 0);
+        
+        // Adicionar cabeçalho do sexo
+        csvContent.push([`=== ${sexo === 'M' ? 'MASCULINO' : 'FEMININO'} (${totalAtletasSexo} atleta${totalAtletasSexo !== 1 ? 's' : ''}) ===`]);
+        
+        // Ordenar categorias de peso para este sexo
+        const categoriasOrdenadas = Object.keys(categoriasDoSexo).sort((a, b) => {
+          const numA = parseInt(a.match(/\d+/)?.[0] || '0');
+          const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+          return numA - numB;
+        });
+        
+        categoriasOrdenadas.forEach(categoriaPeso => {
+          // Adicionar cabeçalho da categoria
+          csvContent.push([`--- ${categoriaPeso} (${categoriasDoSexo[categoriaPeso].length} atleta${categoriasDoSexo[categoriaPeso].length !== 1 ? 's' : ''}) ---`]);
+          csvContent.push(['Nome', 'Equipe', 'Modalidade', 'Categoria Idade', 'Dobra', 'CPF']);
+          
+          // Adicionar dados da categoria
+          categoriasDoSexo[categoriaPeso]
+            .sort((a, b) => (a.atleta?.nome || '').localeCompare(b.atleta?.nome || ''))
+            .forEach(insc => {
+              csvContent.push([
+                insc.atleta?.nome || '',
+                insc.atleta?.equipe?.nomeEquipe || '',
+                insc.modalidade === 'CLASSICA' ? 'Clássica' : insc.modalidade === 'EQUIPADO' ? 'Equipado' : '',
+                insc.categoriaIdade?.nome || '',
+                insc.dobraCategoria ? 'Sim' : 'Não',
+                insc.atleta?.cpf || ''
+              ]);
+            });
+          
+          // Adicionar linha em branco entre categorias
+          csvContent.push([]);
+        });
+        
+        // Adicionar linha em branco entre sexos
+        csvContent.push([]);
+      });
+
+      // Converter para string CSV
+      const csvString = csvContent.map(row => row.map((field: string) => `"${field}"`).join(',')).join('\n');
+
+      // Criar e baixar arquivo
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `nominacao_por_categoria_${nominacaoCompeticao.nomeCompeticao.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Nominação agrupada por categoria exportada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao exportar nominação');
+      console.error(error);
+    }
+  };
+
   const handleDetalhesCompeticao = (competicao: Competicao) => {
     setCompeticaoDetalhes(competicao);
     setShowDetalhesCompeticaoModal(true);
@@ -1058,69 +1192,7 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
-  // Função para exportar a nominação completa em CSV
-  const exportarNominacaoCSV = () => {
-    if (!selectedCompeticao) return;
-    
-    // Filtrar apenas inscrições válidas
-    const inscricoesValidas = inscricoes.filter(i => 
-      i.statusInscricao === 'INSCRITO' && 
-      i.atleta && 
-      i.categoriaPeso && 
-      i.categoriaIdade
-    );
-    
-    if (inscricoesValidas.length === 0) {
-      toast.error('Nenhuma inscrição válida para exportar');
-      return;
-    }
-    
-    // Preparar dados para CSV
-    const dadosCSV = inscricoesValidas.map(insc => ({
-      'Nome': insc.atleta?.nome || '',
-      'CPF': insc.atleta?.cpf || '',
-      'Data Nascimento': insc.atleta?.dataNascimento ? 
-        new Date(insc.atleta.dataNascimento).toLocaleDateString('pt-BR') : '',
-      'Idade': insc.atleta?.dataNascimento ? 
-        calcularIdade(insc.atleta.dataNascimento) : '',
-      'Sexo': insc.atleta?.sexo === 'M' ? 'Masculino' : 'Feminino',
-      'Equipe': insc.atleta?.equipe?.nomeEquipe || '',
-      'Categoria Peso': insc.categoriaPeso?.nome || '',
-      'Categoria Idade': insc.categoriaIdade?.nome || '',
-      'Dobra': insc.dobraCategoria ? 
-        `${insc.dobraCategoria.categoriaIdade.nome} - ${insc.dobraCategoria.categoriaPeso.nome}` : 'Não',
-      'Status': insc.statusInscricao || ''
-    }));
-    
-    // Converter para CSV
-    const headers = Object.keys(dadosCSV[0]);
-    const csvContent = [
-      headers.join(','),
-      ...dadosCSV.map(row => 
-        headers.map(header => {
-          const value = row[header as keyof typeof row];
-          // Escapar vírgulas e aspas no CSV
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value;
-        }).join(',')
-      )
-    ].join('\n');
-    
-    // Criar e baixar arquivo
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `nominacao_${selectedCompeticao.nomeCompeticao.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success(`Nominação exportada com sucesso! ${inscricoesValidas.length} atletas incluídos.`);
-  };
+
 
   if (loading) {
     return (
@@ -2510,6 +2582,17 @@ const CompeticoesPage: React.FC = () => {
                 <FaUsers className="me-2" />
                 Ver Inscrições
               </Button>
+              <Button 
+                variant="outline-warning" 
+                onClick={() => {
+                  setShowDetalhesCompeticaoModal(false);
+                  handleNominacao(competicaoDetalhes!);
+                }}
+                disabled={loadingNominacao}
+              >
+                <FaTrophy className="me-2" />
+                {loadingNominacao ? 'Carregando...' : 'Ver Nominação'}
+              </Button>
               {user?.tipo === 'admin' || (user?.idEquipe && atletas.some(a => a.idEquipe === user.idEquipe)) ? (
                 <Button 
                   variant="outline-success" 
@@ -2549,6 +2632,253 @@ const CompeticoesPage: React.FC = () => {
               )}
             </div>
            <Button variant="secondary" onClick={() => setShowDetalhesCompeticaoModal(false)}>
+             Fechar
+           </Button>
+         </Modal.Footer>
+       </Modal>
+
+       {/* Modal de Nominação */}
+       <Modal show={showNominacaoModal} onHide={() => setShowNominacaoModal(false)} size="xl">
+         <Modal.Header closeButton>
+           <Modal.Title>
+             <FaTrophy className="me-2" />
+             Nominação - {nominacaoCompeticao?.nomeCompeticao}
+           </Modal.Title>
+         </Modal.Header>
+         <Modal.Body>
+           {loadingNominacao ? (
+             <div className="text-center py-4">
+               <Spinner animation="border" variant="primary" />
+               <p className="mt-2">Carregando nominação...</p>
+             </div>
+           ) : (
+             <>
+               {/* Filtros */}
+               <Row className="mb-3">
+                 <Col md={6}>
+                   <Form.Group>
+                     <Form.Label>Filtrar por Modalidade</Form.Label>
+                     <Form.Select
+                       value={filtroModalidade}
+                       onChange={(e) => setFiltroModalidade(e.target.value)}
+                     >
+                       <option value="">Todas as modalidades</option>
+                       <option value="CLASSICA">Clássica</option>
+                       <option value="EQUIPADO">Equipado</option>
+                     </Form.Select>
+                   </Form.Group>
+                 </Col>
+                 <Col md={6}>
+                   <Form.Group>
+                     <Form.Label>Filtrar por Equipe</Form.Label>
+                     <Form.Select
+                       value={filtroEquipe}
+                       onChange={(e) => setFiltroEquipe(e.target.value)}
+                     >
+                       <option value="">Todas as equipes</option>
+                       {Array.from(new Set(nominacaoData.map(insc => insc.atleta?.equipe?.nomeEquipe).filter(Boolean))).map(equipe => (
+                         <option key={equipe} value={equipe}>{equipe}</option>
+                       ))}
+                     </Form.Select>
+                   </Form.Group>
+                 </Col>
+               </Row>
+
+               {/* Estatísticas */}
+               <Row className="mb-3">
+                 <Col md={12}>
+                   <Alert variant="info">
+                     <strong>📊 Estatísticas da Nominação:</strong>
+                     <br />
+                     • <strong>Total de atletas:</strong> {nominacaoData.length}
+                     {filtroModalidade && (
+                       <span>
+                         <br />
+                         • <strong>Modalidade filtrada:</strong> {filtroModalidade === 'CLASSICA' ? 'Clássica' : 'Equipado'}
+                       </span>
+                     )}
+                     {filtroEquipe && (
+                       <span>
+                         <br />
+                         • <strong>Equipe filtrada:</strong> {filtroEquipe}
+                       </span>
+                     )}
+                     <br />
+                     • <strong>Categorias de peso:</strong> {(() => {
+                       const categorias = Array.from(new Set(nominacaoData.map(insc => insc.categoriaPeso?.nome).filter(Boolean)));
+                       return `${categorias.length} categoria${categorias.length !== 1 ? 's' : ''}`;
+                     })()}
+                     <br />
+                     • <strong>Distribuição por sexo:</strong> {(() => {
+                       const masculino = nominacaoData.filter(insc => insc.atleta?.sexo === 'M').length;
+                       const feminino = nominacaoData.filter(insc => insc.atleta?.sexo === 'F').length;
+                       return `${masculino} masculino${masculino !== 1 ? 's' : ''}, ${feminino} feminino${feminino !== 1 ? 's' : ''}`;
+                     })()}
+                   </Alert>
+                 </Col>
+               </Row>
+
+               {/* Tabela de Nominação Agrupada por Sexo e Categoria de Peso */}
+               {(() => {
+                 // Filtrar dados baseado nos filtros aplicados
+                 const dadosFiltrados = nominacaoData.filter(insc => {
+                   if (filtroModalidade && insc.modalidade !== filtroModalidade) return false;
+                   if (filtroEquipe && insc.atleta?.equipe?.nomeEquipe !== filtroEquipe) return false;
+                   return true;
+                 });
+
+                 // Agrupar primeiro por sexo, depois por categoria de peso
+                 const agrupadoPorSexo = dadosFiltrados.reduce((acc, inscricao) => {
+                   const sexo = inscricao.atleta?.sexo || 'N/A';
+                   if (!acc[sexo]) {
+                     acc[sexo] = {};
+                   }
+                   
+                   const categoriaPeso = inscricao.categoriaPeso?.nome || 'Sem Categoria';
+                   if (!acc[sexo][categoriaPeso]) {
+                     acc[sexo][categoriaPeso] = [];
+                   }
+                   acc[sexo][categoriaPeso].push(inscricao);
+                   return acc;
+                 }, {} as Record<string, Record<string, typeof dadosFiltrados>>);
+
+                 // Ordenar sexos (M primeiro, depois F)
+                 const sexosOrdenados = Object.keys(agrupadoPorSexo).sort((a, b) => {
+                   if (a === 'M') return -1;
+                   if (b === 'M') return 1;
+                   return a.localeCompare(b);
+                 });
+
+                 return (
+                   <div>
+                     {sexosOrdenados.map((sexo) => {
+                       const categoriasDoSexo = agrupadoPorSexo[sexo];
+                       
+                       // Ordenar categorias de peso para este sexo
+                       const categoriasOrdenadas = Object.keys(categoriasDoSexo).sort((a, b) => {
+                         const numA = parseInt(a.match(/\d+/)?.[0] || '0');
+                         const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+                         return numA - numB;
+                       });
+
+                       const totalAtletasSexo = Object.values(categoriasDoSexo).reduce((total, categoria) => total + categoria.length, 0);
+
+                       return (
+                         <div key={sexo} className="mb-5">
+                           <Card className="mb-3">
+                             <Card.Header className={sexo === 'M' ? 'bg-primary text-white' : 'bg-danger text-white'}>
+                               <h4 className="mb-0">
+                                 <Badge bg={sexo === 'M' ? 'light' : 'light'} text="dark" className="me-2">
+                                   {sexo === 'M' ? '🏋️‍♂️ Masculino' : '🏋️‍♀️ Feminino'}
+                                 </Badge>
+                                 <span className="text-light">
+                                   ({totalAtletasSexo} atleta{totalAtletasSexo !== 1 ? 's' : ''})
+                                 </span>
+                               </h4>
+                             </Card.Header>
+                           </Card>
+
+                           {categoriasOrdenadas.map((categoriaPeso) => (
+                             <div key={`${sexo}-${categoriaPeso}`} className="mb-4 ms-3">
+                               <Card className="mb-3">
+                                 <Card.Header className="bg-warning text-dark">
+                                   <h6 className="mb-0">
+                                     <Badge bg="warning" text="dark" className="me-2">
+                                       {categoriaPeso}
+                                     </Badge>
+                                     <span className="text-muted">
+                                       ({categoriasDoSexo[categoriaPeso].length} atleta{categoriasDoSexo[categoriaPeso].length !== 1 ? 's' : ''})
+                                     </span>
+                                   </h6>
+                                 </Card.Header>
+                                 <Card.Body className="p-0">
+                                   <Table striped bordered hover responsive className="mb-0">
+                                     <thead className="table-light">
+                                       <tr>
+                                         <th>Nome</th>
+                                         <th>Equipe</th>
+                                         <th>Modalidade</th>
+                                         <th>Categoria Idade</th>
+                                         <th>Dobra</th>
+                                         <th>CPF</th>
+                                       </tr>
+                                     </thead>
+                                     <tbody>
+                                       {categoriasDoSexo[categoriaPeso]
+                                         .sort((a, b) => (a.atleta?.nome || '').localeCompare(b.atleta?.nome || ''))
+                                         .map((inscricao, index) => (
+                                           <tr key={inscricao.id || index}>
+                                             <td>
+                                               <strong>{inscricao.atleta?.nome}</strong>
+                                             </td>
+                                             <td>
+                                               <Badge bg="secondary">
+                                                 {inscricao.atleta?.equipe?.nomeEquipe || 'N/A'}
+                                               </Badge>
+                                             </td>
+                                             <td>
+                                               {inscricao.modalidade === 'CLASSICA' ? (
+                                                 <Badge bg="primary">Clássica</Badge>
+                                               ) : inscricao.modalidade === 'EQUIPADO' ? (
+                                                 <Badge bg="success">Equipado</Badge>
+                                               ) : (
+                                                 <span className="text-muted">N/A</span>
+                                               )}
+                                             </td>
+                                             <td>
+                                               <Badge bg="info">
+                                                 {inscricao.categoriaIdade?.nome || 'N/A'}
+                                               </Badge>
+                                             </td>
+                                             <td>
+                                               {inscricao.dobraCategoria ? (
+                                                 <Badge bg="danger">Sim</Badge>
+                                               ) : (
+                                                 <Badge bg="light" text="dark">Não</Badge>
+                                               )}
+                                             </td>
+                                             <td>
+                                               <small className="text-muted">
+                                                 {inscricao.atleta?.cpf || 'N/A'}
+                                               </small>
+                                             </td>
+                                           </tr>
+                                         ))}
+                                     </tbody>
+                                   </Table>
+                                 </Card.Body>
+                               </Card>
+                             </div>
+                           ))}
+                         </div>
+                       );
+                     })}
+                   </div>
+                 );
+               })()}
+
+               {nominacaoData.filter(insc => {
+                 if (filtroModalidade && insc.modalidade !== filtroModalidade) return false;
+                 if (filtroEquipe && insc.atleta?.equipe?.nomeEquipe !== filtroEquipe) return false;
+                 return true;
+               }).length === 0 && (
+                 <Alert variant="warning" className="text-center">
+                   Nenhum atleta encontrado com os filtros aplicados.
+                 </Alert>
+               )}
+             </>
+           )}
+         </Modal.Body>
+         <Modal.Footer>
+           <Button 
+             variant="outline-success" 
+             onClick={exportarNominacaoCSV}
+             disabled={nominacaoData.length === 0}
+           >
+             <FaFileExport className="me-2" />
+             Exportar CSV
+           </Button>
+           <Button variant="secondary" onClick={() => setShowNominacaoModal(false)}>
              Fechar
            </Button>
          </Modal.Footer>
