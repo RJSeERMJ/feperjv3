@@ -39,6 +39,29 @@ const MeetSetup: React.FC = () => {
     showAlternateUnits: meet.showAlternateUnits
   });
 
+  // Atualizar formData quando o estado do Redux mudar
+  React.useEffect(() => {
+    setFormData({
+      name: meet.name,
+      country: meet.country,
+      state: meet.state,
+      city: meet.city,
+      federation: meet.federation,
+      date: meet.date,
+      lengthDays: meet.lengthDays,
+      formula: meet.formula,
+      combineSleevesAndWraps: meet.combineSleevesAndWraps,
+      combineSingleAndMulti: meet.combineSingleAndMulti,
+      allow4thAttempts: meet.allow4thAttempts,
+      roundTotalsDown: meet.roundTotalsDown,
+      inKg: meet.inKg,
+      squatBarAndCollarsWeightKg: meet.squatBarAndCollarsWeightKg,
+      benchBarAndCollarsWeightKg: meet.benchBarAndCollarsWeightKg,
+      deadliftBarAndCollarsWeightKg: meet.deadliftBarAndCollarsWeightKg,
+      showAlternateUnits: meet.showAlternateUnits
+    });
+  }, [meet]);
+
   const [newDivision, setNewDivision] = useState('');
   const [newWeightClass, setNewWeightClass] = useState('');
   const [weightClassSex, setWeightClassSex] = useState<'M' | 'F'>('M');

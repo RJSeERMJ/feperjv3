@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Nav, Tab, Button, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Nav, Tab, Button, Alert, Modal, Table, Spinner } from 'react-bootstrap';
 import { FaWeightHanging, FaUsers, FaTrophy, FaChartBar, FaCog, FaHome, FaSave, FaFolderOpen, FaPlus } from 'react-icons/fa';
 import { Provider, useSelector, useDispatch } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from '../store/barraProntaStore';
 import { GlobalState } from '../types/barraProntaTypes';
-import { createNewMeet, loadSavedMeetData, saveMeetData } from '../actions/barraProntaActions';
+import { createNewMeet, loadSavedMeetData, saveMeetData, updateMeet } from '../actions/barraProntaActions';
+import { competicaoService } from '../services/firebaseService';
+import { Competicao } from '../types';
+import { CATEGORIAS_PESO_MASCULINO, CATEGORIAS_PESO_FEMININO, CATEGORIAS_IDADE } from '../config/categorias';
 import MeetSetup from '../components/barraPronta/MeetSetup';
 import Registration from '../components/barraPronta/Registration';
 import WeighIns from '../components/barraPronta/WeighIns';
@@ -15,6 +18,9 @@ import Results from '../components/barraPronta/Results';
 
 const BarraProntaContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [competicoes, setCompeticoes] = useState<Competicao[]>([]);
+  const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
   const meet = useSelector((state: GlobalState) => state.meet);
   const registration = useSelector((state: GlobalState) => state.registration);
@@ -27,6 +33,8 @@ const BarraProntaContent: React.FC = () => {
   const handleNewMeet = () => {
     if (window.confirm('Tem certeza que deseja criar uma nova competição? Isso apagará todos os dados atuais.')) {
       dispatch(createNewMeet() as any);
+      // Redirecionar para a aba de configuração
+      setActiveTab('meet-setup');
     }
   };
 
@@ -35,9 +43,95 @@ const BarraProntaContent: React.FC = () => {
     alert('Competição salva com sucesso!');
   };
 
-  const handleLoadMeet = () => {
-    dispatch(loadSavedMeetData() as any);
-    alert('Competição carregada com sucesso!');
+  const handleLoadMeet = async () => {
+    setLoading(true);
+    try {
+      const competicoesData = await competicaoService.getAll();
+      // Filtrar apenas competições agendadas
+      const competicoesAgendadas = competicoesData.filter(comp => comp.status === 'AGENDADA');
+      setCompeticoes(competicoesAgendadas);
+      setShowLoadModal(true);
+    } catch (error) {
+      console.error('Erro ao carregar competições:', error);
+      alert('Erro ao carregar competições. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectCompeticao = (competicao: Competicao) => {
+    // Usar exatamente as categorias configuradas no sistema
+    const weightClassesKgMen = CATEGORIAS_PESO_MASCULINO
+      .map(cat => cat.pesoMaximo)
+      .sort((a, b) => a - b);
+
+    const weightClassesKgWomen = CATEGORIAS_PESO_FEMININO
+      .map(cat => cat.pesoMaximo)
+      .sort((a, b) => a - b);
+
+    // Usar exatamente as divisões configuradas no sistema
+    const divisions = CATEGORIAS_IDADE
+      .map(cat => cat.nome);
+
+    // Converter dados da competição para o formato do Barra Pronta
+    const meetData = {
+      name: competicao.nomeCompeticao,
+      country: 'Brasil', // Valor padrão
+      state: '', // Pode ser extraído do local se necessário
+      city: competicao.local || '',
+      federation: 'FEPERJ', // Valor padrão
+      date: formatDate(competicao.dataCompeticao),
+      lengthDays: 1, // Valor padrão
+      platformsOnDays: [1], // Valor padrão
+      ageCoefficients: {
+        men: [],
+        women: []
+      },
+      divisions: divisions, // Usar as divisões configuradas no sistema
+      weightClassesKgMen: weightClassesKgMen, // Usar as classes de peso masculino configuradas
+      weightClassesKgWomen: weightClassesKgWomen, // Usar as classes de peso feminino configuradas
+      weightClassesKgMx: [],
+      formula: 'IPF' as const,
+      combineSleevesAndWraps: false,
+      combineSingleAndMulti: false,
+      allow4thAttempts: false,
+      roundTotalsDown: false,
+      inKg: true,
+      squatBarAndCollarsWeightKg: 20,
+      benchBarAndCollarsWeightKg: 20,
+      deadliftBarAndCollarsWeightKg: 20,
+      plates: [
+        { weightKg: 25, color: '#000000', diameterMm: 450 },
+        { weightKg: 20, color: '#000000', diameterMm: 450 },
+        { weightKg: 15, color: '#000000', diameterMm: 450 },
+        { weightKg: 10, color: '#000000', diameterMm: 450 },
+        { weightKg: 5, color: '#000000', diameterMm: 450 },
+        { weightKg: 2.5, color: '#000000', diameterMm: 450 },
+        { weightKg: 1.25, color: '#000000', diameterMm: 450 }
+      ],
+      showAlternateUnits: false
+    };
+
+    // Dispatch para atualizar o estado da competição
+    dispatch(updateMeet(meetData));
+
+    alert(`Competição "${competicao.nomeCompeticao}" carregada com sucesso!\n\nCategorias carregadas:\n- Peso Masculino: ${weightClassesKgMen.length} classes\n- Peso Feminino: ${weightClassesKgWomen.length} classes\n- Divisões: ${divisions.length} categorias de idade`);
+    setShowLoadModal(false);
+    
+    // Redirecionar para a aba de configuração para ver os dados carregados
+    setActiveTab('meet-setup');
+  };
+
+  const formatDate = (date: Date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDateForDisplay = (date: Date) => {
+    return new Date(date).toLocaleDateString('pt-BR');
   };
 
   return (
@@ -205,6 +299,56 @@ const BarraProntaContent: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Modal para carregar competições */}
+      <Modal show={showLoadModal} onHide={() => setShowLoadModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Carregar Competição</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <h5>Competições Agendadas</h5>
+          {loading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" className="me-3" />
+              <span>Carregando competições...</span>
+            </div>
+          ) : competicoes.length === 0 ? (
+            <p>Nenhuma competição agendada encontrada.</p>
+          ) : (
+            <Table striped bordered hover>
+              <thead>
+                <tr>
+                  <th>Nome da Competição</th>
+                  <th>Local</th>
+                  <th>Data</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {competicoes.map((competicao) => (
+                  <tr key={competicao.id}>
+                    <td>{competicao.nomeCompeticao}</td>
+                    <td>{competicao.local}</td>
+                                         <td>{formatDateForDisplay(competicao.dataCompeticao)}</td>
+                    <td>{competicao.status}</td>
+                    <td>
+                      <Button variant="info" size="sm" onClick={() => handleSelectCompeticao(competicao)}>
+                        Selecionar
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowLoadModal(false)}>
+            Fechar
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };
