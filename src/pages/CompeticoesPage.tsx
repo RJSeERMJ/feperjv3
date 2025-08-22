@@ -662,8 +662,8 @@ const CompeticoesPage: React.FC = () => {
         atletasDisponiveis.forEach(atleta => {
           const inscricoesDoAtleta = inscricoesAtivas.filter(insc => insc.idAtleta === atleta.id);
           if (inscricoesDoAtleta.length > 0) {
-            const modalidadesInscritas = inscricoesDoAtleta.map(insc => insc.modalidade);
-            atleta.inscricoesExistentes = modalidadesInscritas;
+            const modalidadesInscritas = inscricoesDoAtleta.map(insc => insc.modalidade).filter(Boolean);
+            (atleta as any).inscricoesExistentes = modalidadesInscritas;
           }
         });
       }
@@ -704,8 +704,8 @@ const CompeticoesPage: React.FC = () => {
       
       const atletasComConflito = atletasSelecionados.filter(atletaId => {
         const inscricoesDoAtleta = inscricoesAtivas.filter(insc => insc.idAtleta === atletaId);
-        const modalidadesInscritas = inscricoesDoAtleta.map(insc => insc.modalidade);
-        return modalidadesInscritas.includes(inscricaoFormData.modalidade);
+        const modalidadesInscritas = inscricoesDoAtleta.map(insc => insc.modalidade).filter(Boolean);
+        return modalidadesInscritas.includes(inscricaoFormData.modalidade as 'CLASSICA' | 'EQUIPADO');
       });
 
       if (atletasComConflito.length > 0) {
@@ -803,7 +803,7 @@ const CompeticoesPage: React.FC = () => {
       setShowCategorizacaoModal(false);
       setCategorizacaoAtletas(new Map());
       setAtletasSelecionados([]);
-      setInscricaoFormData({ temDobra: false, observacoes: '' });
+      setInscricaoFormData({ temDobra: false, observacoes: '', modalidade: '' });
       loadData(); // Recarregar dados
     } catch (error) {
       toast.error('Erro ao realizar inscrição');
@@ -1996,11 +1996,11 @@ const CompeticoesPage: React.FC = () => {
                                <small className="text-muted">
                                  CPF: {atleta.cpf} | Equipe: {atleta.equipe?.nomeEquipe || 'N/A'}
                                </small>
-                               {selectedCompeticao?.modalidade === 'CLASSICA_EQUIPADO' && atleta.inscricoesExistentes && (
+                               {selectedCompeticao?.modalidade === 'CLASSICA_EQUIPADO' && (atleta as any).inscricoesExistentes && (
                                  <div className="mt-1">
                                    <small className="text-info">
                                      <strong>Inscrições existentes:</strong> {
-                                       atleta.inscricoesExistentes.map(modalidade => 
+                                       (atleta as any).inscricoesExistentes.map((modalidade: string) => 
                                          modalidade === 'CLASSICA' ? 'Clássica' : 'Equipado'
                                        ).join(', ')
                                      }
