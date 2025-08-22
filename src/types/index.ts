@@ -82,6 +82,8 @@ export interface Competicao {
   descricao?: string;
   status: 'AGENDADA' | 'REALIZADA' | 'CANCELADA';
   permiteDobraCategoria?: boolean;
+  // Novos campos para modalidade
+  modalidade: 'CLASSICA' | 'EQUIPADO' | 'CLASSICA_EQUIPADO';
   dataCriacao?: Date;
 }
 
@@ -100,6 +102,8 @@ export interface InscricaoCompeticao {
     categoriaPeso: CategoriaPeso;
     categoriaIdade: CategoriaIdade;
   };
+  // Novo campo para modalidade da inscrição
+  modalidade?: 'CLASSICA' | 'EQUIPADO';
   dataAprovacao?: Date;
   dataRejeicao?: Date;
   aprovadoPor?: string;

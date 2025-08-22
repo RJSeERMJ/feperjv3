@@ -422,7 +422,8 @@ const CompeticoesPage: React.FC = () => {
   const [atletasSelecionados, setAtletasSelecionados] = useState<string[]>([]);
   const [inscricaoFormData, setInscricaoFormData] = useState({
     temDobra: false,
-    observacoes: ''
+    observacoes: '',
+    modalidade: '' as 'CLASSICA' | 'EQUIPADO' | ''
   });
   const [formData, setFormData] = useState({
     nomeCompeticao: '',
@@ -436,7 +437,8 @@ const CompeticoesPage: React.FC = () => {
     local: '',
     descricao: '',
     status: 'AGENDADA' as 'AGENDADA' | 'REALIZADA' | 'CANCELADA',
-    permiteDobraCategoria: false
+    permiteDobraCategoria: false,
+    modalidade: 'CLASSICA' as 'CLASSICA' | 'EQUIPADO' | 'CLASSICA_EQUIPADO'
   });
   const { user } = useAuth();
 
@@ -531,7 +533,8 @@ const CompeticoesPage: React.FC = () => {
         local: formData.local,
         descricao: formData.descricao,
         status: formData.status,
-        permiteDobraCategoria: formData.permiteDobraCategoria
+        permiteDobraCategoria: formData.permiteDobraCategoria,
+        modalidade: formData.modalidade
       };
 
       if (editingCompeticao) {
@@ -589,7 +592,8 @@ const CompeticoesPage: React.FC = () => {
       local: competicao.local || '',
       descricao: competicao.descricao || '',
       status: competicao.status,
-      permiteDobraCategoria: competicao.permiteDobraCategoria || false
+      permiteDobraCategoria: competicao.permiteDobraCategoria || false,
+      modalidade: competicao.modalidade || 'CLASSICA'
     });
     setShowModal(true);
   };
@@ -627,18 +631,45 @@ const CompeticoesPage: React.FC = () => {
 
       // Buscar inscrições existentes para filtrar atletas já inscritos
       const inscricoesExistentes = await inscricaoService.getByCompeticao(competicao.id!);
-      const atletasInscritos = inscricoesExistentes
-        .filter(insc => insc.statusInscricao === 'INSCRITO')
-        .map(insc => insc.idAtleta);
+      const inscricoesAtivas = inscricoesExistentes.filter(insc => insc.statusInscricao === 'INSCRITO');
+      
+      // Filtrar atletas baseado na modalidade da competição
+      const atletasDisponiveis = atletasDaEquipe.filter(atleta => {
+        const inscricoesDoAtleta = inscricoesAtivas.filter(insc => insc.idAtleta === atleta.id);
+        
+        if (competicao.modalidade === 'CLASSICA' || competicao.modalidade === 'EQUIPADO') {
+          // Modalidade única: atleta só pode se inscrever uma vez
+          return inscricoesDoAtleta.length === 0;
+        } else if (competicao.modalidade === 'CLASSICA_EQUIPADO') {
+          // Modalidade dupla: atleta pode se inscrever até duas vezes (uma em cada modalidade)
+          // Verificar se já tem inscrição na modalidade selecionada
+          const modalidadesInscritas = inscricoesDoAtleta.map(insc => insc.modalidade);
+          const modalidadeSelecionada = inscricaoFormData.modalidade;
+          
+          if (modalidadeSelecionada && modalidadesInscritas.includes(modalidadeSelecionada)) {
+            return false; // Já inscrito nesta modalidade
+          }
+          
+          return inscricoesDoAtleta.length < 2;
+        }
+        
+        return true;
+      });
 
-      // Filtrar apenas atletas não inscritos
-      const atletasDisponiveis = atletasDaEquipe.filter(atleta => 
-        !atletasInscritos.includes(atleta.id!)
-      );
+      // Adicionar informações sobre inscrições existentes para competições duplas
+      if (competicao.modalidade === 'CLASSICA_EQUIPADO') {
+        atletasDisponiveis.forEach(atleta => {
+          const inscricoesDoAtleta = inscricoesAtivas.filter(insc => insc.idAtleta === atleta.id);
+          if (inscricoesDoAtleta.length > 0) {
+            const modalidadesInscritas = inscricoesDoAtleta.map(insc => insc.modalidade);
+            atleta.inscricoesExistentes = modalidadesInscritas;
+          }
+        });
+      }
 
       setAtletasDisponiveis(atletasDisponiveis);
       setAtletasSelecionados([]);
-      setInscricaoFormData({ temDobra: false, observacoes: '' });
+      setInscricaoFormData({ temDobra: false, observacoes: '', modalidade: '' });
       setShowInscricaoModal(true);
     } catch (error) {
       toast.error('Erro ao carregar atletas disponíveis');
@@ -657,6 +688,33 @@ const CompeticoesPage: React.FC = () => {
     if (!selectedCompeticao) {
       toast.error('Competição não selecionada');
       return;
+    }
+
+    // Validar modalidade se a competição for "Clássica e Equipado"
+    if (selectedCompeticao.modalidade === 'CLASSICA_EQUIPADO' && !inscricaoFormData.modalidade) {
+      toast.error('Selecione a modalidade (Clássica ou Equipado) para a inscrição');
+      return;
+    }
+
+    // Validar se os atletas selecionados não estão já inscritos na modalidade escolhida
+    if (selectedCompeticao.modalidade === 'CLASSICA_EQUIPADO' && inscricaoFormData.modalidade) {
+      const inscricoesExistentes = await inscricaoService.getByCompeticao(selectedCompeticao.id!);
+      const inscricoesAtivas = inscricoesExistentes.filter(insc => insc.statusInscricao === 'INSCRITO');
+      
+      const atletasComConflito = atletasSelecionados.filter(atletaId => {
+        const inscricoesDoAtleta = inscricoesAtivas.filter(insc => insc.idAtleta === atletaId);
+        const modalidadesInscritas = inscricoesDoAtleta.map(insc => insc.modalidade);
+        return modalidadesInscritas.includes(inscricaoFormData.modalidade);
+      });
+
+      if (atletasComConflito.length > 0) {
+        const nomesAtletas = atletasComConflito.map(id => 
+          atletas.find(a => a.id === id)?.nome
+        ).filter(Boolean);
+        
+        toast.error(`Os seguintes atletas já estão inscritos na modalidade ${inscricaoFormData.modalidade === 'CLASSICA' ? 'Clássica' : 'Equipado'}: ${nomesAtletas.join(', ')}`);
+        return;
+      }
     }
 
     // Abrir modal de categorização em vez de finalizar diretamente
@@ -709,6 +767,14 @@ const CompeticoesPage: React.FC = () => {
            categoriaPeso: categorizacao.categoriaPeso,
            categoriaIdade: categorizacao.categoriaIdade
          };
+
+         // Adicionar modalidade se a competição for "Clássica e Equipado"
+         if (selectedCompeticao!.modalidade === 'CLASSICA_EQUIPADO') {
+           inscricao.modalidade = inscricaoFormData.modalidade;
+         } else {
+           // Para competições de modalidade única, definir a modalidade baseada na competição
+           inscricao.modalidade = selectedCompeticao!.modalidade === 'CLASSICA' ? 'CLASSICA' : 'EQUIPADO';
+         }
 
          // Adicionar dobraCategoria apenas se existir e não for undefined
          if (categorizacao.dobraCategoria) {
@@ -966,7 +1032,8 @@ const CompeticoesPage: React.FC = () => {
       local: '',
       descricao: '',
       status: 'AGENDADA',
-      permiteDobraCategoria: false
+      permiteDobraCategoria: false,
+      modalidade: 'CLASSICA'
     });
     setEditingCompeticao(null);
   };
@@ -1144,9 +1211,20 @@ const CompeticoesPage: React.FC = () => {
                 >
                   <td>
                     <strong>{competicao.nomeCompeticao}</strong>
-                    {competicao.permiteDobraCategoria && (
-                      <Badge bg="warning" className="ms-2">Dobra</Badge>
-                    )}
+                    <div className="mt-1">
+                      {competicao.modalidade === 'CLASSICA' && (
+                        <Badge bg="primary" className="me-1">Clássica</Badge>
+                      )}
+                      {competicao.modalidade === 'EQUIPADO' && (
+                        <Badge bg="success" className="me-1">Equipado</Badge>
+                      )}
+                      {competicao.modalidade === 'CLASSICA_EQUIPADO' && (
+                        <Badge bg="info" className="me-1">Clássica + Equipado</Badge>
+                      )}
+                      {competicao.permiteDobraCategoria && (
+                        <Badge bg="warning" className="ms-1">Dobra</Badge>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div>
@@ -1360,7 +1438,26 @@ const CompeticoesPage: React.FC = () => {
               </Col>
             </Row>
             <Row>
-              <Col md={12}>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Modalidade da Competição *</Form.Label>
+                  <Form.Select
+                    value={formData.modalidade}
+                    onChange={(e) => setFormData({...formData, modalidade: e.target.value as any})}
+                    required
+                  >
+                    <option value="CLASSICA">Apenas Clássica</option>
+                    <option value="EQUIPADO">Apenas Equipado</option>
+                    <option value="CLASSICA_EQUIPADO">Clássica e Equipado</option>
+                  </Form.Select>
+                  <Form.Text className="text-muted">
+                    {formData.modalidade === 'CLASSICA' && 'Atletas só podem se inscrever uma vez (Clássica)'}
+                    {formData.modalidade === 'EQUIPADO' && 'Atletas só podem se inscrever uma vez (Equipado)'}
+                    {formData.modalidade === 'CLASSICA_EQUIPADO' && 'Atletas podem se inscrever duas vezes (uma em cada modalidade)'}
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Check
                     type="checkbox"
@@ -1401,6 +1498,7 @@ const CompeticoesPage: React.FC = () => {
                     <th>Equipe</th>
                     <th>Data Inscrição</th>
                     <th>Status</th>
+                    <th>Modalidade</th>
                     <th>Valor</th>
                     <th>Dobra</th>
                     <th>Ações</th>
@@ -1425,6 +1523,17 @@ const CompeticoesPage: React.FC = () => {
                           <FaUserCheck className="me-1" />
                           Inscrito
                         </Badge>
+                      </td>
+                      <td>
+                        {inscricao.modalidade === 'CLASSICA' && (
+                          <Badge bg="primary">Clássica</Badge>
+                        )}
+                        {inscricao.modalidade === 'EQUIPADO' && (
+                          <Badge bg="success">Equipado</Badge>
+                        )}
+                        {!inscricao.modalidade && (
+                          <Badge bg="secondary">N/A</Badge>
+                        )}
                       </td>
                       <td>
                         R$ {inscricao.valorIndividual?.toFixed(2) || selectedCompeticao?.valorInscricao.toFixed(2)}
@@ -1542,6 +1651,11 @@ const CompeticoesPage: React.FC = () => {
                              <span className="text-muted ms-2">({categoria?.descricao})</span>
                              <Badge bg="secondary" className="ms-2">{atletas.length} atleta(s)</Badge>
                            </h6>
+                           <div className="mb-2">
+                             <small className="text-muted">
+                               <strong>Colunas:</strong> Nome | Equipe | Modalidade | Categoria Idade | Dobra
+                             </small>
+                           </div>
                            <Table responsive striped size="sm">
                              <thead>
                                <tr>
@@ -1560,6 +1674,17 @@ const CompeticoesPage: React.FC = () => {
                                     <small className="text-muted">{inscricao.atleta?.cpf}</small>
                                   </td>
                                   <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
+                                  <td>
+                                    {inscricao.modalidade === 'CLASSICA' && (
+                                      <Badge bg="primary">Clássica</Badge>
+                                    )}
+                                    {inscricao.modalidade === 'EQUIPADO' && (
+                                      <Badge bg="success">Equipado</Badge>
+                                    )}
+                                    {!inscricao.modalidade && (
+                                      <Badge bg="secondary">N/A</Badge>
+                                    )}
+                                  </td>
                                   <td>
                                     {inscricao.categoriaIdade ? (
                                       <Badge bg="info">
@@ -1632,6 +1757,11 @@ const CompeticoesPage: React.FC = () => {
                              <span className="text-muted ms-2">({categoria?.descricao})</span>
                              <Badge bg="secondary" className="ms-2">{atletas.length} atleta(s)</Badge>
                            </h6>
+                           <div className="mb-2">
+                             <small className="text-muted">
+                               <strong>Colunas:</strong> Nome | Equipe | Modalidade | Categoria Idade | Dobra
+                             </small>
+                           </div>
                            <Table responsive striped size="sm">
                              <thead>
                                <tr>
@@ -1650,6 +1780,17 @@ const CompeticoesPage: React.FC = () => {
                                     <small className="text-muted">{inscricao.atleta?.cpf}</small>
                                   </td>
                                   <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
+                                  <td>
+                                    {inscricao.modalidade === 'CLASSICA' && (
+                                      <Badge bg="primary">Clássica</Badge>
+                                    )}
+                                    {inscricao.modalidade === 'EQUIPADO' && (
+                                      <Badge bg="success">Equipado</Badge>
+                                    )}
+                                    {!inscricao.modalidade && (
+                                      <Badge bg="secondary">N/A</Badge>
+                                    )}
+                                  </td>
                                   <td>
                                     {inscricao.categoriaIdade ? (
                                       <Badge bg="info">
@@ -1688,6 +1829,7 @@ const CompeticoesPage: React.FC = () => {
                     <th>Equipe</th>
                     <th>Data Inscrição</th>
                     <th>Status</th>
+                    <th>Modalidade</th>
                     <th>Observações</th>
                   </tr>
                 </thead>
@@ -1710,6 +1852,17 @@ const CompeticoesPage: React.FC = () => {
                           <FaUserTimes className="me-1" />
                           Cancelado
                         </Badge>
+                      </td>
+                      <td>
+                        {inscricao.modalidade === 'CLASSICA' && (
+                          <Badge bg="primary">Clássica</Badge>
+                        )}
+                        {inscricao.modalidade === 'EQUIPADO' && (
+                          <Badge bg="success">Equipado</Badge>
+                        )}
+                        {!inscricao.modalidade && (
+                          <Badge bg="secondary">N/A</Badge>
+                        )}
                       </td>
                       <td>{inscricao.observacoes || '-'}</td>
                     </tr>
@@ -1809,6 +1962,13 @@ const CompeticoesPage: React.FC = () => {
                {selectedCompeticao?.valorDobra && (
                  <span> | <strong>Valor da Dobra:</strong> R$ {selectedCompeticao.valorDobra.toFixed(2)}</span>
                )}
+               {selectedCompeticao?.modalidade === 'CLASSICA_EQUIPADO' && (
+                 <span>
+                   <br />
+                   <strong>🏆 Modalidade:</strong> Esta competição permite inscrição em Clássica e Equipado. 
+                   O mesmo atleta pode se inscrever duas vezes (uma em cada modalidade).
+                 </span>
+               )}
              </Alert>
 
              {atletasDisponiveis.length === 0 ? (
@@ -1835,6 +1995,17 @@ const CompeticoesPage: React.FC = () => {
                                <small className="text-muted">
                                  CPF: {atleta.cpf} | Equipe: {atleta.equipe?.nomeEquipe || 'N/A'}
                                </small>
+                               {selectedCompeticao?.modalidade === 'CLASSICA_EQUIPADO' && atleta.inscricoesExistentes && (
+                                 <div className="mt-1">
+                                   <small className="text-info">
+                                     <strong>Inscrições existentes:</strong> {
+                                       atleta.inscricoesExistentes.map(modalidade => 
+                                         modalidade === 'CLASSICA' ? 'Clássica' : 'Equipado'
+                                       ).join(', ')
+                                     }
+                                   </small>
+                                 </div>
+                               )}
                              </div>
                              <Badge bg="info">
                                {atleta.maiorTotal ? `${atleta.maiorTotal}kg` : 'Sem total'}
@@ -1847,6 +2018,24 @@ const CompeticoesPage: React.FC = () => {
                      ))}
                    </div>
                  </Form.Group>
+
+                 {selectedCompeticao?.modalidade === 'CLASSICA_EQUIPADO' && (
+                   <Form.Group className="mb-3">
+                     <Form.Label>Modalidade da Inscrição *</Form.Label>
+                     <Form.Select
+                       value={inscricaoFormData.modalidade}
+                       onChange={(e) => setInscricaoFormData({...inscricaoFormData, modalidade: e.target.value as 'CLASSICA' | 'EQUIPADO'})}
+                       required
+                     >
+                       <option value="">Selecione a modalidade</option>
+                       <option value="CLASSICA">Clássica</option>
+                       <option value="EQUIPADO">Equipado</option>
+                     </Form.Select>
+                     <Form.Text className="text-muted">
+                       Selecione em qual modalidade os atletas irão competir
+                     </Form.Text>
+                   </Form.Group>
+                 )}
 
                  {selectedCompeticao?.permiteDobraCategoria && (
                    <Form.Group className="mb-3">
@@ -1880,6 +2069,12 @@ const CompeticoesPage: React.FC = () => {
                      <strong>📋 Resumo da Inscrição:</strong>
                      <br />
                      • <strong>{atletasSelecionados.length}</strong> atleta(s) selecionado(s)
+                     {selectedCompeticao?.modalidade === 'CLASSICA_EQUIPADO' && inscricaoFormData.modalidade && (
+                       <span>
+                         <br />
+                         • <strong>Modalidade:</strong> {inscricaoFormData.modalidade === 'CLASSICA' ? 'Clássica' : 'Equipado'}
+                       </span>
+                     )}
                      <br />
                      • <strong>Valor total:</strong> R$ {
                        selectedCompeticao ? (
@@ -2216,6 +2411,25 @@ const CompeticoesPage: React.FC = () => {
                      </Card.Body>
                    </Card>
                  </Col>
+                 <Col md={6}>
+                   <Card className="h-100">
+                     <Card.Body className="text-center">
+                       <FaTrophy className="text-info mb-2" size={24} />
+                       <h6>Modalidade</h6>
+                       <p className="mb-0">
+                         {competicaoDetalhes.modalidade === 'CLASSICA' && (
+                           <Badge bg="primary">Clássica</Badge>
+                         )}
+                         {competicaoDetalhes.modalidade === 'EQUIPADO' && (
+                           <Badge bg="success">Equipado</Badge>
+                         )}
+                         {competicaoDetalhes.modalidade === 'CLASSICA_EQUIPADO' && (
+                           <Badge bg="info">Clássica + Equipado</Badge>
+                         )}
+                       </p>
+                     </Card.Body>
+                   </Card>
+                 </Col>
                </Row>
 
                <Row className="mb-3">
@@ -2273,6 +2487,9 @@ const CompeticoesPage: React.FC = () => {
                      <strong>ℹ️ Informação:</strong> Clique em "Ver Inscrições" para gerenciar os atletas inscritos nesta competição.
                      {competicaoDetalhes.permiteDobraCategoria && (
                        <span> Esta competição permite dobra de categoria.</span>
+                     )}
+                     {competicaoDetalhes.modalidade === 'CLASSICA_EQUIPADO' && (
+                       <span> Esta competição permite inscrição em Clássica e Equipado.</span>
                      )}
                    </Alert>
                  </Col>
