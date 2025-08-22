@@ -38,7 +38,7 @@ const FlightOrder: React.FC = () => {
     return true;
   });
 
-  // Agrupar por voos
+  // Agrupar por grupos
   const entriesByFlight = flights.reduce((acc, flight) => {
     acc[flight] = filteredEntries.filter(entry => entry.flight === flight);
     return acc;
@@ -57,7 +57,7 @@ const FlightOrder: React.FC = () => {
   };
 
   const handleAutoAssignFlights = () => {
-    if (window.confirm('Isso irá redistribuir automaticamente todos os atletas nos voos. Continuar?')) {
+          if (window.confirm('Isso irá redistribuir automaticamente todos os atletas nos grupos. Continuar?')) {
       const entriesWithWeight = registration.entries
         .filter(entry => entry.bodyweightKg !== null)
         .sort((a, b) => (b.bodyweightKg || 0) - (a.bodyweightKg || 0));
@@ -105,8 +105,8 @@ const FlightOrder: React.FC = () => {
         <Col>
           <div className="d-flex justify-content-between align-items-center">
             <div>
-              <h3>Ordem de Voo</h3>
-              <p className="text-muted">Organize os atletas em voos e plataformas</p>
+              <h3>Ordem dos Grupos</h3>
+              <p className="text-muted">Organize os atletas em grupos e plataformas</p>
             </div>
             <div className="d-flex gap-2">
               <Button variant="outline-primary" onClick={handleAutoAssignFlights}>
@@ -160,14 +160,14 @@ const FlightOrder: React.FC = () => {
                 </Col>
                 <Col md={4}>
                   <Form.Group>
-                    <Form.Label>Voo</Form.Label>
+                    <Form.Label>Grupo</Form.Label>
                     <Form.Select
                       value={filterFlight}
                       onChange={(e) => setFilterFlight(e.target.value as 'all' | Flight)}
                     >
                       <option value="all">Todos</option>
                       {flights.map(flight => (
-                        <option key={flight} value={flight}>Voo {flight}</option>
+                        <option key={flight} value={flight}>Grupo {flight}</option>
                       ))}
                     </Form.Select>
                   </Form.Group>
@@ -215,12 +215,12 @@ const FlightOrder: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Estatísticas dos Voos */}
+              {/* Estatísticas dos Grupos */}
       <Row className="mb-4">
         <Col>
           <Card>
             <Card.Header>
-              <h5>Estatísticas dos Voos</h5>
+              <h5>Estatísticas dos Grupos</h5>
             </Card.Header>
             <Card.Body>
               <Row>
@@ -229,7 +229,7 @@ const FlightOrder: React.FC = () => {
                   return (
                     <Col key={flight} md={2} className="mb-3">
                       <div className="text-center p-3 border rounded">
-                        <h4 className="text-primary mb-2">Voo {flight}</h4>
+                        <h4 className="text-primary mb-2">Grupo {flight}</h4>
                         <div className="mb-2">
                           <Badge bg="primary" className="me-1">{stats.total}</Badge>
                           <small>Total</small>
@@ -273,7 +273,7 @@ const FlightOrder: React.FC = () => {
                   <th>Divisão</th>
                   <th>Categoria</th>
                   <th>Peso</th>
-                  <th>Voo</th>
+                                      <th>Grupo</th>
                   <th>Dia</th>
                   <th>Plataforma</th>
                   <th>Ações</th>

@@ -36,7 +36,7 @@ const Lifting: React.FC = () => {
     { key: 'D', name: 'Terra' }
   ];
 
-  // Filtrar entradas do voo atual
+  // Filtrar entradas do grupo atual
   const currentFlightEntries = registration.entries.filter(entry => 
     entry.flight === lifting.flight &&
     entry.day === lifting.day &&
@@ -162,7 +162,7 @@ const Lifting: React.FC = () => {
             </div>
             <div className="d-flex gap-2">
               <Badge bg="primary" className="fs-6">
-                Dia {lifting.day} | Plataforma {lifting.platform} | Voo {lifting.flight}
+                Dia {lifting.day} | Plataforma {lifting.platform} | Grupo {lifting.flight}
               </Badge>
             </div>
           </div>
@@ -196,11 +196,11 @@ const Lifting: React.FC = () => {
             </Col>
             <Col md={6}>
               <Form.Group>
-                <Form.Label>Informações do Voo</Form.Label>
+                <Form.Label>Informações do Grupo</Form.Label>
                 <div className="p-2 bg-light rounded">
                   <div><strong>Movimento:</strong> {lifts.find(l => l.key === lifting.lift)?.name}</div>
-                  <div><strong>Atletas no Voo:</strong> {currentFlightEntries.length}</div>
-                  <div><strong>Voo:</strong> {lifting.flight} | <strong>Dia:</strong> {lifting.day} | <strong>Plataforma:</strong> {lifting.platform}</div>
+                                      <div><strong>Atletas no Grupo:</strong> {currentFlightEntries.length}</div>
+                    <div><strong>Grupo:</strong> {lifting.flight} | <strong>Dia:</strong> {lifting.day} | <strong>Plataforma:</strong> {lifting.platform}</div>
                 </div>
               </Form.Group>
             </Col>
@@ -212,7 +212,7 @@ const Lifting: React.FC = () => {
       {currentFlightEntries.length === 0 ? (
         <Alert variant="warning">
           <FaWeightHanging className="me-2" />
-          Nenhum atleta encontrado no voo atual. Verifique a configuração de voos.
+          Nenhum atleta encontrado no grupo atual. Verifique a configuração de grupos.
         </Alert>
       ) : (
         <Card>

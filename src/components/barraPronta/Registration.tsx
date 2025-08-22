@@ -36,6 +36,24 @@ const Registration: React.FC = () => {
     notes: ''
   });
 
+  // Função para obter o nome da divisão de peso
+  const getWeightClassName = (weightClass: number, sex: 'M' | 'F') => {
+    if (sex === 'M') {
+      return meet.weightClassesKgMen.find(w => w === weightClass) ? `${weightClass}kg` : `${weightClass}kg`;
+    } else {
+      return meet.weightClassesKgWomen.find(w => w === weightClass) ? `${weightClass}kg` : `${weightClass}kg`;
+    }
+  };
+
+  // Função para obter o nome do equipamento
+  const getEquipmentName = (equipment: string) => {
+    switch (equipment) {
+      case 'Raw': return 'Clássico';
+      case 'Equipped': return 'Equipado';
+      default: return equipment;
+    }
+  };
+
   const handleInputChange = (e: any) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -68,6 +86,8 @@ const Registration: React.FC = () => {
       deadlift1: null, deadlift2: null, deadlift3: null, deadlift4: null,
       bodyweightKg: null,
       lotNumber: null,
+      squatHeight: null,
+      benchHeight: null,
       platform: null,
       flight: null,
       day: null,
@@ -150,6 +170,56 @@ const Registration: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Estatísticas */}
+      <Row className="mb-4">
+        <Col md={3}>
+          <Card className="text-center">
+            <Card.Body>
+              <h3 className="text-primary">{registration.entries.length}</h3>
+              <p className="mb-0">Total de Atletas</p>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={3}>
+          <Card className="text-center">
+            <Card.Body>
+              <h3 className="text-success">{registration.entries.filter(e => e.sex === 'M').length}</h3>
+              <p className="mb-0">Masculino</p>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={3}>
+          <Card className="text-center">
+            <Card.Body>
+              <h3 className="text-info">{registration.entries.filter(e => e.sex === 'F').length}</h3>
+              <p className="mb-0">Feminino</p>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={3}>
+          <Card className="text-center">
+            <Card.Body>
+              <h3 className="text-warning">{new Set(registration.entries.map(e => e.team).filter(t => t)).size}</h3>
+              <p className="mb-0">Equipes</p>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Informações sobre carregamento automático */}
+      {registration.entries.length > 0 && (
+        <Alert variant="info" className="mb-4">
+          <h6>📋 Atletas Carregados Automaticamente</h6>
+          <p className="mb-2">
+            Esta competição foi carregada do sistema FEPERJ com <strong>{registration.entries.length} atletas</strong> inscritos.
+            Os atletas já estão distribuídos por suas respectivas categorias de peso, idade e modalidade.
+          </p>
+          <p className="mb-0">
+            <strong>Dica:</strong> Você pode adicionar atletas extras manualmente usando o botão "Adicionar Atleta" acima.
+          </p>
+        </Alert>
+      )}
+
       {registration.entries.length === 0 ? (
         <Alert variant="info">
           <FaUser className="me-2" />
@@ -168,9 +238,9 @@ const Registration: React.FC = () => {
                   <th>Nome</th>
                   <th>Sexo</th>
                   <th>Idade</th>
-                  <th>Divisão</th>
-                  <th>Categoria</th>
-                  <th>Equipamento</th>
+                  <th>Divisão de Idade</th>
+                  <th>Categoria de Peso</th>
+                  <th>Modalidade</th>
                   <th>Equipe</th>
                   <th>Ações</th>
                 </tr>
@@ -202,7 +272,7 @@ const Registration: React.FC = () => {
                     </td>
                     <td>
                       <Badge bg="warning" text="dark">
-                        {entry.equipment}
+                        {getEquipmentName(entry.equipment)}
                       </Badge>
                     </td>
                     <td>{entry.team || '-'}</td>
@@ -283,7 +353,7 @@ const Registration: React.FC = () => {
             </Col>
             <Col md={4}>
               <Form.Group className="mb-3">
-                <Form.Label>Divisão</Form.Label>
+                <Form.Label>Divisão de Idade</Form.Label>
                 <Form.Select
                   name="division"
                   value={formData.division}
@@ -297,7 +367,7 @@ const Registration: React.FC = () => {
             </Col>
             <Col md={4}>
               <Form.Group className="mb-3">
-                <Form.Label>Categoria de Peso</Form.Label>
+                <Form.Label>Categoria de Peso (kg)</Form.Label>
                 <Form.Select
                   name="weightClassKg"
                   value={formData.weightClassKg}
@@ -317,17 +387,14 @@ const Registration: React.FC = () => {
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Equipamento</Form.Label>
+                <Form.Label>Modalidade</Form.Label>
                 <Form.Select
                   name="equipment"
                   value={formData.equipment}
                   onChange={handleInputChange}
                 >
-                  <option value="Raw">Raw</option>
-                  <option value="Single-ply">Single-ply</option>
-                  <option value="Multi-ply">Multi-ply</option>
-                  <option value="Wraps">Wraps</option>
-                  <option value="Sleeves">Sleeves</option>
+                  <option value="Raw">Clássico</option>
+                  <option value="Equipped">Equipado</option>
                 </Form.Select>
               </Form.Group>
             </Col>

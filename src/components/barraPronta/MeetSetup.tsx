@@ -11,56 +11,60 @@ import {
   Badge
 } from 'react-bootstrap';
 import { useSelector, useDispatch } from 'react-redux';
-import { GlobalState } from '../../types/barraProntaTypes';
+import { GlobalState, Plate } from '../../types/barraProntaTypes';
 import { updateMeet } from '../../actions/barraProntaActions';
 import { FaSave, FaPlus, FaTrash } from 'react-icons/fa';
+import BarWeights from './BarWeights';
+import PlatesManager from './PlatesManager';
 
 const MeetSetup: React.FC = () => {
   const dispatch = useDispatch();
   const meet = useSelector((state: GlobalState) => state.meet);
   
-  const [formData, setFormData] = useState({
-    name: meet.name,
-    country: meet.country,
-    state: meet.state,
-    city: meet.city,
-    federation: meet.federation,
-    date: meet.date,
-    lengthDays: meet.lengthDays,
-    formula: meet.formula,
-    combineSleevesAndWraps: meet.combineSleevesAndWraps,
-    combineSingleAndMulti: meet.combineSingleAndMulti,
-    allow4thAttempts: meet.allow4thAttempts,
-    roundTotalsDown: meet.roundTotalsDown,
-    inKg: meet.inKg,
-    squatBarAndCollarsWeightKg: meet.squatBarAndCollarsWeightKg,
-    benchBarAndCollarsWeightKg: meet.benchBarAndCollarsWeightKg,
-    deadliftBarAndCollarsWeightKg: meet.deadliftBarAndCollarsWeightKg,
-    showAlternateUnits: meet.showAlternateUnits
-  });
+     const [formData, setFormData] = useState({
+     name: meet.name,
+     country: meet.country,
+     state: meet.state,
+     city: meet.city,
+     federation: meet.federation,
+     date: meet.date,
+     lengthDays: meet.lengthDays,
+     platformsOnDays: meet.platformsOnDays,
+     formula: meet.formula,
+     combineSleevesAndWraps: meet.combineSleevesAndWraps,
+     combineSingleAndMulti: meet.combineSingleAndMulti,
+     allow4thAttempts: meet.allow4thAttempts,
+     roundTotalsDown: meet.roundTotalsDown,
+     inKg: meet.inKg,
+     squatBarAndCollarsWeightKg: meet.squatBarAndCollarsWeightKg,
+     benchBarAndCollarsWeightKg: meet.benchBarAndCollarsWeightKg,
+     deadliftBarAndCollarsWeightKg: meet.deadliftBarAndCollarsWeightKg,
+     showAlternateUnits: meet.showAlternateUnits
+   });
 
-  // Atualizar formData quando o estado do Redux mudar
-  React.useEffect(() => {
-    setFormData({
-      name: meet.name,
-      country: meet.country,
-      state: meet.state,
-      city: meet.city,
-      federation: meet.federation,
-      date: meet.date,
-      lengthDays: meet.lengthDays,
-      formula: meet.formula,
-      combineSleevesAndWraps: meet.combineSleevesAndWraps,
-      combineSingleAndMulti: meet.combineSingleAndMulti,
-      allow4thAttempts: meet.allow4thAttempts,
-      roundTotalsDown: meet.roundTotalsDown,
-      inKg: meet.inKg,
-      squatBarAndCollarsWeightKg: meet.squatBarAndCollarsWeightKg,
-      benchBarAndCollarsWeightKg: meet.benchBarAndCollarsWeightKg,
-      deadliftBarAndCollarsWeightKg: meet.deadliftBarAndCollarsWeightKg,
-      showAlternateUnits: meet.showAlternateUnits
-    });
-  }, [meet]);
+     // Atualizar formData quando o estado do Redux mudar
+   React.useEffect(() => {
+     setFormData({
+       name: meet.name,
+       country: meet.country,
+       state: meet.state,
+       city: meet.city,
+       federation: meet.federation,
+       date: meet.date,
+       lengthDays: meet.lengthDays,
+       platformsOnDays: meet.platformsOnDays,
+       formula: meet.formula,
+       combineSleevesAndWraps: meet.combineSleevesAndWraps,
+       combineSingleAndMulti: meet.combineSingleAndMulti,
+       allow4thAttempts: meet.allow4thAttempts,
+       roundTotalsDown: meet.roundTotalsDown,
+       inKg: meet.inKg,
+       squatBarAndCollarsWeightKg: meet.squatBarAndCollarsWeightKg,
+       benchBarAndCollarsWeightKg: meet.benchBarAndCollarsWeightKg,
+       deadliftBarAndCollarsWeightKg: meet.deadliftBarAndCollarsWeightKg,
+       showAlternateUnits: meet.showAlternateUnits
+     });
+   }, [meet]);
 
   const [newDivision, setNewDivision] = useState('');
   const [newWeightClass, setNewWeightClass] = useState('');
@@ -79,6 +83,28 @@ const MeetSetup: React.FC = () => {
   const handleSave = () => {
     dispatch(updateMeet(formData));
     alert('Configuração salva com sucesso!');
+  };
+
+  const handleBarWeightChange = (lift: 'S' | 'B' | 'D', weight: number) => {
+    let updateData: any = {};
+    
+    switch (lift) {
+      case 'S':
+        updateData = { squatBarAndCollarsWeightKg: weight };
+        break;
+      case 'B':
+        updateData = { benchBarAndCollarsWeightKg: weight };
+        break;
+      case 'D':
+        updateData = { deadliftBarAndCollarsWeightKg: weight };
+        break;
+    }
+    
+    dispatch(updateMeet(updateData));
+  };
+
+  const handlePlatesChange = (plates: readonly Readonly<Plate>[]) => {
+    dispatch(updateMeet({ plates }));
   };
 
   const addDivision = () => {
@@ -224,6 +250,35 @@ const MeetSetup: React.FC = () => {
                   </Form.Group>
                 </Col>
               </Row>
+              
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Nº Plataformas</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="platformsOnDays"
+                      value={formData.platformsOnDays[0] || ''}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 1;
+                        const newPlatforms = Array(formData.lengthDays).fill(value);
+                        handleInputChange({
+                          target: {
+                            name: 'platformsOnDays',
+                            value: newPlatforms
+                          }
+                        } as any);
+                      }}
+                      min="1"
+                      max="10"
+                      placeholder="Ex: 3"
+                    />
+                    <Form.Text className="text-muted">
+                      Número de plataformas disponíveis por dia
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+              </Row>
             </Card.Body>
           </Card>
 
@@ -307,51 +362,19 @@ const MeetSetup: React.FC = () => {
             </Card.Body>
           </Card>
 
-          <Card className="mb-4">
-            <Card.Header>
-              <h5>Pesos das Barras</h5>
-            </Card.Header>
-            <Card.Body>
-              <Row>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Agachamento (kg)</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="squatBarAndCollarsWeightKg"
-                      value={formData.squatBarAndCollarsWeightKg}
-                      onChange={handleInputChange}
-                      step="0.5"
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Supino (kg)</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="benchBarAndCollarsWeightKg"
-                      value={formData.benchBarAndCollarsWeightKg}
-                      onChange={handleInputChange}
-                      step="0.5"
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Terra (kg)</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="deadliftBarAndCollarsWeightKg"
-                      value={formData.deadliftBarAndCollarsWeightKg}
-                      onChange={handleInputChange}
-                      step="0.5"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
+          {/* Componente de Pesos das Barras */}
+          <BarWeights
+            squatBarAndCollarsWeightKg={meet.squatBarAndCollarsWeightKg}
+            benchBarAndCollarsWeightKg={meet.benchBarAndCollarsWeightKg}
+            deadliftBarAndCollarsWeightKg={meet.deadliftBarAndCollarsWeightKg}
+            onWeightChange={handleBarWeightChange}
+          />
+
+          {/* Componente de Gerenciamento de Placas */}
+          <PlatesManager
+            plates={meet.plates}
+            onPlatesChange={handlePlatesChange}
+          />
         </Col>
 
         <Col lg={4}>

@@ -12,6 +12,7 @@ export type Plate = {
   readonly weightKg: number;
   readonly color: string;
   readonly diameterMm: number;
+  readonly quantity: number;
 };
 
 export type AgeCoefficients = {
@@ -41,6 +42,8 @@ export type Entry = {
   readonly deadlift4: number | null;
   readonly bodyweightKg: number | null;
   readonly lotNumber: number | null;
+  readonly squatHeight: string | null;
+  readonly benchHeight: string | null;
   readonly platform: number | null;
   readonly flight: Flight | null;
   readonly day: number | null;

@@ -34,14 +34,15 @@ const initialState: GlobalState = {
     benchBarAndCollarsWeightKg: 20,
     deadliftBarAndCollarsWeightKg: 20,
     plates: [
-      { weightKg: 25, color: '#000000', diameterMm: 450 },
-      { weightKg: 20, color: '#008000', diameterMm: 450 },
-      { weightKg: 15, color: '#FFFF00', diameterMm: 450 },
-      { weightKg: 10, color: '#FFFFFF', diameterMm: 450 },
-      { weightKg: 5, color: '#FF0000', diameterMm: 450 },
-      { weightKg: 2.5, color: '#0000FF', diameterMm: 450 },
-      { weightKg: 1.25, color: '#FFFFFF', diameterMm: 450 },
-      { weightKg: 0.5, color: '#FFD700', diameterMm: 450 }
+      { weightKg: 25, color: '#FF0000', diameterMm: 450, quantity: 1 },
+      { weightKg: 20, color: '#0000FF', diameterMm: 450, quantity: 1 },
+      { weightKg: 15, color: '#FFFF00', diameterMm: 450, quantity: 1 },
+      { weightKg: 10, color: '#008000', diameterMm: 450, quantity: 1 },
+      { weightKg: 5, color: '#000000', diameterMm: 450, quantity: 1 },
+      { weightKg: 2.5, color: '#000000', diameterMm: 450, quantity: 1 },
+      { weightKg: 1.25, color: '#000000', diameterMm: 450, quantity: 1 },
+      { weightKg: 0.5, color: '#000000', diameterMm: 450, quantity: 1 },
+      { weightKg: 0.25, color: '#000000', diameterMm: 450, quantity: 1 }
     ],
     showAlternateUnits: false
   },

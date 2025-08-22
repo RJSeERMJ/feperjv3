@@ -5,8 +5,8 @@ import { Provider, useSelector, useDispatch } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from '../store/barraProntaStore';
 import { GlobalState } from '../types/barraProntaTypes';
-import { createNewMeet, loadSavedMeetData, saveMeetData, updateMeet } from '../actions/barraProntaActions';
-import { competicaoService } from '../services/firebaseService';
+import { createNewMeet, loadSavedMeetData, saveMeetData, updateMeet, addEntry } from '../actions/barraProntaActions';
+import { competicaoService, inscricaoService } from '../services/firebaseService';
 import { Competicao } from '../types';
 import { CATEGORIAS_PESO_MASCULINO, CATEGORIAS_PESO_FEMININO, CATEGORIAS_IDADE } from '../config/categorias';
 import MeetSetup from '../components/barraPronta/MeetSetup';
@@ -59,67 +59,118 @@ const BarraProntaContent: React.FC = () => {
     }
   };
 
-  const handleSelectCompeticao = (competicao: Competicao) => {
-    // Usar exatamente as categorias configuradas no sistema
-    const weightClassesKgMen = CATEGORIAS_PESO_MASCULINO
-      .map(cat => cat.pesoMaximo)
-      .sort((a, b) => a - b);
+  const handleSelectCompeticao = async (competicao: Competicao) => {
+    try {
+      // Usar exatamente as categorias configuradas no sistema
+      const weightClassesKgMen = CATEGORIAS_PESO_MASCULINO
+        .map(cat => cat.pesoMaximo)
+        .sort((a, b) => a - b);
 
-    const weightClassesKgWomen = CATEGORIAS_PESO_FEMININO
-      .map(cat => cat.pesoMaximo)
-      .sort((a, b) => a - b);
+      const weightClassesKgWomen = CATEGORIAS_PESO_FEMININO
+        .map(cat => cat.pesoMaximo)
+        .sort((a, b) => a - b);
 
-    // Usar exatamente as divisões configuradas no sistema
-    const divisions = CATEGORIAS_IDADE
-      .map(cat => cat.nome);
+      // Usar exatamente as divisões configuradas no sistema
+      const divisions = CATEGORIAS_IDADE
+        .map(cat => cat.nome);
 
-    // Converter dados da competição para o formato do Barra Pronta
-    const meetData = {
-      name: competicao.nomeCompeticao,
-      country: 'Brasil', // Valor padrão
-      state: '', // Pode ser extraído do local se necessário
-      city: competicao.local || '',
-      federation: 'FEPERJ', // Valor padrão
-      date: formatDate(competicao.dataCompeticao),
-      lengthDays: 1, // Valor padrão
-      platformsOnDays: [1], // Valor padrão
-      ageCoefficients: {
-        men: [],
-        women: []
-      },
-      divisions: divisions, // Usar as divisões configuradas no sistema
-      weightClassesKgMen: weightClassesKgMen, // Usar as classes de peso masculino configuradas
-      weightClassesKgWomen: weightClassesKgWomen, // Usar as classes de peso feminino configuradas
-      weightClassesKgMx: [],
-      formula: 'IPF' as const,
-      combineSleevesAndWraps: false,
-      combineSingleAndMulti: false,
-      allow4thAttempts: false,
-      roundTotalsDown: false,
-      inKg: true,
-      squatBarAndCollarsWeightKg: 20,
-      benchBarAndCollarsWeightKg: 20,
-      deadliftBarAndCollarsWeightKg: 20,
-      plates: [
-        { weightKg: 25, color: '#000000', diameterMm: 450 },
-        { weightKg: 20, color: '#000000', diameterMm: 450 },
-        { weightKg: 15, color: '#000000', diameterMm: 450 },
-        { weightKg: 10, color: '#000000', diameterMm: 450 },
-        { weightKg: 5, color: '#000000', diameterMm: 450 },
-        { weightKg: 2.5, color: '#000000', diameterMm: 450 },
-        { weightKg: 1.25, color: '#000000', diameterMm: 450 }
-      ],
-      showAlternateUnits: false
-    };
+      // Converter dados da competição para o formato do Barra Pronta
+      const meetData = {
+        name: competicao.nomeCompeticao,
+        country: 'Brasil', // Valor padrão
+        state: '', // Pode ser extraído do local se necessário
+        city: competicao.local || '',
+        federation: 'FEPERJ', // Valor padrão
+        date: formatDate(competicao.dataCompeticao),
+        lengthDays: 1, // Valor padrão
+        platformsOnDays: [1], // Valor padrão
+        ageCoefficients: {
+          men: [],
+          women: []
+        },
+        divisions: divisions, // Usar as divisões configuradas no sistema
+        weightClassesKgMen: weightClassesKgMen, // Usar as classes de peso masculino configuradas
+        weightClassesKgWomen: weightClassesKgWomen, // Usar as classes de peso feminino configuradas
+        weightClassesKgMx: [],
+        formula: 'IPF' as const,
+        combineSleevesAndWraps: false,
+        combineSingleAndMulti: false,
+        allow4thAttempts: false,
+        roundTotalsDown: false,
+        inKg: true,
+        squatBarAndCollarsWeightKg: 20,
+        benchBarAndCollarsWeightKg: 20,
+        deadliftBarAndCollarsWeightKg: 20,
+        plates: [
+          { weightKg: 25, color: '#FF0000', diameterMm: 450, quantity: 1 },
+          { weightKg: 20, color: '#0000FF', diameterMm: 450, quantity: 1 },
+          { weightKg: 15, color: '#FFFF00', diameterMm: 450, quantity: 1 },
+          { weightKg: 10, color: '#008000', diameterMm: 450, quantity: 1 },
+          { weightKg: 5, color: '#000000', diameterMm: 450, quantity: 1 },
+          { weightKg: 2.5, color: '#000000', diameterMm: 450, quantity: 1 },
+          { weightKg: 1.25, color: '#000000', diameterMm: 450, quantity: 1 }
+        ],
+        showAlternateUnits: false
+      };
 
-    // Dispatch para atualizar o estado da competição
-    dispatch(updateMeet(meetData));
+      // Dispatch para atualizar o estado da competição
+      dispatch(updateMeet(meetData));
 
-    alert(`Competição "${competicao.nomeCompeticao}" carregada com sucesso!\n\nCategorias carregadas:\n- Peso Masculino: ${weightClassesKgMen.length} classes\n- Peso Feminino: ${weightClassesKgWomen.length} classes\n- Divisões: ${divisions.length} categorias de idade`);
-    setShowLoadModal(false);
-    
-    // Redirecionar para a aba de configuração para ver os dados carregados
-    setActiveTab('meet-setup');
+      // Carregar atletas inscritos na competição
+      const inscricoes = await inscricaoService.getByCompeticao(competicao.id!);
+      const atletasInscritos = inscricoes.filter(insc => insc.statusInscricao === 'INSCRITO');
+
+      // Converter inscrições para o formato do Barra Pronta
+      let entryId = 1;
+      for (const inscricao of atletasInscritos) {
+        if (inscricao.atleta && inscricao.categoriaPeso && inscricao.categoriaIdade) {
+                     const entry = {
+             id: entryId++,
+             name: inscricao.atleta.nome,
+             sex: inscricao.atleta.sexo,
+             age: new Date().getFullYear() - new Date(inscricao.atleta.dataNascimento || new Date()).getFullYear(),
+             division: inscricao.categoriaIdade.nome,
+             weightClassKg: inscricao.categoriaPeso.pesoMaximo,
+             equipment: inscricao.modalidade === 'CLASSICA' ? 'Raw' : 'Equipped',
+             team: inscricao.atleta.equipe?.nomeEquipe || '',
+             country: 'Brasil',
+             state: inscricao.atleta.equipe?.cidade || 'RJ',
+             notes: inscricao.observacoes || '',
+             // Campos de tentativas
+             squat1: null, squat2: null, squat3: null, squat4: null,
+             bench1: null, bench2: null, bench3: null, bench4: null,
+             deadlift1: null, deadlift2: null, deadlift3: null, deadlift4: null,
+             bodyweightKg: null,
+             lotNumber: null,
+             squatHeight: null,
+             benchHeight: null,
+             platform: null,
+             flight: null,
+             day: null,
+             sessionNumber: null,
+             tested: false
+           };
+
+          dispatch(addEntry(entry) as any);
+        }
+      }
+
+      const mensagem = `Competição "${competicao.nomeCompeticao}" carregada com sucesso!\n\n` +
+        `Categorias carregadas:\n` +
+        `- Peso Masculino: ${weightClassesKgMen.length} classes\n` +
+        `- Peso Feminino: ${weightClassesKgWomen.length} classes\n` +
+        `- Divisões: ${divisions.length} categorias de idade\n\n` +
+        `Atletas inscritos: ${atletasInscritos.length} atletas carregados automaticamente`;
+
+      alert(mensagem);
+      setShowLoadModal(false);
+      
+      // Redirecionar para a aba de inscrições para ver os atletas carregados
+      setActiveTab('registration');
+    } catch (error) {
+      console.error('Erro ao carregar competição:', error);
+      alert('Erro ao carregar competição. Tente novamente.');
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -180,7 +231,7 @@ const BarraProntaContent: React.FC = () => {
                 <Nav.Item>
                   <Nav.Link eventKey="flight-order">
                     <FaTrophy className="me-2" />
-                    Ordem de Voo
+                    Ordem dos Grupos
                   </Nav.Link>
                 </Nav.Item>
                 <Nav.Item>
