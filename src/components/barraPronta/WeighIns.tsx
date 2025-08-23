@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Container, 
   Row, 
@@ -96,6 +96,36 @@ const WeighIns: React.FC = () => {
   const weighedCount = registration.entries.filter(entry => entry.bodyweightKg !== null).length;
   const totalCount = registration.entries.length;
   const lotNumbersAssigned = registration.entries.filter(entry => entry.lotNumber !== null).length;
+
+  // Função para preencher automaticamente dia, plataforma e movimentos
+  const autoFillDayAndPlatform = useCallback(() => {
+    registration.entries.forEach(entry => {
+      // Auto-preencher dia se houver apenas 1 dia
+      if (meet.lengthDays === 1 && entry.day === null) {
+        dispatch(updateEntry(entry.id, { day: 1 }));
+      }
+      
+      // Auto-preencher plataforma se houver apenas 1 plataforma para o dia atual
+      const currentDay = entry.day || 1;
+      const platformsForDay = meet.platformsOnDays[currentDay - 1] || 1;
+      if (platformsForDay === 1 && entry.platform === null) {
+        dispatch(updateEntry(entry.id, { platform: 1 }));
+      }
+      
+      // Auto-preencher movimentos se houver apenas 1 movimento permitido
+      if (meet.allowedMovements?.length === 1 && entry.movements !== meet.allowedMovements[0]) {
+        dispatch(updateEntry(entry.id, { movements: meet.allowedMovements[0] || 'AST' }));
+      }
+    });
+  }, [meet.lengthDays, meet.platformsOnDays, meet.allowedMovements, registration.entries, dispatch]);
+
+  // Executar auto-preenchimento quando o componente montar ou quando meet mudar
+  useEffect(() => {
+    // Garantir que allowedMovements existe antes de executar
+    if (meet.allowedMovements) {
+      autoFillDayAndPlatform();
+    }
+  }, [meet.lengthDays, meet.platformsOnDays, meet.allowedMovements, registration.entries.length, autoFillDayAndPlatform]);
 
   return (
     <Container fluid>
@@ -330,22 +360,26 @@ const WeighIns: React.FC = () => {
 
                          {/* Dia */}
                          <td>
-                           <Form.Select
-                             size="sm"
-                             value={entry.day || ''}
-                             onChange={(e) => {
-                               const value = e.target.value;
-                               if (value === '' || !isNaN(parseInt(value))) {
-                                 dispatch(updateEntry(entry.id, { day: value === '' ? null : parseInt(value) }));
-                               }
-                             }}
-                             style={{ width: '80px' }}
-                           >
-                             <option value="">-</option>
-                             {Array.from({ length: meet.lengthDays }, (_, i) => (
-                               <option key={i + 1} value={i + 1}>{i + 1}</option>
-                             ))}
-                           </Form.Select>
+                           {meet.lengthDays === 1 ? (
+                             <Badge bg="success">1</Badge>
+                           ) : (
+                             <Form.Select
+                               size="sm"
+                               value={entry.day || ''}
+                               onChange={(e) => {
+                                 const value = e.target.value;
+                                 if (value === '' || !isNaN(parseInt(value))) {
+                                   dispatch(updateEntry(entry.id, { day: value === '' ? null : parseInt(value) }));
+                                 }
+                               }}
+                               style={{ width: '80px' }}
+                             >
+                               <option value="">-</option>
+                               {Array.from({ length: meet.lengthDays }, (_, i) => (
+                                 <option key={i + 1} value={i + 1}>{i + 1}</option>
+                               ))}
+                             </Form.Select>
+                           )}
                          </td>
 
                          {/* Grupo */}
@@ -370,45 +404,56 @@ const WeighIns: React.FC = () => {
 
                          {/* Plataforma */}
                          <td>
-                           <Form.Select
-                             size="sm"
-                             value={entry.platform || ''}
-                             onChange={(e) => {
-                               const value = e.target.value;
-                               if (value === '' || !isNaN(parseInt(value))) {
-                                 dispatch(updateEntry(entry.id, { platform: value === '' ? null : parseInt(value) }));
-                               }
-                             }}
-                             style={{ width: '80px' }}
-                           >
-                             <option value="">-</option>
-                             {Array.from({ length: meet.platformsOnDays[0] || 1 }, (_, i) => (
-                               <option key={i + 1} value={i + 1}>P{i + 1}</option>
-                             ))}
-                           </Form.Select>
+                           {(() => {
+                             const currentDay = entry.day || 1;
+                             const platformsForDay = meet.platformsOnDays[currentDay - 1] || 1;
+                             
+                             if (platformsForDay === 1) {
+                               return <Badge bg="success">1</Badge>;
+                             } else {
+                               return (
+                                 <Form.Select
+                                   size="sm"
+                                   value={entry.platform || ''}
+                                   onChange={(e) => {
+                                     const value = e.target.value;
+                                     if (value === '' || !isNaN(parseInt(value))) {
+                                       dispatch(updateEntry(entry.id, { platform: value === '' ? null : parseInt(value) }));
+                                     }
+                                   }}
+                                   style={{ width: '80px' }}
+                                 >
+                                   <option value="">-</option>
+                                   {Array.from({ length: platformsForDay }, (_, i) => (
+                                     <option key={i + 1} value={i + 1}>P{i + 1}</option>
+                                   ))}
+                                 </Form.Select>
+                               );
+                             }
+                           })()}
                          </td>
 
                          {/* Movimentos */}
                          <td>
-                           <Form.Select
-                             size="sm"
-                             value={entry.movements || 'AST'}
-                             onChange={(e) => {
-                               const value = e.target.value;
-                               if (['A', 'S', 'T', 'AS', 'AT', 'ST', 'AST'].includes(value)) {
-                                 dispatch(updateEntry(entry.id, { movements: value }));
-                               }
-                             }}
-                             style={{ width: '80px' }}
-                           >
-                             <option value="AST">AST</option>
-                             <option value="AS">AS</option>
-                             <option value="AT">AT</option>
-                             <option value="ST">ST</option>
-                             <option value="A">A</option>
-                             <option value="S">S</option>
-                             <option value="T">T</option>
-                           </Form.Select>
+                           {meet.allowedMovements?.length === 1 ? (
+                             <Badge bg="success">{meet.allowedMovements[0] || 'AST'}</Badge>
+                           ) : (
+                             <Form.Select
+                               size="sm"
+                               value={entry.movements || meet.allowedMovements?.[0] || 'AST'}
+                               onChange={(e) => {
+                                 const value = e.target.value;
+                                 if (meet.allowedMovements?.includes(value)) {
+                                   dispatch(updateEntry(entry.id, { movements: value }));
+                                 }
+                               }}
+                               style={{ width: '80px' }}
+                             >
+                               {meet.allowedMovements?.map(movement => (
+                                 <option key={movement} value={movement}>{movement}</option>
+                               ))}
+                             </Form.Select>
+                           )}
                          </td>
 
                                                                           {/* Altura do Agachamento */}
@@ -428,7 +473,6 @@ const WeighIns: React.FC = () => {
                                maxLength={20}
                                size="sm"
                              />
-                             <span className="ms-1 text-muted">(texto livre)</span>
                            </div>
                          </td>
 
@@ -449,7 +493,6 @@ const WeighIns: React.FC = () => {
                                maxLength={20}
                                size="sm"
                              />
-                             <span className="ms-1 text-muted">(texto livre)</span>
                            </div>
                          </td>
 
@@ -545,9 +588,9 @@ const WeighIns: React.FC = () => {
          <ul className="mb-0">
            <li><strong>Peso Corporal:</strong> Digite o peso diretamente no campo. O sistema valida se está dentro da categoria do atleta.</li>
                        <li><strong>Número do Lote:</strong> Clique no botão "Atribuir Números de Lote" para gerar automaticamente números únicos de 1 a N atletas.</li>
-            <li><strong>Dia e Grupo:</strong> Organize os atletas por dia da competição e grupo de competição.</li>
-            <li><strong>Plataforma:</strong> Defina em qual plataforma cada atleta competirá.</li>
-            <li><strong>Movimentos:</strong> Configure quais movimentos o atleta vai competir (A=Agachamento, S=Supino, T=Terra).</li>
+                      <li><strong>Dia:</strong> Preenchido automaticamente se a competição tiver apenas 1 dia. Caso contrário, selecione manualmente.</li>
+           <li><strong>Plataforma:</strong> Preenchida automaticamente se houver apenas 1 plataforma. Caso contrário, selecione manualmente.</li>
+           <li><strong>Movimentos:</strong> Preenchido automaticamente se apenas 1 movimento estiver permitido na competição. Caso contrário, configure manualmente (A=Agachamento, S=Supino, T=Terra).</li>
             <li><strong>Alturas:</strong> Configure livremente a altura da barra no agachamento e supino (aceita números, letras e combinações).</li>
            <li><strong>Primeiras Tentativas:</strong> Defina os pesos iniciais para cada movimento (Agachamento, Supino, Terra).</li>
            <li><strong>Validação:</strong> O sistema verifica se o peso corporal está dentro da categoria do atleta.</li>

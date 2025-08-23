@@ -30,6 +30,7 @@ const MeetSetup: React.FC = () => {
      date: meet.date,
      lengthDays: meet.lengthDays,
      platformsOnDays: meet.platformsOnDays,
+     allowedMovements: meet.allowedMovements || ['AST'],
      formula: meet.formula,
      combineSleevesAndWraps: meet.combineSleevesAndWraps,
      combineSingleAndMulti: meet.combineSingleAndMulti,
@@ -53,6 +54,7 @@ const MeetSetup: React.FC = () => {
        date: meet.date,
        lengthDays: meet.lengthDays,
        platformsOnDays: meet.platformsOnDays,
+       allowedMovements: meet.allowedMovements || ['AST'],
        formula: meet.formula,
        combineSleevesAndWraps: meet.combineSleevesAndWraps,
        combineSingleAndMulti: meet.combineSingleAndMulti,
@@ -275,6 +277,101 @@ const MeetSetup: React.FC = () => {
                     />
                     <Form.Text className="text-muted">
                       Número de plataformas disponíveis por dia
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Movimentos da Competição</Form.Label>
+                    <div className="border rounded p-3">
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <small className="text-muted">
+                          Selecione quais movimentos serão permitidos. Pelo menos um deve estar selecionado.
+                        </small>
+                        <div>
+                          <Button
+                            size="sm"
+                            variant="outline-secondary"
+                            onClick={() => {
+                              const allMovements = ['A', 'S', 'T', 'AS', 'AT', 'ST', 'AST'];
+                              handleInputChange({
+                                target: {
+                                  name: 'allowedMovements',
+                                  value: allMovements
+                                }
+                              } as any);
+                            }}
+                            className="me-2"
+                          >
+                            Selecionar Todos
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline-warning"
+                            onClick={() => {
+                              handleInputChange({
+                                target: {
+                                  name: 'allowedMovements',
+                                  value: ['AST']
+                                }
+                              } as any);
+                            }}
+                          >
+                            Padrão (AST)
+                          </Button>
+                        </div>
+                      </div>
+                      {['A', 'S', 'T', 'AS', 'AT', 'ST', 'AST'].map(movement => (
+                        <Form.Check
+                          key={movement}
+                          type="checkbox"
+                          id={`movement-${movement}`}
+                          label={(() => {
+                            switch(movement) {
+                              case 'A': return 'Agachamento';
+                              case 'S': return 'Supino';
+                              case 'T': return 'Terra';
+                              case 'AS': return 'Agachamento + Supino';
+                              case 'AT': return 'Agachamento + Terra';
+                              case 'ST': return 'Supino + Terra';
+                              case 'AST': return 'Agachamento + Supino + Terra';
+                              default: return movement;
+                            }
+                          })()}
+                          checked={formData.allowedMovements?.includes(movement) || false}
+                                                      onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              let newMovements = [...(formData.allowedMovements || ['AST'])];
+                              
+                              if (isChecked) {
+                                newMovements.push(movement);
+                              } else {
+                                newMovements = newMovements.filter(m => m !== movement);
+                              }
+                              
+                              // Se todas as opções foram desmarcadas, selecionar automaticamente 'AST'
+                              if (newMovements.length === 0) {
+                                newMovements = ['AST'];
+                                // Mostrar alerta informando que foi selecionado automaticamente
+                                setTimeout(() => {
+                                  alert('Pelo menos um movimento deve estar selecionado. "AST" foi selecionado automaticamente.');
+                                }, 100);
+                              }
+                              
+                              handleInputChange({
+                                target: {
+                                  name: 'allowedMovements',
+                                  value: newMovements
+                                }
+                              } as any);
+                            }}
+                          className="mb-2"
+                        />
+                      ))}
+                    </div>
+                    <Form.Text className="text-muted">
+                      Você pode desmarcar qualquer opção, mas pelo menos uma deve estar selecionada. 
+                      Se todas forem desmarcadas, "AST" será selecionado automaticamente.
                     </Form.Text>
                   </Form.Group>
                 </Col>

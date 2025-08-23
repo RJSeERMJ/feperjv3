@@ -16,6 +16,7 @@ const initialState: GlobalState = {
     date: '',
     lengthDays: 1,
     platformsOnDays: [1],
+    allowedMovements: ['AST'], // Padrão: Agachamento + Supino + Terra
     ageCoefficients: {
       men: [],
       women: []

@@ -71,6 +71,7 @@ export type MeetState = {
   readonly date: string;
   readonly lengthDays: number;
   readonly platformsOnDays: ReadonlyArray<number>;
+  readonly allowedMovements: ReadonlyArray<string>; // ['A', 'S', 'T', 'AS', 'AT', 'ST', 'AST']
   readonly ageCoefficients: AgeCoefficients;
   readonly divisions: ReadonlyArray<string>;
   readonly weightClassesKgMen: ReadonlyArray<number>;
