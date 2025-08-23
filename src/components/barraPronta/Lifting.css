@@ -1,0 +1,72 @@
+.lifting-redirect {
+  padding: 40px 20px;
+  text-align: center;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin: 20px;
+}
+
+.lifting-redirect h2 {
+  color: #2c3e50;
+  font-weight: 700;
+  margin-bottom: 30px;
+}
+
+.lifting-redirect .alert {
+  border: none;
+  border-radius: 10px;
+  font-weight: 500;
+  margin-bottom: 30px;
+}
+
+.lifting-redirect .btn {
+  padding: 15px 30px;
+  font-size: 18px;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.lifting-redirect .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.lifting-redirect ul {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0 0;
+}
+
+.lifting-redirect li {
+  padding: 8px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.lifting-redirect li:last-child {
+  border-bottom: none;
+}
+
+.lifting-redirect li:before {
+  content: "✅ ";
+  margin-right: 10px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .lifting-redirect {
+    padding: 30px 15px;
+    margin: 15px;
+  }
+  
+  .lifting-redirect h2 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+  }
+  
+  .lifting-redirect .btn {
+    padding: 12px 24px;
+    font-size: 16px;
+  }
+}

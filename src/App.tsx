@@ -19,6 +19,7 @@ import UsuariosPage from './pages/UsuariosPage';
 import LogPage from './pages/LogPage';
 import BarraProntaPage from './pages/BarraProntaPage';
 
+
 // Componente para proteger rotas
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -107,6 +108,8 @@ const App: React.FC = () => {
                 </AdminRoute>
               </ProtectedRoute>
             } />
+            
+
             
             <Route path="/relatorios" element={
               <ProtectedRoute>

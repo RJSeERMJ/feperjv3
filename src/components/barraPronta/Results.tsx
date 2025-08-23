@@ -22,6 +22,47 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
   const meet = useSelector((state: GlobalState) => state.meet);
   const registration = useSelector((state: GlobalState) => state.registration);
 
+  // Função para calcular total baseado nos movimentos selecionados
+  const getTotal = (entry: Entry): number => {
+    const movements = entry.movements || '';
+    let total = 0;
+    let hasValidLifts = false;
+
+    // Se não há movimentos definidos, não calcular total
+    if (!movements || movements.trim() === '') {
+      return 0;
+    }
+
+    // Verificar se inclui Agachamento (A)
+    if (movements.includes('A')) {
+      const squat = entry.squat1 || 0;
+      if (squat > 0) {
+        total += squat;
+        hasValidLifts = true;
+      }
+    }
+
+    // Verificar se inclui Supino (S)
+    if (movements.includes('S')) {
+      const bench = entry.bench1 || 0;
+      if (bench > 0) {
+        total += bench;
+        hasValidLifts = true;
+      }
+    }
+
+    // Verificar se inclui Terra (T)
+    if (movements.includes('T')) {
+      const deadlift = entry.deadlift1 || 0;
+      if (deadlift > 0) {
+        total += deadlift;
+        hasValidLifts = true;
+      }
+    }
+
+    return hasValidLifts ? total : 0;
+  };
+
   // Função para calcular pontuação IPF GL Points
   const calculateIPFGLPoints = (entry: Entry): number => {
     const total = getTotal(entry);
@@ -36,7 +77,7 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
     }
     
     // Determinar o evento baseado nos movimentos selecionados
-    const movements = entry.movements || 'AST';
+    const movements = entry.movements || '';
     let event: 'SBD' | 'B' = 'SBD';
     
     // Se apenas supino, usar evento B
@@ -56,42 +97,6 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
       // Para evento total (AST = SBD)
       return calculateIPFGLPointsTotal(squat, bench, deadlift, bodyweight, entry.sex, equipment);
     }
-  };
-
-  // Função para calcular total baseado nos movimentos selecionados
-  const getTotal = (entry: Entry): number => {
-    const movements = entry.movements || 'AST';
-    let total = 0;
-    let hasValidLifts = false;
-
-    // Verificar se inclui Agachamento (A)
-    if (movements.includes('A')) {
-      const squat = getBestLift(entry, 'S');
-      if (squat > 0) {
-        total += squat;
-        hasValidLifts = true;
-      }
-    }
-
-    // Verificar se inclui Supino (S)
-    if (movements.includes('S')) {
-      const bench = getBestLift(entry, 'B');
-      if (bench > 0) {
-        total += bench;
-        hasValidLifts = true;
-      }
-    }
-
-    // Verificar se inclui Terra (T)
-    if (movements.includes('T')) {
-      const deadlift = getBestLift(entry, 'D');
-      if (deadlift > 0) {
-        total += deadlift;
-        hasValidLifts = true;
-      }
-    }
-
-    return hasValidLifts ? total : 0;
   };
 
   // Função para obter melhor tentativa
@@ -173,13 +178,13 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
                     </td>
                     <td>
                       <Badge bg="success">
-                        {getWeightClassLabel(entry.weightClassKg, entry.sex)}
+                        {getWeightClassLabel(entry.weightClassKg || 0, entry.sex)}
                       </Badge>
                     </td>
                     <td><strong>{entry.bodyweightKg} kg</strong></td>
                     <td>
                       <Badge bg="info">
-                        {entry.movements || 'AST'}
+                        {entry.movements || '-'}
                       </Badge>
                     </td>
                     <td><Badge bg="success" className="fs-6">{entry.total} kg</Badge></td>
@@ -204,6 +209,47 @@ const Results: React.FC = () => {
   const [filterWeightClass, setFilterWeightClass] = useState('all');
   const [activeTab, setActiveTab] = useState('index');
 
+  // Função para calcular total baseado nos movimentos selecionados
+  const getTotal = (entry: Entry): number => {
+    const movements = entry.movements || '';
+    let total = 0;
+    let hasValidLifts = false;
+
+    // Se não há movimentos definidos, não calcular total
+    if (!movements || movements.trim() === '') {
+      return 0;
+    }
+
+    // Verificar se inclui Agachamento (A)
+    if (movements.includes('A')) {
+      const squat = getBestLift(entry, 'S');
+      if (squat > 0) {
+        total += squat;
+        hasValidLifts = true;
+      }
+    }
+
+    // Verificar se inclui Supino (S)
+    if (movements.includes('S')) {
+      const bench = getBestLift(entry, 'B');
+      if (bench > 0) {
+        total += bench;
+        hasValidLifts = true;
+      }
+    }
+
+    // Verificar se inclui Terra (T)
+    if (movements.includes('T')) {
+      const deadlift = getBestLift(entry, 'D');
+      if (deadlift > 0) {
+        total += deadlift;
+        hasValidLifts = true;
+      }
+    }
+
+    return hasValidLifts ? total : 0;
+  };
+
   // Função para calcular pontuação IPF GL Points (oficial)
   const calculateIPFGLPoints = (entry: Entry): number => {
     const total = getTotal(entry);
@@ -218,7 +264,7 @@ const Results: React.FC = () => {
     }
     
     // Determinar o evento baseado nos movimentos selecionados
-    const movements = entry.movements || 'AST';
+    const movements = entry.movements || '';
     let event: 'SBD' | 'B' = 'SBD';
     
     // Se apenas supino, usar evento B
@@ -283,42 +329,6 @@ const Results: React.FC = () => {
     return attempts.length > 0 ? Math.max(...attempts.filter((w): w is number => w !== null)) : 0;
   };
 
-  // Função para calcular total baseado nos movimentos selecionados
-  const getTotal = (entry: Entry): number => {
-    const movements = entry.movements || 'AST';
-    let total = 0;
-    let hasValidLifts = false;
-
-    // Verificar se inclui Agachamento (A)
-    if (movements.includes('A')) {
-      const squat = getBestLift(entry, 'S');
-      if (squat > 0) {
-        total += squat;
-        hasValidLifts = true;
-      }
-    }
-
-    // Verificar se inclui Supino (S)
-    if (movements.includes('S')) {
-      const bench = getBestLift(entry, 'B');
-      if (bench > 0) {
-        total += bench;
-        hasValidLifts = true;
-      }
-    }
-
-    // Verificar se inclui Terra (T)
-    if (movements.includes('T')) {
-      const deadlift = getBestLift(entry, 'D');
-      if (deadlift > 0) {
-        total += deadlift;
-        hasValidLifts = true;
-      }
-    }
-
-    return hasValidLifts ? total : 0;
-  };
-
   // Função para calcular pontos baseado na fórmula
   const calculatePoints = (entry: Entry): number => {
     const total = getTotal(entry);
@@ -340,6 +350,10 @@ const Results: React.FC = () => {
 
   // Função para obter label dos movimentos
   const getMovementsLabel = (movements: string): string => {
+    if (!movements || movements.trim() === '') {
+      return 'Não definido';
+    }
+    
     const labels: { [key: string]: string } = {
       'AST': 'Agachamento + Supino + Terra',
       'AS': 'Agachamento + Supino',
@@ -370,7 +384,7 @@ const Results: React.FC = () => {
         if (total <= 0) return false;
         if (filterSex !== 'all' && entry.sex !== filterSex) return false;
         if (filterDivision !== 'all' && entry.division !== filterDivision) return false;
-        if (filterWeightClass !== 'all' && entry.weightClassKg.toString() !== filterWeightClass) return false;
+        if (filterWeightClass !== 'all' && (entry.weightClassKg || 0).toString() !== filterWeightClass) return false;
         return true;
       })
       .map(entry => ({
@@ -428,13 +442,13 @@ const Results: React.FC = () => {
   const getCategoryDisplayName = (categoryKey: string, entries: typeof processedResults) => {
     if (entries.length === 0) return categoryKey;
     const entry = entries[0];
-    return `${entry.sex === 'M' ? 'Masculino' : 'Feminino'} - ${getWeightClassLabel(entry.weightClassKg, entry.sex)} - ${entry.division}`;
+    return `${entry.sex === 'M' ? 'Masculino' : 'Feminino'} - ${getWeightClassLabel(entry.weightClassKg || 0, entry.sex)} - ${entry.division}`;
   };
 
   const exportResults = () => {
     // Implementação básica de exportação
     const csvContent = processedResults.map(entry => 
-      `${entry.name},${entry.sex},${entry.division},${getWeightClassLabel(entry.weightClassKg, entry.sex)},${entry.squat},${entry.bench},${entry.deadlift},${entry.total},${entry.points}`
+      `${entry.name},${entry.sex},${entry.division},${getWeightClassLabel(entry.weightClassKg || 0, entry.sex)},${entry.squat},${entry.bench},${entry.deadlift},${entry.total},${entry.points}`
     ).join('\n');
     
     const header = 'Nome,Sexo,Divisão,Categoria,Agachamento,Supino,Terra,Total,Pontos\n';
@@ -598,7 +612,7 @@ const Results: React.FC = () => {
                         </td>
                         <td>
                           <Badge bg="success">
-                            {getWeightClassLabel(entry.weightClassKg, entry.sex)}
+                            {getWeightClassLabel(entry.weightClassKg || 0, entry.sex)}
                           </Badge>
                         </td>
                         <td><strong>{entry.bodyweightKg} kg</strong></td>

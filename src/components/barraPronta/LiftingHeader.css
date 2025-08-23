@@ -1,0 +1,118 @@
+.lifting-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.competition-info h4 {
+  color: white;
+}
+
+.competition-info .badge {
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+.current-lift h2 {
+  color: white;
+  font-weight: 700;
+  margin-bottom: 15px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.lift-navigation {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.lift-navigation .btn {
+  min-width: 100px;
+  font-weight: 500;
+}
+
+.lift-selector .btn-group {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.lift-selector .btn {
+  border: none;
+  font-weight: 600;
+  padding: 12px 16px;
+  transition: all 0.3s ease;
+}
+
+.lift-selector .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.lift-selector .btn-primary {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  border: none;
+}
+
+.lift-selector .btn-outline-primary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.lift-selector .btn-outline-primary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .lifting-header {
+    padding: 15px;
+  }
+  
+  .current-lift h2 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+  
+  .lift-navigation .btn {
+    min-width: 80px;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  
+  .lift-selector .btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .competition-info .badge {
+    font-size: 12px;
+    padding: 6px 10px;
+    margin-bottom: 5px;
+  }
+}
+
+@media (max-width: 576px) {
+  .lifting-header {
+    text-align: center;
+  }
+  
+  .competition-info,
+  .current-lift,
+  .lift-selector {
+    margin-bottom: 15px;
+  }
+  
+  .lift-selector .btn-group {
+    flex-direction: column;
+  }
+  
+  .lift-selector .btn {
+    border-radius: 6px !important;
+    margin-bottom: 5px;
+  }
+}

@@ -40,7 +40,7 @@ const FlightOrder: React.FC = () => {
 
   // Função para calcular total parcial baseado nos movimentos
   const getPartialTotal = (entry: Entry): number => {
-    const movements = entry.movements || 'AST';
+    const movements = entry.movements || '';
     let total = 0;
 
     // Verificar se inclui Agachamento (A)
@@ -291,7 +291,7 @@ const FlightOrder: React.FC = () => {
                             </td>
                             <td>
                               <Badge bg="info">
-                                {entry.movements || 'AST'}
+                                {entry.movements || '-'}
                               </Badge>
                             </td>
                           </tr>
@@ -354,7 +354,7 @@ const FlightOrder: React.FC = () => {
                     <td>
                       <Badge bg="success">
                         <FaWeightHanging className="me-1" />
-                        {getWeightClassLabel(entry.weightClassKg, entry.sex)}
+                        {getWeightClassLabel(entry.weightClassKg || 0, entry.sex)}
                       </Badge>
                     </td>
                     <td>

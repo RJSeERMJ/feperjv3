@@ -1,35 +1,42 @@
-import { createStore, applyMiddleware, compose } from 'redux';
+import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
-import thunk from 'redux-thunk';
 import barraProntaReducer, { initialState } from '../reducers/barraProntaReducers';
-import { GlobalState } from '../types/barraProntaTypes';
 
 // Configuração do persist
 const persistConfig = {
   key: 'barra-pronta-root',
   storage,
-  whitelist: ['meet', 'registration', 'lifting'] // Persistir apenas estes estados
+  whitelist: ['meet', 'registration', 'lifting'] // Persistir apenas os estados necessários
 };
 
 const persistedReducer = persistReducer(persistConfig, barraProntaReducer);
 
-// Configuração do Redux DevTools
-const composeEnhancers = (typeof window !== 'undefined' && 
-  (window as any).__REDUX_DEVTOOLS_EXTENSION_COMPOSE__) || compose;
+// Estado inicial
+const initialLiftingState = {
+  day: 1,
+  platform: 1,
+  flight: 'A',
+  lift: 'S' as const,
+  attemptOneIndexed: 1,
+  overrideEntryId: null,
+  overrideAttempt: null
+};
 
-// Criar store
-const store = createStore(
-  persistedReducer,
-  undefined, // Não passar initialState para o persistReducer
-  composeEnhancers(applyMiddleware(thunk))
-);
+// Store principal
+export const store = configureStore({
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+        ignoredPaths: ['persist']
+      }
+    })
+});
 
-// Criar persistor
-const persistor = persistStore(store);
+export const persistor = persistStore(store);
 
-// Tipos para o store
-export type RootState = GlobalState;
+// Tipos para TypeScript
+export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-
-export { store, persistor };

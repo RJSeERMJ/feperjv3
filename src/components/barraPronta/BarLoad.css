@@ -1,0 +1,183 @@
+.bar-load-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  min-height: 80px;
+}
+
+.bar {
+  width: 8px;
+  height: 60px;
+  background: #495057;
+  border-radius: 4px;
+}
+
+.bar-left {
+  margin-right: 4px;
+}
+
+.bar-right {
+  margin-left: 4px;
+}
+
+.collar {
+  width: 12px;
+  height: 50px;
+  background: #6c757d;
+  border-radius: 6px;
+  border: 2px solid #495057;
+}
+
+.plates-container {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  min-height: 60px;
+}
+
+.plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 50px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.plate:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.plate-weight {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.plate-counter {
+  font-size: 10px;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+.plate-error {
+  background: #dc3545;
+  color: white;
+  min-width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.rack-info {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #007bff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Estilos específicos para diferentes pesos de anilhas */
+.plate-25 {
+  min-width: 50px;
+  height: 60px;
+}
+
+.plate-20 {
+  min-width: 45px;
+  height: 55px;
+}
+
+.plate-15 {
+  min-width: 42px;
+  height: 52px;
+}
+
+.plate-10 {
+  min-width: 38px;
+  height: 48px;
+}
+
+.plate-5 {
+  min-width: 35px;
+  height: 45px;
+}
+
+.plate-2\.5 {
+  min-width: 32px;
+  height: 42px;
+}
+
+.plate-1\.25 {
+  min-width: 30px;
+  height: 40px;
+}
+
+.plate-1 {
+  min-width: 28px;
+  height: 38px;
+}
+
+.plate-0\.5 {
+  min-width: 26px;
+  height: 36px;
+}
+
+.plate-0\.25 {
+  min-width: 24px;
+  height: 34px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .bar-load-container {
+    padding: 8px;
+    min-height: 60px;
+  }
+  
+  .plate {
+    min-width: 30px;
+    height: 40px;
+    font-size: 10px;
+  }
+  
+  .plate-weight {
+    font-size: 12px;
+  }
+  
+  .plate-counter {
+    font-size: 8px;
+  }
+  
+  .bar {
+    width: 6px;
+    height: 45px;
+  }
+  
+  .collar {
+    width: 10px;
+    height: 40px;
+  }
+}

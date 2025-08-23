@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
-import { FaDumbbell, FaSignInAlt } from 'react-icons/fa';
+import { Container, Card, Form, Button, Alert, Spinner, Image } from 'react-bootstrap';
+import { FaSignInAlt } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
@@ -74,7 +74,7 @@ const Login: React.FC = () => {
         <Card className="login-card">
           <Card.Body className="p-5">
             <div className="text-center mb-4">
-              <FaDumbbell className="login-icon" />
+              <Image src="/feperj-logo.png" alt="FEPERJ Logo" className="login-logo" />
               <h2 className="mt-3 mb-2">🏋️ FEPERJ</h2>
               <p className="text-muted">Sistema de Gestão de Atletas</p>
             </div>

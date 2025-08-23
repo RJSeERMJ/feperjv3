@@ -7,15 +7,13 @@ import {
   Button, 
   Card, 
   Table,
-  Modal,
   Badge,
-  Alert,
-  InputGroup
+  Alert
 } from 'react-bootstrap';
 import { useSelector, useDispatch } from 'react-redux';
-import { GlobalState, Entry } from '../../types/barraProntaTypes';
+import { GlobalState } from '../../types/barraProntaTypes';
 import { updateEntry } from '../../actions/barraProntaActions';
-import { FaWeightHanging, FaEdit, FaCheck, FaTimes, FaUser, FaFilter, FaRuler, FaDumbbell } from 'react-icons/fa';
+import { FaWeightHanging, FaCheck, FaTimes, FaUser, FaFilter, FaListOl } from 'react-icons/fa';
 
 const WeighIns: React.FC = () => {
   const dispatch = useDispatch();
@@ -27,6 +25,7 @@ const WeighIns: React.FC = () => {
    const [filterFlight, setFilterFlight] = useState<'all' | string>('all');
    const [filterPlatform, setFilterPlatform] = useState<'all' | number>('all');
   const [filterWeighed, setFilterWeighed] = useState<'all' | 'weighed' | 'not-weighed'>('all');
+  const [openMovementsDropdown, setOpenMovementsDropdown] = useState<number | null>(null);
 
   // Função para gerar números de lote únicos (1 a N atletas)
   const generateUniqueLotNumbers = (): number[] => {
@@ -100,32 +99,60 @@ const WeighIns: React.FC = () => {
   // Função para preencher automaticamente dia, plataforma e movimentos
   const autoFillDayAndPlatform = useCallback(() => {
     registration.entries.forEach(entry => {
-      // Auto-preencher dia se houver apenas 1 dia
-      if (meet.lengthDays === 1 && entry.day === null) {
-        dispatch(updateEntry(entry.id, { day: 1 }));
+      // Auto-preencher dia se não estiver definido
+      if (entry.day === null) {
+        const currentDay = Math.min(entry.id % meet.lengthDays + 1, meet.lengthDays);
+        dispatch(updateEntry(entry.id, { day: currentDay }));
       }
       
-      // Auto-preencher plataforma se houver apenas 1 plataforma para o dia atual
+      // Auto-preencher plataforma se houver apenas 1 plataforma no dia
       const currentDay = entry.day || 1;
       const platformsForDay = meet.platformsOnDays[currentDay - 1] || 1;
       if (platformsForDay === 1 && entry.platform === null) {
         dispatch(updateEntry(entry.id, { platform: 1 }));
       }
       
-      // Auto-preencher movimentos se houver apenas 1 movimento permitido
-      if (meet.allowedMovements?.length === 1 && entry.movements !== meet.allowedMovements[0]) {
-        dispatch(updateEntry(entry.id, { movements: meet.allowedMovements[0] || 'AST' }));
-      }
+      // Removido: Auto-preenchimento de movimentos - agora é preenchimento manual
     });
-  }, [meet.lengthDays, meet.platformsOnDays, meet.allowedMovements, registration.entries, dispatch]);
+  }, [meet.lengthDays, meet.platformsOnDays, registration.entries, dispatch]);
 
   // Executar auto-preenchimento quando o componente montar ou quando meet mudar
   useEffect(() => {
-    // Garantir que allowedMovements existe antes de executar
-    if (meet.allowedMovements) {
+    // Garantir que as configurações existem antes de executar
+    if (meet.lengthDays && meet.platformsOnDays) {
       autoFillDayAndPlatform();
     }
-  }, [meet.lengthDays, meet.platformsOnDays, meet.allowedMovements, registration.entries.length, autoFillDayAndPlatform]);
+  }, [meet.lengthDays, meet.platformsOnDays, registration.entries.length, autoFillDayAndPlatform]);
+
+  // Fechar dropdown quando clicar fora dele
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMovementsDropdown !== null) {
+        // Verificar se o clique foi fora do dropdown
+        const target = event.target as Element;
+        const dropdownContainer = document.querySelector(`[data-dropdown-id="${openMovementsDropdown}"]`);
+        const buttonContainer = document.querySelector(`button[data-dropdown-id="${openMovementsDropdown}"]`);
+        
+        // Verificar se o clique foi em um checkbox
+        const isCheckbox = target.closest('input[type="checkbox"]');
+        if (isCheckbox) {
+          console.log('Click on checkbox, not closing dropdown');
+          return; // Não fechar se clicou em checkbox
+        }
+        
+        if (dropdownContainer && !dropdownContainer.contains(target) && 
+            buttonContainer && !buttonContainer.contains(target)) {
+          console.log('Click outside dropdown, closing');
+          setOpenMovementsDropdown(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMovementsDropdown]);
 
   return (
     <Container fluid>
@@ -158,7 +185,7 @@ const WeighIns: React.FC = () => {
              onClick={assignLotNumbersToAll}
              disabled={lotNumbersAssigned === totalCount}
            >
-             <FaDumbbell className="me-2" />
+             <FaListOl className="me-2" />
              {lotNumbersAssigned === totalCount 
                ? 'Todos os Lotes Atribuídos' 
                : `Atribuir Números de Lote (${totalCount - lotNumbersAssigned} restantes)`
@@ -299,7 +326,7 @@ const WeighIns: React.FC = () => {
               <tbody>
                 {filteredEntries.map((entry, index) => {
                   const isWeighed = entry.bodyweightKg !== null;
-                  const weightClass = entry.weightClassKg;
+                  const weightClass = entry.weightClassKg || 0;
                   const bodyweight = entry.bodyweightKg;
                   const isValidWeight = bodyweight ? isWeightValid(bodyweight, weightClass, entry.sex) : true;
                   
@@ -319,7 +346,7 @@ const WeighIns: React.FC = () => {
                       <td>
                         <Badge bg="success">
                           <FaWeightHanging className="me-1" />
-                          {getWeightClassLabel(entry.weightClassKg, entry.sex)}
+                          {getWeightClassLabel(entry.weightClassKg || 0, entry.sex)}
                         </Badge>
                       </td>
                         
@@ -369,7 +396,7 @@ const WeighIns: React.FC = () => {
                                onChange={(e) => {
                                  const value = e.target.value;
                                  if (value === '' || !isNaN(parseInt(value))) {
-                                   dispatch(updateEntry(entry.id, { day: value === '' ? null : parseInt(value) }));
+                                   dispatch(updateEntry(entry.id, { day: value === '' ? 1 : parseInt(value) }));
                                  }
                                }}
                                style={{ width: '80px' }}
@@ -418,7 +445,7 @@ const WeighIns: React.FC = () => {
                                    onChange={(e) => {
                                      const value = e.target.value;
                                      if (value === '' || !isNaN(parseInt(value))) {
-                                       dispatch(updateEntry(entry.id, { platform: value === '' ? null : parseInt(value) }));
+                                       dispatch(updateEntry(entry.id, { platform: value === '' ? 1 : parseInt(value) }));
                                      }
                                    }}
                                    style={{ width: '80px' }}
@@ -435,25 +462,114 @@ const WeighIns: React.FC = () => {
 
                          {/* Movimentos */}
                          <td>
-                           {meet.allowedMovements?.length === 1 ? (
-                             <Badge bg="success">{meet.allowedMovements[0] || 'AST'}</Badge>
-                           ) : (
-                             <Form.Select
+                           <div className="position-relative">
+                             <Button
+                               variant="outline-secondary"
                                size="sm"
-                               value={entry.movements || meet.allowedMovements?.[0] || 'AST'}
-                               onChange={(e) => {
-                                 const value = e.target.value;
-                                 if (meet.allowedMovements?.includes(value)) {
-                                   dispatch(updateEntry(entry.id, { movements: value }));
-                                 }
+                               onClick={() => {
+                                 // Toggle dropdown para este atleta específico
+                                 const currentOpen = openMovementsDropdown === entry.id;
+                                 setOpenMovementsDropdown(currentOpen ? null : entry.id);
                                }}
-                               style={{ width: '80px' }}
+                               className="w-100 text-start d-flex justify-content-between align-items-center"
+                               style={{ minHeight: '38px' }}
+                               data-dropdown-id={entry.id}
                              >
-                               {meet.allowedMovements?.map(movement => (
-                                 <option key={movement} value={movement}>{movement}</option>
-                               ))}
-                             </Form.Select>
-                           )}
+                               <span className="text-truncate">
+                                 {entry.movements || 'Selecionar...'}
+                               </span>
+                               <span className="ms-2">▼</span>
+                             </Button>
+                             
+                             {openMovementsDropdown === entry.id && (
+                               <div 
+                                 className="position-absolute top-100 start-0 mt-1 bg-white border rounded shadow-lg p-2" 
+                                 style={{ zIndex: 1000, minWidth: '200px' }}
+                                 data-dropdown-id={entry.id}
+                               >
+                                 <div className="mb-2">
+                                   <small className="text-muted">Selecione os movimentos:</small>
+                                 </div>
+                                 {[
+                                   { key: 'A', label: 'Agachamento' },
+                                   { key: 'S', label: 'Supino' },
+                                   { key: 'T', label: 'Terra' },
+                                   { key: 'AS', label: 'Agachamento + Supino' },
+                                   { key: 'AT', label: 'Agachamento + Terra' },
+                                   { key: 'ST', label: 'Supino + Terra' },
+                                   { key: 'AST', label: 'Agachamento + Supino + Terra' }
+                                 ].map(movement => (
+                                   <Form.Check
+                                     key={movement.key}
+                                     type="checkbox"
+                                     id={`movement-${entry.id}-${movement.key}`}
+                                     label={movement.label}
+                                     checked={(() => {
+                                       const movements = entry.movements || '';
+                                       const movementList = movements.split(', ').filter(m => m.trim() !== '');
+                                       const isChecked = movementList.includes(movement.key);
+                                       console.log(`Checkbox ${movement.key} for entry ${entry.id}:`, { movements, movementList, isChecked });
+                                       return isChecked;
+                                     })()}
+                                     onChange={(e) => {
+                                       e.preventDefault();
+                                       e.stopPropagation();
+                                       
+                                       const isChecked = e.target.checked;
+                                       const currentMovements = (entry.movements || '').split(', ').filter(m => m.trim() !== '');
+                                       
+                                       console.log(`Changing ${movement.key} for entry ${entry.id}:`, { 
+                                         isChecked, 
+                                         currentMovements, 
+                                         before: entry.movements 
+                                       });
+                                       
+                                       let newMovementList;
+                                       if (isChecked) {
+                                         // Adicionar movimento se não existir
+                                         if (!currentMovements.includes(movement.key)) {
+                                           newMovementList = [...currentMovements, movement.key];
+                                         } else {
+                                           newMovementList = currentMovements;
+                                         }
+                                       } else {
+                                         // Remover movimento
+                                         newMovementList = currentMovements.filter(m => m !== movement.key);
+                                       }
+                                       
+                                       const newMovements = newMovementList.join(', ');
+                                       console.log(`New movements for entry ${entry.id}:`, { newMovementList, newMovements });
+                                       
+                                       dispatch(updateEntry(entry.id, { movements: newMovements }));
+                                     }}
+                                     className="mb-1"
+                                   />
+                                 ))}
+                                 <div className="mt-2 pt-2 border-top">
+                                   <div className="d-flex gap-1">
+                                     <Button
+                                       variant="outline-danger"
+                                       size="sm"
+                                       onClick={() => {
+                                         dispatch(updateEntry(entry.id, { movements: '' }));
+                                         setOpenMovementsDropdown(null);
+                                       }}
+                                       className="flex-fill"
+                                     >
+                                       Limpar Todos
+                                     </Button>
+                                     <Button
+                                       variant="outline-secondary"
+                                       size="sm"
+                                       onClick={() => setOpenMovementsDropdown(null)}
+                                     >
+                                       Fechar
+                                     </Button>
+                                   </div>
+                                 </div>
+                               </div>
+                             )}
+                           </div>
                          </td>
 
                                                                           {/* Altura do Agachamento */}

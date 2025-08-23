@@ -1,0 +1,189 @@
+.left-card-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.current-athlete-card {
+  border: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.current-athlete-card .card-header {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  padding: 15px;
+}
+
+.current-athlete-card .card-header h5 {
+  margin: 0;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.athlete-info {
+  margin-bottom: 20px;
+}
+
+.athlete-name {
+  color: #2c3e50;
+  font-weight: 700;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+.athlete-details .badge {
+  font-size: 12px;
+  padding: 8px 12px;
+  margin: 2px;
+}
+
+.attempt-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.attempt-info h6 {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.current-weight {
+  color: #28a745;
+  font-weight: 700;
+  font-size: 28px;
+  margin: 0;
+}
+
+.bar-load-section {
+  margin-top: 20px;
+}
+
+.bar-load-section h6 {
+  color: #495057;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.next-athlete-card {
+  border: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.next-athlete-card .card-header {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  padding: 12px;
+}
+
+.next-athlete-card .card-header h6 {
+  margin: 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.next-athlete-card .athlete-name {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.next-athlete-card .athlete-details .badge {
+  font-size: 10px;
+  padding: 6px 10px;
+  margin: 1px;
+}
+
+.next-weight {
+  color: #007bff;
+  font-weight: 600;
+  font-size: 18px;
+  margin-top: 5px;
+}
+
+.competition-info-card {
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.competition-info-card .card-body {
+  padding: 15px;
+}
+
+.competition-info-card h6 {
+  color: #6c757d;
+  font-weight: 600;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.info-item {
+  text-align: center;
+}
+
+.info-label {
+  color: #6c757d;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  color: #2c3e50;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .athlete-name {
+    font-size: 20px;
+  }
+  
+  .current-weight {
+    font-size: 24px;
+  }
+  
+  .next-weight {
+    font-size: 16px;
+  }
+  
+  .info-value {
+    font-size: 16px;
+  }
+  
+  .athlete-details .badge {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}
+
+@media (max-width: 576px) {
+  .left-card-container {
+    margin-bottom: 20px;
+  }
+  
+  .athlete-name {
+    font-size: 18px;
+  }
+  
+  .current-weight {
+    font-size: 20px;
+  }
+  
+  .info-value {
+    font-size: 14px;
+  }
+}

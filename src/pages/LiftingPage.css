@@ -1,0 +1,242 @@
+.lifting-page {
+  background: #f8f9fa;
+  min-height: 100vh;
+  padding: 20px 0;
+}
+
+.page-header {
+  text-align: center;
+  padding: 30px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 15px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.page-subtitle {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  margin: 0;
+  font-weight: 300;
+}
+
+.no-athletes-placeholder {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-content h4 {
+  color: #6c757d;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.placeholder-content p {
+  color: #6c757d;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.placeholder-content ul {
+  text-align: left;
+  display: inline-block;
+  color: #6c757d;
+}
+
+.placeholder-content li {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.info-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.info-section h6 {
+  color: #2c3e50;
+  font-weight: 700;
+  margin-bottom: 20px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 20px 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  background: white;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Alertas personalizados */
+.alert {
+  border: none;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  color: #856404;
+  border-left: 4px solid #ffc107;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+  color: #0c5460;
+  border-left: 4px solid #17a2b8;
+}
+
+/* Responsividade */
+@media (max-width: 1200px) {
+  .page-title {
+    font-size: 2rem;
+  }
+  
+  .page-subtitle {
+    font-size: 1.1rem;
+  }
+  
+  .stat-value {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .lifting-page {
+    padding: 15px 0;
+  }
+  
+  .page-header {
+    padding: 20px 0;
+    margin-bottom: 20px;
+  }
+  
+  .page-title {
+    font-size: 1.8rem;
+  }
+  
+  .page-subtitle {
+    font-size: 1rem;
+  }
+  
+  .no-athletes-placeholder {
+    padding: 30px 20px;
+    min-height: 300px;
+  }
+  
+  .placeholder-content h4 {
+    font-size: 18px;
+  }
+  
+  .placeholder-content p,
+  .placeholder-content li {
+    font-size: 14px;
+  }
+  
+  .info-section {
+    padding: 20px 15px;
+  }
+  
+  .stat-item {
+    padding: 15px 10px;
+    margin-bottom: 10px;
+  }
+  
+  .stat-value {
+    font-size: 1.3rem;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 576px) {
+  .lifting-page {
+    padding: 10px 0;
+  }
+  
+  .page-header {
+    padding: 15px 0;
+    border-radius: 10px;
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .page-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .no-athletes-placeholder {
+    padding: 20px 15px;
+    min-height: 250px;
+  }
+  
+  .placeholder-content h4 {
+    font-size: 16px;
+  }
+  
+  .placeholder-content p,
+  .placeholder-content li {
+    font-size: 13px;
+  }
+  
+  .info-section {
+    padding: 15px 10px;
+  }
+  
+  .stat-item {
+    padding: 10px 8px;
+  }
+  
+  .stat-value {
+    font-size: 1.1rem;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+  }
+}

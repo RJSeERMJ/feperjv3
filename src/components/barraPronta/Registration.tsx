@@ -72,27 +72,32 @@ const Registration: React.FC = () => {
       id: editingEntry ? editingEntry.id : registration.nextEntryId,
       name: formData.name,
       sex: formData.sex,
+      birthDate: new Date().toISOString(),
       age: parseInt(formData.age) || 0,
-      division: formData.division,
+      weightClass: `${formData.weightClassKg}kg`,
       weightClassKg: formData.weightClassKg,
+      division: formData.division,
       equipment: formData.equipment,
       team: formData.team,
       country: formData.country,
       state: formData.state,
       notes: formData.notes,
       // Campos de tentativas
-      squat1: null, squat2: null, squat3: null, squat4: null,
-      bench1: null, bench2: null, bench3: null, bench4: null,
-      deadlift1: null, deadlift2: null, deadlift3: null, deadlift4: null,
+      squat1: null, squat2: null, squat3: null,
+      bench1: null, bench2: null, bench3: null,
+      deadlift1: null, deadlift2: null, deadlift3: null,
       bodyweightKg: null,
       lotNumber: null,
       squatHeight: null,
       benchHeight: null,
-      platform: null,
-      flight: null,
-      day: null,
+      platform: 1,
+      flight: 'A',
+      day: 1,
       movements: 'AST', // Padrão: Agachamento + Supino + Terra
       sessionNumber: null,
+      squatStatus: [0, 0, 0],
+      benchStatus: [0, 0, 0],
+      deadliftStatus: [0, 0, 0],
       tested: false
     };
 
@@ -111,13 +116,13 @@ const Registration: React.FC = () => {
       name: entry.name,
       sex: entry.sex,
       age: entry.age.toString(),
-      division: entry.division,
-      weightClassKg: entry.weightClassKg,
-      equipment: entry.equipment,
+      division: entry.division || '',
+      weightClassKg: entry.weightClassKg || 0,
+      equipment: entry.equipment || 'Raw',
       team: entry.team,
-      country: entry.country,
-      state: entry.state,
-      notes: entry.notes
+      country: entry.country || 'Brasil',
+      state: entry.state || '',
+      notes: entry.notes || ''
     });
     setShowModal(true);
   };
@@ -268,12 +273,12 @@ const Registration: React.FC = () => {
                     <td>
                       <Badge bg="success">
                         <FaWeightHanging className="me-1" />
-                        {getWeightClassLabel(entry.weightClassKg, entry.sex)}
+                        {getWeightClassLabel(entry.weightClassKg || 0, entry.sex)}
                       </Badge>
                     </td>
                     <td>
                       <Badge bg="warning" text="dark">
-                        {getEquipmentName(entry.equipment)}
+                        {getEquipmentName(entry.equipment || 'Raw')}
                       </Badge>
                     </td>
                     <td>{entry.team || '-'}</td>

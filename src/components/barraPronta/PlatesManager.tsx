@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { Row, Col, Form, Button, Card, Table, Badge } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaPalette } from 'react-icons/fa';
-
-interface Plate {
-  weightKg: number;
-  color: string;
-  diameterMm: number;
-  quantity: number;
-}
+import { Plate } from '../../types/barraProntaTypes';
 
 interface PlatesManagerProps {
   plates: readonly Readonly<Plate>[];
@@ -20,7 +14,7 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
 }) => {
   const [newWeight, setNewWeight] = useState('');
   const [newColor, setNewColor] = useState('#000000');
-  const [newQuantity, setNewQuantity] = useState('1');
+  const [newPairCount, setNewPairCount] = useState('1');
 
   // Cores padrão FEPERJ
   const defaultColors = [
@@ -37,7 +31,7 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
 
   const handleAddPlate = () => {
     const weight = parseFloat(newWeight);
-    const quantity = parseInt(newQuantity);
+    const quantity = parseInt(newPairCount);
     
     if (!isNaN(weight) && weight > 0 && !isNaN(quantity) && quantity > 0) {
       // Verificar se já existe uma placa com esse peso
@@ -50,8 +44,7 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
       const newPlate: Plate = {
         weightKg: weight,
         color: newColor,
-        diameterMm: 450, // Valor padrão fixo
-        quantity: quantity
+        pairCount: quantity
       };
 
       const updatedPlates = [...plates, newPlate].sort((a, b) => b.weightKg - a.weightKg);
@@ -59,7 +52,7 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
       
       // Limpar campos
       setNewWeight('');
-      setNewQuantity('1');
+      setNewPairCount('1');
     } else {
       alert('Por favor, insira valores válidos para peso e quantidade.');
     }
@@ -77,7 +70,7 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
       // Se a placa já existe, aumentar a quantidade
       const updatedPlates = plates.map(p => 
         p.weightKg === weight 
-          ? { ...p, quantity: p.quantity + 1 }
+          ? { ...p, pairCount: p.pairCount + 1 }
           : p
       );
       onPlatesChange(updatedPlates);
@@ -86,8 +79,7 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
       const newPlate: Plate = {
         weightKg: weight,
         color: color,
-        diameterMm: 450,
-        quantity: 1
+        pairCount: 1
       };
 
       const updatedPlates = [...plates, newPlate].sort((a, b) => b.weightKg - a.weightKg);
@@ -150,8 +142,8 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
                <Form.Label>Quantidade</Form.Label>
                <Form.Control
                  type="number"
-                 value={newQuantity}
-                 onChange={(e) => setNewQuantity(e.target.value)}
+                 value={newPairCount}
+                 onChange={(e) => setNewPairCount(e.target.value)}
                  placeholder="1"
                  min="1"
                  max="100"
@@ -243,7 +235,7 @@ const PlatesManager: React.FC<PlatesManagerProps> = ({
                       </div>
                     </td>
                     <td>
-                      <Badge bg="secondary">{plate.quantity || 1}</Badge>
+                      <Badge bg="secondary">{plate.pairCount || 1}</Badge>
                     </td>
                     <td>
                       <Button

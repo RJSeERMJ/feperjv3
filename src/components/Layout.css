@@ -45,6 +45,13 @@
   margin-bottom: 0.5rem;
 }
 
+.sidebar-logo {
+  height: 40px;
+  width: auto;
+  margin-bottom: 0.5rem;
+  object-fit: contain;
+}
+
 .sidebar-nav {
   padding: 1rem 0;
 }

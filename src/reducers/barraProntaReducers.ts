@@ -2,11 +2,6 @@ import { GlobalState, Action, VersionsState, MeetState, RegistrationState, Lifti
 
 // Estado inicial
 const initialState: GlobalState = {
-  versions: {
-    stateVersion: '1.0',
-    releaseVersion: '1.0'
-  },
-  language: 'pt' as Language,
   meet: {
     name: '',
     country: 'Brasil',
@@ -16,7 +11,7 @@ const initialState: GlobalState = {
     date: '',
     lengthDays: 1,
     platformsOnDays: [1],
-    allowedMovements: ['AST'], // Padrão: Agachamento + Supino + Terra
+    allowedMovements: [], // Campo vazio para movimentos
     ageCoefficients: {
       men: [],
       women: []
@@ -35,15 +30,16 @@ const initialState: GlobalState = {
     benchBarAndCollarsWeightKg: 20,
     deadliftBarAndCollarsWeightKg: 20,
     plates: [
-      { weightKg: 25, color: '#FF0000', diameterMm: 450, quantity: 1 },
-      { weightKg: 20, color: '#0000FF', diameterMm: 450, quantity: 1 },
-      { weightKg: 15, color: '#FFFF00', diameterMm: 450, quantity: 1 },
-      { weightKg: 10, color: '#008000', diameterMm: 450, quantity: 1 },
-      { weightKg: 5, color: '#000000', diameterMm: 450, quantity: 1 },
-      { weightKg: 2.5, color: '#000000', diameterMm: 450, quantity: 1 },
-      { weightKg: 1.25, color: '#000000', diameterMm: 450, quantity: 1 },
-      { weightKg: 0.5, color: '#000000', diameterMm: 450, quantity: 1 },
-      { weightKg: 0.25, color: '#000000', diameterMm: 450, quantity: 1 }
+      { weightKg: 25, pairCount: 10, color: '#FF0000' },
+      { weightKg: 20, pairCount: 10, color: '#0000FF' },
+      { weightKg: 15, pairCount: 10, color: '#FFFF00' },
+      { weightKg: 10, pairCount: 10, color: '#00FF00' },
+      { weightKg: 5, pairCount: 10, color: '#FF8000' },
+      { weightKg: 2.5, pairCount: 10, color: '#800080' },
+      { weightKg: 1.25, pairCount: 10, color: '#FFC0CB' },
+      { weightKg: 1, pairCount: 10, color: '#FFFFFF' },
+      { weightKg: 0.5, pairCount: 10, color: '#808080' },
+      { weightKg: 0.25, pairCount: 10, color: '#000000' }
     ],
     showAlternateUnits: false
   },
@@ -57,31 +53,9 @@ const initialState: GlobalState = {
     platform: 1,
     flight: 'A',
     lift: 'S',
-    overrideAttempt: null,
+    attemptOneIndexed: 1,
     overrideEntryId: null,
-    columnDivisionWidthPx: 200
-  }
-};
-
-// Reducer para versões
-const versionsReducer = (state: VersionsState = initialState.versions, action: Action): VersionsState => {
-  switch (action.type) {
-    case 'OVERWRITE_STORE':
-      return action.store.versions;
-    default:
-      return state;
-  }
-};
-
-// Reducer para idioma
-const languageReducer = (state: Language = initialState.language, action: Action): Language => {
-  switch (action.type) {
-    case 'SET_LANGUAGE':
-      return action.language;
-    case 'OVERWRITE_STORE':
-      return action.store.language;
-    default:
-      return state;
+    overrideAttempt: null
   }
 };
 
@@ -144,6 +118,40 @@ const registrationReducer = (state: RegistrationState = initialState.registratio
       };
     }
     
+    case 'MARK_ATTEMPT': {
+      const entryIndex = state.lookup[action.entryId];
+      if (entryIndex === undefined) return state;
+      
+      const newEntries = [...state.entries];
+      const entry = { ...newEntries[entryIndex] };
+      
+      // Determinar o campo de peso baseado no movimento
+      const liftField = action.lift === 'S' ? 'squat' : action.lift === 'B' ? 'bench' : 'deadlift';
+      const weightField = `${liftField}${action.attempt}` as keyof typeof entry;
+      
+      // Determinar o campo de status
+      const statusField = `${liftField}Status` as keyof typeof entry;
+      
+      // Atualizar peso (negativo se for No Lift)
+      const finalWeight = action.status === 2 ? -Math.abs(action.weight) : action.weight;
+      (entry as any)[weightField] = finalWeight;
+      
+      // Atualizar status
+      if (!(entry as any)[statusField]) {
+        (entry as any)[statusField] = [];
+      }
+      const statusArray = [...((entry as any)[statusField] as number[])];
+      statusArray[action.attempt - 1] = action.status;
+      (entry as any)[statusField] = statusArray;
+      
+      newEntries[entryIndex] = entry;
+      
+      return {
+        ...state,
+        entries: newEntries
+      };
+    }
+    
     case 'OVERWRITE_STORE':
       return action.store.registration;
       
@@ -167,8 +175,6 @@ const liftingReducer = (state: LiftingState = initialState.lifting, action: Acti
 // Reducer principal
 const barraProntaReducer = (state: GlobalState = initialState, action: Action): GlobalState => {
   return {
-    versions: versionsReducer(state.versions, action),
-    language: languageReducer(state.language, action),
     meet: meetReducer(state.meet, action),
     registration: registrationReducer(state.registration, action),
     lifting: liftingReducer(state.lifting, action)

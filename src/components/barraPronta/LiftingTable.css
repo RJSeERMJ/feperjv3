@@ -1,0 +1,229 @@
+.lifting-table-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.table-header h5 {
+  color: #2c3e50;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.lifting-table {
+  margin-bottom: 0;
+  border: 1px solid #dee2e6;
+}
+
+.lifting-table th {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: 1px solid #dee2e6;
+  font-weight: 600;
+  padding: 15px 10px;
+  vertical-align: middle;
+}
+
+.lifting-table td {
+  border: 1px solid #dee2e6;
+  padding: 12px 10px;
+  vertical-align: middle;
+}
+
+.table-header-row th {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-row {
+  transition: all 0.2s ease;
+}
+
+.table-row:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.current-athlete-row {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%) !important;
+  border-left: 4px solid #28a745;
+}
+
+.current-athlete-row:hover {
+  background: linear-gradient(135deg, #c3e6cb 0%, #b1dfbb 100%) !important;
+}
+
+.athlete-info {
+  min-width: 200px;
+}
+
+.athlete-name {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 5px;
+  font-size: 16px;
+}
+
+.athlete-details .badge {
+  font-size: 10px;
+  padding: 4px 8px;
+}
+
+.attempt-cell {
+  min-width: 120px;
+  position: relative;
+}
+
+.current-attempt {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%) !important;
+  border: 2px solid #ffc107;
+  font-weight: 600;
+}
+
+.attempt-weight {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 8px;
+}
+
+.attempt-status .badge {
+  font-size: 11px;
+  padding: 6px 10px;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.action-buttons .btn {
+  font-size: 11px;
+  padding: 4px 8px;
+  min-width: 50px;
+  font-weight: 500;
+}
+
+.action-buttons .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Status específicos */
+.badge-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+}
+
+.badge-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+}
+
+.badge-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
+  color: #212529 !important;
+}
+
+.badge-secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+}
+
+/* Responsividade */
+@media (max-width: 1200px) {
+  .lifting-table-container {
+    padding: 15px;
+  }
+  
+  .table-header h5 {
+    font-size: 18px;
+  }
+  
+  .lifting-table th,
+  .lifting-table td {
+    padding: 10px 8px;
+  }
+  
+  .athlete-name {
+    font-size: 14px;
+  }
+  
+  .attempt-weight {
+    font-size: 14px;
+  }
+  
+  .action-buttons .btn {
+    font-size: 10px;
+    padding: 3px 6px;
+    min-width: 45px;
+  }
+}
+
+@media (max-width: 768px) {
+  .lifting-table-container {
+    padding: 10px;
+  }
+  
+  .table-header h5 {
+    font-size: 16px;
+  }
+  
+  .lifting-table th,
+  .lifting-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  
+  .athlete-name {
+    font-size: 12px;
+  }
+  
+  .attempt-weight {
+    font-size: 12px;
+  }
+  
+  .attempt-status .badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 1px;
+  }
+  
+  .action-buttons .btn {
+    font-size: 9px;
+    padding: 2px 4px;
+    min-width: 40px;
+    margin: 1px 0;
+  }
+}
+
+@media (max-width: 576px) {
+  .lifting-table-container {
+    padding: 8px;
+  }
+  
+  .table-header h5 {
+    font-size: 14px;
+  }
+  
+  .lifting-table th,
+  .lifting-table td {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+  
+  .athlete-info {
+    min-width: 150px;
+  }
+  
+  .attempt-cell {
+    min-width: 80px;
+  }
+}

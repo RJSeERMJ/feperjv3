@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Container, Navbar, Nav, NavDropdown, Offcanvas, Button } from 'react-bootstrap';
+import { Container, Navbar, Nav, NavDropdown, Offcanvas, Button, Image } from 'react-bootstrap';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  FaDumbbell, 
   FaBars, 
   FaUsers, 
   FaTrophy, 
@@ -60,7 +59,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const Sidebar = () => (
     <div className="sidebar">
       <div className="sidebar-header">
-        <FaDumbbell className="sidebar-icon" />
+        <Image src="/feperj-logo.png" alt="FEPERJ Logo" className="sidebar-logo" />
         <h5 className="mb-0">FEPERJ</h5>
       </div>
       
@@ -95,7 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Button>
           
           <Navbar.Brand as={Link} to="/" className="d-flex align-items-center">
-            <FaDumbbell className="me-2" />
+            <Image src="/feperj-logo.png" alt="FEPERJ Logo" className="me-2" style={{ height: '30px' }} />
             FEPERJ
           </Navbar.Brand>
 
@@ -133,7 +132,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         >
           <Offcanvas.Header closeButton>
             <Offcanvas.Title>
-              <FaDumbbell className="me-2" />
+              <Image src="/feperj-logo.png" alt="FEPERJ Logo" className="me-2" style={{ height: '25px' }} />
               FEPERJ
             </Offcanvas.Title>
           </Offcanvas.Header>
