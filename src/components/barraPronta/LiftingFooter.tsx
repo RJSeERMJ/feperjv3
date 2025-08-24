@@ -2,8 +2,9 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Button, Row, Col, Form } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
-import { markAttempt } from '../../actions/barraProntaActions';
+import { updateEntry } from '../../actions/barraProntaActions';
 import { Lift } from '../../types/barraProntaTypes';
+import { getLiftingOrder } from '../../logic/liftingOrder';
 import './LiftingFooter.css';
 
 const LiftingFooter: React.FC = () => {
@@ -19,12 +20,16 @@ const LiftingFooter: React.FC = () => {
     entry.flight === flight
   );
 
+  // Obter a ordem de levantamentos atualizada
+  const liftingOrder = getLiftingOrder(entriesInFlight, { day, platform, flight, lift, attemptOneIndexed, overrideEntryId: null, overrideAttempt: null, selectedEntryId, selectedAttempt, isAttemptActive });
+
   // Debug: mostrar estado atual
   console.log('🔍 LiftingFooter - Estado atual:', { 
     day, platform, flight, lift, attemptOneIndexed, 
     selectedEntryId, selectedAttempt, isAttemptActive 
   });
   console.log('🔍 LiftingFooter - Atletas disponíveis:', entriesInFlight.length);
+  console.log('🔍 LiftingFooter - Ordem de levantamentos:', liftingOrder);
 
   // Monitorar mudanças no estado para sincronização automática
   useEffect(() => {
@@ -32,9 +37,123 @@ const LiftingFooter: React.FC = () => {
       day, platform, flight, lift, attemptOneIndexed,
       selectedEntryId, selectedAttempt, isAttemptActive,
       totalEntries: entries.length,
-      filteredEntries: entriesInFlight.length
+      filteredEntries: entriesInFlight.length,
+      liftingOrder
     });
-  }, [day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive, entries, entriesInFlight]);
+  }, [day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive, entries, entriesInFlight, liftingOrder]);
+
+  // Função para obter o campo de status baseado no movimento atual
+  const getStatusField = (): string => {
+    switch (lift) {
+      case 'S': return 'squatStatus';
+      case 'B': return 'benchStatus';
+      case 'D': return 'deadliftStatus';
+      default: return '';
+    }
+  };
+
+  // Função para obter o campo de peso baseado no movimento atual
+  const getWeightField = (attempt: number): string => {
+    switch (lift) {
+      case 'S': return `squat${attempt}`;
+      case 'B': return `bench${attempt}`;
+      case 'D': return `deadlift${attempt}`;
+      default: return '';
+    }
+  };
+
+  // Função para obter o peso atual da tentativa
+  const getCurrentAttemptWeight = (entryId: number, attempt: number): number => {
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return 0;
+    
+    const weightField = getWeightField(attempt);
+    return (entry as any)[weightField] || 0;
+  };
+
+  // Função para navegar automaticamente para o próximo atleta/tentativa
+  const navigateToNext = () => {
+    console.log('🔄 Navegando para o próximo...');
+    console.log('🔍 Estado atual antes da navegação:', { selectedEntryId, selectedAttempt, isAttemptActive });
+    
+    // Encontrar o índice do atleta atual na lista
+    const currentIndex = entriesInFlight.findIndex(e => e.id === selectedEntryId);
+    console.log('🔍 Índice do atleta atual:', currentIndex);
+    
+    if (currentIndex === -1) {
+      console.log('❌ Atleta atual não encontrado na lista');
+      return;
+    }
+    
+    // Verificar se há próxima tentativa para o mesmo atleta
+    const currentEntry = entriesInFlight[currentIndex];
+    const statusField = getStatusField();
+    const statusArray = (currentEntry as any)[statusField] || [0, 0, 0];
+    
+    // Procurar próxima tentativa pendente para o mesmo atleta
+    let nextAttempt = null;
+    for (let i = 0; i < 3; i++) {
+      if (statusArray[i] === 0) { // Pendente
+        nextAttempt = i + 1;
+        break;
+      }
+    }
+    
+    if (nextAttempt && nextAttempt > selectedAttempt) {
+      // Mesmo atleta, próxima tentativa
+      console.log('✅ Navegando para próxima tentativa:', nextAttempt);
+      dispatch({ type: 'lifting/setSelectedAttempt', payload: nextAttempt });
+      dispatch({ type: 'lifting/setAttemptActive', payload: true });
+    } else {
+      // Procurar próximo atleta com tentativas pendentes
+      let nextAthleteIndex = currentIndex + 1;
+      let nextAthleteFound = false;
+      
+      while (nextAthleteIndex < entriesInFlight.length && !nextAthleteFound) {
+        const nextEntry = entriesInFlight[nextAthleteIndex];
+        const nextStatusArray = (nextEntry as any)[statusField] || [0, 0, 0];
+        
+        // Verificar se o próximo atleta tem tentativas pendentes
+        for (let i = 0; i < 3; i++) {
+          if (nextStatusArray[i] === 0) { // Pendente
+            console.log('✅ Navegando para próximo atleta:', nextEntry.id, 'tentativa:', i + 1);
+            dispatch({ type: 'lifting/setSelectedEntryId', payload: nextEntry.id });
+            dispatch({ type: 'lifting/setSelectedAttempt', payload: i + 1 });
+            dispatch({ type: 'lifting/setAttemptActive', payload: true });
+            nextAthleteFound = true;
+            break;
+          }
+        }
+        nextAthleteIndex++;
+      }
+      
+      if (!nextAthleteFound) {
+        // Voltar para o primeiro atleta se não há mais tentativas pendentes
+        console.log('🔄 Voltando para o primeiro atleta');
+        for (let i = 0; i < entriesInFlight.length; i++) {
+          const entry = entriesInFlight[i];
+          const statusArray = (entry as any)[statusField] || [0, 0, 0];
+          
+          for (let j = 0; j < 3; j++) {
+            if (statusArray[j] === 0) { // Pendente
+              console.log('✅ Navegando para primeiro atleta disponível:', entry.id, 'tentativa:', j + 1);
+              dispatch({ type: 'lifting/setSelectedEntryId', payload: entry.id });
+              dispatch({ type: 'lifting/setSelectedAttempt', payload: j + 1 });
+              dispatch({ type: 'lifting/setAttemptActive', payload: true });
+              return;
+            }
+          }
+        }
+        
+        // Se não há mais tentativas pendentes, resetar seleção
+        console.log('🔄 Resetando seleção - não há mais tentativas');
+        dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
+        dispatch({ type: 'lifting/setAttemptActive', payload: false });
+      }
+    }
+    
+    console.log('✅ Navegação concluída');
+  };
 
   // Handlers para os dropdowns
   const handleDayChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -89,15 +208,38 @@ const LiftingFooter: React.FC = () => {
     }
   };
 
-  // Handlers para as ações
+  // Handlers para as ações - AGORA SINCRONIZADOS COM A TABELA
   const handleGoodLift = () => {
     console.log('🎯 handleGoodLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
-      // Marcar tentativa como válida
-      console.log('✅ Marcando Good Lift para:', selectedEntryId, selectedAttempt);
-      dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 1, 0) as any);
-      console.log(`Good Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
+      // Obter o peso atual da tentativa
+      const currentWeight = getCurrentAttemptWeight(selectedEntryId, selectedAttempt);
+      
+      if (currentWeight <= 0) {
+        alert('Defina o peso da tentativa primeiro!');
+        return;
+      }
+
+      // Marcar tentativa como válida usando a mesma lógica da tabela
+      console.log('✅ Marcando Good Lift para:', selectedEntryId, selectedAttempt, 'peso:', currentWeight);
+      
+      // Atualizar o status da tentativa
+      const statusField = getStatusField();
+      if (statusField) {
+        const currentEntry = entriesInFlight.find(e => e.id === selectedEntryId);
+        if (currentEntry) {
+          const statusArray = (currentEntry as any)[statusField] || [0, 0, 0];
+          const newStatusArray = [...statusArray];
+          newStatusArray[selectedAttempt - 1] = 1; // Good Lift
+          dispatch(updateEntry(selectedEntryId, { [statusField]: newStatusArray }));
+          
+          console.log('✅ Status atualizado para Good Lift');
+          
+          // Navegar automaticamente para o próximo - IMEDIATAMENTE
+          navigateToNext();
+        }
+      }
     } else {
       console.log('❌ Não é possível marcar Good Lift:', { selectedEntryId, isAttemptActive });
       alert('Selecione um atleta e uma tentativa primeiro!');
@@ -108,10 +250,33 @@ const LiftingFooter: React.FC = () => {
     console.log('🎯 handleNoLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
-      // Marcar tentativa como inválida
-      console.log('✅ Marcando No Lift para:', selectedEntryId, selectedAttempt);
-      dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 2, 0) as any);
-      console.log(`No Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
+      // Obter o peso atual da tentativa
+      const currentWeight = getCurrentAttemptWeight(selectedEntryId, selectedAttempt);
+      
+      if (currentWeight <= 0) {
+        alert('Defina o peso da tentativa primeiro!');
+        return;
+      }
+
+      // Marcar tentativa como inválida usando a mesma lógica da tabela
+      console.log('✅ Marcando No Lift para:', selectedEntryId, selectedAttempt, 'peso:', currentWeight);
+      
+      // Atualizar o status da tentativa
+      const statusField = getStatusField();
+      if (statusField) {
+        const currentEntry = entriesInFlight.find(e => e.id === selectedEntryId);
+        if (currentEntry) {
+          const statusArray = (currentEntry as any)[statusField] || [0, 0, 0];
+          const newStatusArray = [...statusArray];
+          newStatusArray[selectedAttempt - 1] = 2; // No Lift
+          dispatch(updateEntry(selectedEntryId, { [statusField]: newStatusArray }));
+          
+          console.log('✅ Status atualizado para No Lift');
+          
+          // Navegar automaticamente para o próximo - IMEDIATAMENTE
+          navigateToNext();
+        }
+      }
     } else {
       console.log('❌ Não é possível marcar No Lift:', { selectedEntryId, isAttemptActive });
       alert('Selecione um atleta e uma tentativa primeiro!');
@@ -237,12 +402,12 @@ const LiftingFooter: React.FC = () => {
               <Col md={2}>
                 <Form.Group>
                   <Form.Label className="small text-muted">Tentativa</Form.Label>
-                                     <Form.Select
-                     size="sm"
-                     value={selectedAttempt}
-                     onChange={handleAttemptChange}
-                     className="custom-select"
-                   >
+                  <Form.Select
+                    size="sm"
+                    value={selectedAttempt}
+                    onChange={handleAttemptChange}
+                    className="custom-select"
+                  >
                     <option value={1}>Tentativa 1</option>
                     <option value={2}>Tentativa 2</option>
                     <option value={3}>Tentativa 3</option>
@@ -252,12 +417,12 @@ const LiftingFooter: React.FC = () => {
               <Col md={2}>
                 <Form.Group>
                   <Form.Label className="small text-muted">Atleta</Form.Label>
-                                     <Form.Select
-                     size="sm"
-                     value={selectedEntryId || 0}
-                     onChange={handleAthleteChange}
-                     className="custom-select"
-                   >
+                  <Form.Select
+                    size="sm"
+                    value={selectedEntryId || 0}
+                    onChange={handleAthleteChange}
+                    className="custom-select"
+                  >
                     {generateAthleteOptions()}
                   </Form.Select>
                 </Form.Group>
@@ -285,23 +450,23 @@ const LiftingFooter: React.FC = () => {
                 Alternar Tela Cheia
               </Button>
             </div>
-                         <Button
-               variant="danger"
-               size="sm"
-               className="me-2"
-               onClick={handleNoLift}
-               disabled={!isAttemptActive || !selectedEntryId}
-             >
-               Inválido
-             </Button>
-             <Button
-               variant="success"
-               size="sm"
-               onClick={handleGoodLift}
-               disabled={!isAttemptActive || !selectedEntryId}
-             >
-               Válido
-             </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              className="me-2"
+              onClick={handleNoLift}
+              disabled={!isAttemptActive || !selectedEntryId}
+            >
+              ❌ Inválido
+            </Button>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={handleGoodLift}
+              disabled={!isAttemptActive || !selectedEntryId}
+            >
+              ✅ Válido
+            </Button>
           </div>
         </Col>
       </Row>

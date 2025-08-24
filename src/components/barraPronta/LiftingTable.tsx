@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Table, Button, Badge, Form, Row, Col, Modal } from 'react-bootstrap';
+import { Table, Button, Badge, Form, Modal } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { markAttempt, updateEntry } from '../../actions/barraProntaActions';
-import { LiftStatus, Lift } from '../../types/barraProntaTypes';
+import { LiftStatus } from '../../types/barraProntaTypes';
 import './LiftingTable.css';
 
 interface LiftingTableProps {
@@ -37,7 +37,6 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
 
   const [showAttemptModal, setShowAttemptModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
-  const [localSelectedAttempt, setLocalSelectedAttempt] = useState<number>(1);
   const [attemptWeight, setAttemptWeight] = useState<string>('');
   const [attemptStatus, setAttemptStatus] = useState<LiftStatus>(1);
 
@@ -52,72 +51,6 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   const getAttemptWeight = (entry: any, attempt: number): number => {
     const weightField = lift === 'S' ? `squat${attempt}` : lift === 'B' ? `bench${attempt}` : `deadlift${attempt}`;
     return entry[weightField] || 0;
-  };
-
-  // Obter o label do status
-  const getStatusLabel = (status: LiftStatus): string => {
-    switch (status) {
-      case 1: return 'Good Lift';
-      case 2: return 'No Lift';
-      case 3: return 'DNS';
-      default: return 'Pendente';
-    }
-  };
-
-  // Obter a cor do status
-  const getStatusVariant = (status: LiftStatus): string => {
-    switch (status) {
-      case 1: return 'success';
-      case 2: return 'danger';
-      case 3: return 'warning';
-      default: return 'secondary';
-    }
-  };
-
-  // Obter o ícone do status
-  const getStatusIcon = (status: LiftStatus): string => {
-    switch (status) {
-      case 1: return '✅';
-      case 2: return '❌';
-      case 3: return '⏸️';
-      default: return '⏳';
-    }
-  };
-
-  // Abrir modal para marcar tentativa
-  const openAttemptModal = (entry: any, attempt: number) => {
-    setSelectedEntry(entry);
-    setLocalSelectedAttempt(attempt);
-    
-    // Carregar peso atual se existir
-    const currentWeight = getAttemptWeight(entry, attempt);
-    setAttemptWeight(currentWeight > 0 ? currentWeight.toString() : '');
-    
-    // Carregar status atual se existir
-    const currentStatus = getAttemptStatus(entry, attempt);
-    setAttemptStatus(currentStatus || 1);
-    
-    setShowAttemptModal(true);
-  };
-
-  // Salvar tentativa
-  const saveAttempt = () => {
-    if (!selectedEntry || !attemptWeight) return;
-    
-    const weight = parseFloat(attemptWeight);
-    if (isNaN(weight) || weight <= 0) {
-      alert('Peso deve ser um número válido maior que zero!');
-      return;
-    }
-
-    // Despachar a ação para marcar a tentativa
-    dispatch(markAttempt(selectedEntry.id, lift, localSelectedAttempt, attemptStatus, weight));
-    
-    // Fechar modal e limpar estado
-    setShowAttemptModal(false);
-    setSelectedEntry(null);
-    setAttemptWeight('');
-    setAttemptStatus(1);
   };
 
   // Verificar se é o atleta atual
@@ -135,6 +68,34 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     const isSelected = selectedEntryId === entryId && selectedAttempt === attempt && isAttemptActive;
     console.log('🎯 isAttemptSelected:', { entryId, attempt, selectedEntryId, selectedAttempt, isAttemptActive, isSelected });
     return isSelected;
+  };
+
+  // Função para verificar se uma tentativa está disponível para preenchimento
+  const isAttemptAvailable = (entry: any, attempt: number): boolean => {
+    if (attempt === 1) return true; // Primeira tentativa sempre disponível
+    
+    const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
+    const statusArray = entry[statusField] || [0, 0, 0];
+    
+    // Verificar se a tentativa anterior foi marcada (válida ou inválida)
+    const previousAttempt = statusArray[attempt - 2]; // attempt - 2 porque array é 0-indexed
+    return previousAttempt === 1 || previousAttempt === 2; // 1 = Good Lift, 2 = No Lift
+  };
+
+  // Função para obter a classe CSS baseada na disponibilidade da tentativa
+  const getAttemptCellClass = (entry: any, attempt: number): string => {
+    const baseClass = `text-center attempt-cell`;
+    const isCurrent = isCurrentAthlete(entry.id) && isCurrentAttempt(attempt);
+    const isSelected = isAttemptSelected(entry.id, attempt);
+    const isAvailable = isAttemptAvailable(entry, attempt);
+    
+    let classes = baseClass;
+    
+    if (isCurrent) classes += ' current-attempt';
+    if (isSelected) classes += ' selected-attempt';
+    if (!isAvailable) classes += ' blocked-attempt';
+    
+    return classes;
   };
 
   // Função para obter a categoria de peso formatada
@@ -168,54 +129,21 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     }
   };
 
-  // Função para obter o campo de status baseado no movimento atual
-  const getStatusField = (): string => {
-    switch (lift) {
-      case 'S': return 'squatStatus';
-      case 'B': return 'benchStatus';
-      case 'D': return 'deadliftStatus';
-      default: return '';
-    }
-  };
-
   // Função para atualizar o peso de uma tentativa
   const updateAttemptWeight = (entryId: number, attempt: number, weight: string) => {
     const weightField = getWeightField(attempt);
-    const statusField = getStatusField();
     
-    if (weightField && statusField) {
+    if (weightField) {
       const weightValue = weight === '' ? null : parseFloat(weight);
       
-      // Atualizar o peso
+      // Atualizar apenas o peso
       dispatch(updateEntry(entryId, { [weightField]: weightValue }));
-      
-      // Se não há status definido, definir como pendente (0)
-      const currentEntry = orderedEntries.find(e => e.id === entryId);
-      if (currentEntry) {
-        const statusArray = currentEntry[statusField] || [0, 0, 0];
-        if (statusArray[attempt - 1] === undefined || statusArray[attempt - 1] === 0) {
-          const newStatusArray = [...statusArray];
-          newStatusArray[attempt - 1] = 0; // Pendente
-          dispatch(updateEntry(entryId, { [statusField]: newStatusArray }));
-        }
-      }
     }
   };
 
-  // Função para atualizar o status de uma tentativa
-  const updateAttemptStatus = (entryId: number, attempt: number, status: LiftStatus) => {
-    const statusField = getStatusField();
-    
-    if (statusField) {
-      const currentEntry = orderedEntries.find(e => e.id === entryId);
-      if (currentEntry) {
-        const statusArray = currentEntry[statusField] || [0, 0, 0];
-        const newStatusArray = [...statusArray];
-        newStatusArray[attempt - 1] = status;
-        dispatch(updateEntry(entryId, { [statusField]: newStatusArray }));
-      }
-    }
-  };
+  // Função para atualizar o status de uma tentativa - REMOVIDA
+  // Agora o status é controlado apenas pelos botões do Footer
+  // const updateAttemptStatus = (entryId: number, attempt: number, status: LiftStatus) => { ... };
 
   return (
     <div className="lifting-table-container">
@@ -276,7 +204,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                 </td>
                 
                 {/* 1ª Tentativa */}
-                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(1) ? 'current-attempt' : ''} ${isAttemptSelected(entry.id, 1) ? 'selected-attempt' : ''}`}>
+                <td className={getAttemptCellClass(entry, 1)}>
                   <div className="attempt-input-container">
                     <div className="attempt-weight-input">
                       <Form.Control
@@ -288,27 +216,23 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         min="0"
                         size="sm"
                         className="weight-input"
+                        disabled={false} // Primeira tentativa sempre disponível
                       />
                       <span className="ms-1">kg</span>
                     </div>
-                    <div className="attempt-status-selector">
-                      <Form.Select
-                        size="sm"
-                        value={getAttemptStatus(entry, 1) || 0}
-                        onChange={(e) => updateAttemptStatus(entry.id, 1, parseInt(e.target.value) as LiftStatus)}
-                        className="status-select"
-                      >
-                        <option value={0}>⏳ Pendente</option>
-                        <option value={1}>✅ Good Lift</option>
-                        <option value={2}>❌ No Lift</option>
-                        <option value={3}>⏸️ DNS</option>
-                      </Form.Select>
+                    <div className="attempt-status-indicator">
+                      <div className={`status-visual status-${getAttemptStatus(entry, 1)}`}>
+                        {getAttemptStatus(entry, 1) === 1 && <span className="status-icon">✅</span>}
+                        {getAttemptStatus(entry, 1) === 2 && <span className="status-icon">❌</span>}
+                        {getAttemptStatus(entry, 1) === 3 && <span className="status-icon">⏸️</span>}
+                        {getAttemptStatus(entry, 1) === 0 && <span className="status-icon">⏳</span>}
+                      </div>
                     </div>
                   </div>
                 </td>
 
                 {/* 2ª Tentativa */}
-                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(2) ? 'current-attempt' : ''} ${isAttemptSelected(entry.id, 2) ? 'selected-attempt' : ''}`}>
+                <td className={getAttemptCellClass(entry, 2)}>
                   <div className="attempt-input-container">
                     <div className="attempt-weight-input">
                       <Form.Control
@@ -320,27 +244,23 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         min="0"
                         size="sm"
                         className="weight-input"
+                        disabled={!isAttemptAvailable(entry, 2)}
                       />
                       <span className="ms-1">kg</span>
                     </div>
-                    <div className="attempt-status-selector">
-                      <Form.Select
-                        size="sm"
-                        value={getAttemptStatus(entry, 2) || 0}
-                        onChange={(e) => updateAttemptStatus(entry.id, 2, parseInt(e.target.value) as LiftStatus)}
-                        className="status-select"
-                      >
-                        <option value={0}>⏳ Pendente</option>
-                        <option value={1}>✅ Good Lift</option>
-                        <option value={2}>❌ No Lift</option>
-                        <option value={3}>⏸️ DNS</option>
-                      </Form.Select>
+                    <div className="attempt-status-indicator">
+                      <div className={`status-visual status-${getAttemptStatus(entry, 2)}`}>
+                        {getAttemptStatus(entry, 2) === 1 && <span className="status-icon">✅</span>}
+                        {getAttemptStatus(entry, 2) === 2 && <span className="status-icon">❌</span>}
+                        {getAttemptStatus(entry, 2) === 3 && <span className="status-icon">⏸️</span>}
+                        {getAttemptStatus(entry, 2) === 0 && <span className="status-icon">⏳</span>}
+                      </div>
                     </div>
                   </div>
                 </td>
 
                 {/* 3ª Tentativa */}
-                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(3) ? 'current-attempt' : ''} ${isAttemptSelected(entry.id, 3) ? 'selected-attempt' : ''}`}>
+                <td className={getAttemptCellClass(entry, 3)}>
                   <div className="attempt-input-container">
                     <div className="attempt-weight-input">
                       <Form.Control
@@ -352,21 +272,17 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         min="0"
                         size="sm"
                         className="weight-input"
+                        disabled={!isAttemptAvailable(entry, 3)}
                       />
                       <span className="ms-1">kg</span>
                     </div>
-                    <div className="attempt-status-selector">
-                      <Form.Select
-                        size="sm"
-                        value={getAttemptStatus(entry, 3) || 0}
-                        onChange={(e) => updateAttemptStatus(entry.id, 3, parseInt(e.target.value) as LiftStatus)}
-                        className="status-select"
-                      >
-                        <option value={0}>⏳ Pendente</option>
-                        <option value={1}>✅ Good Lift</option>
-                        <option value={2}>❌ No Lift</option>
-                        <option value={3}>⏸️ DNS</option>
-                      </Form.Select>
+                    <div className="attempt-status-indicator">
+                      <div className={`status-visual status-${getAttemptStatus(entry, 3)}`}>
+                        {getAttemptStatus(entry, 3) === 1 && <span className="status-icon">✅</span>}
+                        {getAttemptStatus(entry, 3) === 2 && <span className="status-icon">❌</span>}
+                        {getAttemptStatus(entry, 3) === 3 && <span className="status-icon">⏸️</span>}
+                        {getAttemptStatus(entry, 3) === 0 && <span className="status-icon">⏳</span>}
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -392,7 +308,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                 <br />
                 <strong>Movimento:</strong> {lift === 'S' ? 'Agachamento' : lift === 'B' ? 'Supino' : 'Terra'}
                 <br />
-                <strong>Tentativa:</strong> {localSelectedAttempt}ª
+                <strong>Tentativa:</strong> {attemptOneIndexed}ª
               </div>
               
               <Form.Group className="mb-3">
@@ -445,7 +361,24 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
           <Button variant="secondary" onClick={() => setShowAttemptModal(false)}>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={saveAttempt} disabled={!attemptWeight}>
+          <Button variant="primary" onClick={() => {
+            if (!selectedEntry || !attemptWeight) return;
+            
+            const weight = parseFloat(attemptWeight);
+            if (isNaN(weight) || weight <= 0) {
+              alert('Peso deve ser um número válido maior que zero!');
+              return;
+            }
+
+            // Despachar a ação para marcar a tentativa
+            dispatch(markAttempt(selectedEntry.id, lift, attemptOneIndexed, attemptStatus, weight));
+            
+            // Fechar modal e limpar estado
+            setShowAttemptModal(false);
+            setSelectedEntry(null);
+            setAttemptWeight('');
+            setAttemptStatus(1);
+          }} disabled={!attemptWeight}>
             Salvar
           </Button>
         </Modal.Footer>
