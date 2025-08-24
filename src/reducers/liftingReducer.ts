@@ -10,6 +10,9 @@ const initialState: LiftingState = {
   attemptOneIndexed: 1,
   overrideEntryId: null,
   overrideAttempt: null,
+  selectedEntryId: null, // ID do atleta selecionado
+  selectedAttempt: 1, // Tentativa selecionada (1, 2 ou 3)
+  isAttemptActive: false, // Se a tentativa está ativa para marcação
 };
 
 const liftingSlice = createSlice({
@@ -52,6 +55,28 @@ const liftingSlice = createSlice({
       state.overrideAttempt = action.payload;
     },
 
+    // Selecionar atleta específico
+    setSelectedEntryId: (state: LiftingState, action: PayloadAction<number | null>) => {
+      state.selectedEntryId = action.payload;
+    },
+
+    // Selecionar tentativa específica
+    setSelectedAttempt: (state: LiftingState, action: PayloadAction<number>) => {
+      state.selectedAttempt = action.payload;
+    },
+
+    // Ativar/desativar tentativa para marcação
+    setAttemptActive: (state: LiftingState, action: PayloadAction<boolean>) => {
+      state.isAttemptActive = action.payload;
+    },
+
+    // Selecionar atleta e tentativa (ação combinada)
+    selectAthleteAndAttempt: (state: LiftingState, action: PayloadAction<{ entryId: number; attempt: number }>) => {
+      state.selectedEntryId = action.payload.entryId;
+      state.selectedAttempt = action.payload.attempt;
+      state.isAttemptActive = true;
+    },
+
     // Resetar estado de levantamentos
     resetLifting: (state: LiftingState) => {
       state.day = 1;
@@ -61,6 +86,9 @@ const liftingSlice = createSlice({
       state.attemptOneIndexed = 1;
       state.overrideEntryId = null;
       state.overrideAttempt = null;
+      state.selectedEntryId = null;
+      state.selectedAttempt = 1;
+      state.isAttemptActive = false;
     },
 
     // Próximo movimento (S -> B -> D -> S...)
@@ -105,6 +133,10 @@ export const {
   setAttemptOneIndexed,
   setOverrideEntryId,
   setOverrideAttempt,
+  setSelectedEntryId,
+  setSelectedAttempt,
+  setAttemptActive,
+  selectAthleteAndAttempt,
   resetLifting,
   nextLift,
   previousLift,

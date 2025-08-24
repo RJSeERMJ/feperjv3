@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Nav, Tab, Button, Alert, Modal, Table, Spinner } from 'react-bootstrap';
 import { FaWeightHanging, FaUsers, FaTrophy, FaChartBar, FaCog, FaHome, FaSave, FaFolderOpen, FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
-import { Provider, useSelector, useDispatch } from 'react-redux';
-import { PersistGate } from 'redux-persist/integration/react';
-import { store, persistor } from '../store/barraProntaStore';
-import { GlobalState, LiftStatus } from '../types/barraProntaTypes';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../store/barraProntaStore';
+import { LiftStatus } from '../types/barraProntaTypes';
 import { createNewMeet, loadSavedMeetData, saveMeetData, updateMeet, addEntry, saveMeetToFile, loadMeetFromFile } from '../actions/barraProntaActions';
 import { competicaoService, inscricaoService } from '../services/firebaseService';
 import { Competicao } from '../types';
@@ -25,8 +24,8 @@ const BarraProntaContent: React.FC = () => {
   const [fileError, setFileError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dispatch = useDispatch();
-  const meet = useSelector((state: GlobalState) => state.meet);
-  const registration = useSelector((state: GlobalState) => state.registration);
+  const meet = useSelector((state: RootState) => state.meet);
+  const registration = useSelector((state: RootState) => state.registration);
 
   useEffect(() => {
     // Tentar carregar dados salvos ao iniciar
@@ -542,11 +541,7 @@ const BarraProntaContent: React.FC = () => {
 // Wrapper com Provider do Redux
 const BarraProntaPage: React.FC = () => {
   return (
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <BarraProntaContent />
-      </PersistGate>
-    </Provider>
+    <BarraProntaContent />
   );
 };
 

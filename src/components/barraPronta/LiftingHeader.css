@@ -67,6 +67,43 @@
   color: white;
 }
 
+/* Estilos para os dropdowns */
+.competition-info select,
+.competition-info .form-select-sm {
+  background-color: white !important;
+  color: #333 !important;
+  border: 1px solid #ccc !important;
+  padding: 8px !important;
+  border-radius: 4px !important;
+  width: 100% !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  z-index: 1000 !important;
+  position: relative !important;
+  pointer-events: auto !important;
+}
+
+.competition-info select:focus,
+.competition-info .form-select-sm:focus {
+  outline: none !important;
+  border-color: #007bff !important;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+}
+
+.competition-info select option,
+.competition-info .form-select-sm option {
+  background-color: white !important;
+  color: #333 !important;
+  padding: 8px !important;
+  pointer-events: auto !important;
+}
+
+/* Garantir que os dropdowns sejam clicáveis */
+.competition-info select:hover,
+.competition-info .form-select-sm:hover {
+  border-color: #007bff !important;
+}
+
 /* Responsividade */
 @media (max-width: 768px) {
   .lifting-header {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { Card, Badge, Image } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
@@ -23,6 +23,15 @@ const LeftCard: React.FC<LeftCardProps> = ({
 }) => {
   const meet = useSelector((state: RootState) => state.meet);
   const { day, platform, flight } = useSelector((state: RootState) => state.lifting);
+
+  // Monitorar mudanças no estado para sincronização automática
+  useEffect(() => {
+    console.log('🔄 LeftCard - Estado mudou, atualizando...', {
+      currentEntryId, nextEntryId, lift, attemptOneIndexed,
+      day, platform, flight,
+      totalEntries: entries.length
+    });
+  }, [currentEntryId, nextEntryId, lift, attemptOneIndexed, day, platform, flight, entries]);
 
   // Encontrar o atleta atual
   const currentEntry = currentEntryId ? entries.find((e: any) => e.id === currentEntryId) : null;

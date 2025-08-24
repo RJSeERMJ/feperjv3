@@ -55,7 +55,10 @@ const initialState: GlobalState = {
     lift: 'S',
     attemptOneIndexed: 1,
     overrideEntryId: null,
-    overrideAttempt: null
+    overrideAttempt: null,
+    selectedEntryId: null,
+    selectedAttempt: 1,
+    isAttemptActive: false
   }
 };
 
@@ -167,6 +170,41 @@ const liftingReducer = (state: LiftingState = initialState.lifting, action: Acti
       return { ...state, ...action.lifting };
     case 'OVERWRITE_STORE':
       return action.store.lifting;
+    case 'lifting/setDay':
+      return { ...state, day: action.payload };
+    case 'lifting/setPlatform':
+      return { ...state, platform: action.payload };
+    case 'lifting/setFlight':
+      return { ...state, flight: action.payload };
+    case 'lifting/setLift':
+      return { ...state, lift: action.payload, attemptOneIndexed: 1 };
+    case 'lifting/setAttemptOneIndexed':
+      return { ...state, attemptOneIndexed: action.payload };
+    case 'lifting/setOverrideEntryId':
+      return { ...state, overrideEntryId: action.payload };
+    case 'lifting/setOverrideAttempt':
+      return { ...state, overrideAttempt: action.payload };
+    case 'lifting/setSelectedEntryId':
+      return { ...state, selectedEntryId: action.payload };
+    case 'lifting/setSelectedAttempt':
+      return { ...state, selectedAttempt: action.payload };
+    case 'lifting/setAttemptActive':
+      return { ...state, isAttemptActive: action.payload };
+    case 'lifting/selectAthleteAndAttempt':
+      return { 
+        ...state, 
+        selectedEntryId: action.payload.entryId, 
+        selectedAttempt: action.payload.attempt, 
+        isAttemptActive: true 
+      };
+    case 'lifting/resetLifting':
+      return initialState.lifting;
+    case 'lifting/nextLift':
+      const nextLift = state.lift === 'S' ? 'B' : state.lift === 'B' ? 'D' : 'S';
+      return { ...state, lift: nextLift, attemptOneIndexed: 1 };
+    case 'lifting/previousLift':
+      const prevLift = state.lift === 'S' ? 'D' : state.lift === 'B' ? 'S' : 'B';
+      return { ...state, lift: prevLift, attemptOneIndexed: 1 };
     default:
       return state;
   }

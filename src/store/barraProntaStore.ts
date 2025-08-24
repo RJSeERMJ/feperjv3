@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 import barraProntaReducer, { initialState } from '../reducers/barraProntaReducers';
+import liftingReducer from '../reducers/liftingReducer';
 
 // Configuração do persist
 const persistConfig = {
@@ -20,7 +21,10 @@ const initialLiftingState = {
   lift: 'S' as const,
   attemptOneIndexed: 1,
   overrideEntryId: null,
-  overrideAttempt: null
+  overrideAttempt: null,
+  selectedEntryId: null,
+  selectedAttempt: 1,
+  isAttemptActive: false
 };
 
 // Store principal

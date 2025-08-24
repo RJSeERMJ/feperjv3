@@ -18,6 +18,7 @@ import RelatoriosPage from './pages/RelatoriosPage';
 import UsuariosPage from './pages/UsuariosPage';
 import LogPage from './pages/LogPage';
 import BarraProntaPage from './pages/BarraProntaPage';
+import LiftingPopup from './components/barraPronta/LiftingPopup';
 
 
 // Componente para proteger rotas
@@ -105,6 +106,14 @@ const App: React.FC = () => {
               <ProtectedRoute>
                 <AdminRoute>
                   <BarraProntaPage />
+                </AdminRoute>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/lifting-popup" element={
+              <ProtectedRoute>
+                <AdminRoute>
+                  <LiftingPopup />
                 </AdminRoute>
               </ProtectedRoute>
             } />

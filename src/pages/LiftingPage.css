@@ -4,6 +4,67 @@
   padding: 20px 0;
 }
 
+/* Cabeçalho da seção de levantamentos */
+.lifting-header-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border-left: 5px solid #007bff;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.header-title h2 {
+  color: #2c3e50;
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-size: 1.8rem;
+}
+
+.header-title p {
+  color: #6c757d;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.header-actions .btn {
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.header-actions .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+/* Responsividade do cabeçalho */
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .header-title h2 {
+    font-size: 1.5rem;
+  }
+  
+  .header-actions .btn {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
 .page-header {
   text-align: center;
   padding: 30px 0;
@@ -239,4 +300,61 @@
   .stat-label {
     font-size: 11px;
   }
+}
+
+/* Layout dos painéis */
+.lifting-content {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+.left-panel {
+  height: fit-content;
+}
+
+.right-panel {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* Responsividade do layout */
+@media (max-width: 1200px) {
+  .lifting-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .left-panel {
+    order: 2;
+  }
+  
+  .right-panel {
+    order: 1;
+  }
+}
+
+/* Mensagem quando não há atletas */
+.no-athletes-message {
+  margin: 20px 0;
+}
+
+.no-athletes-message .alert {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.no-athletes-message h4 {
+  color: #856404;
+  margin-bottom: 15px;
+}
+
+.no-athletes-message p {
+  color: #856404;
+  font-size: 16px;
+  line-height: 1.5;
 }

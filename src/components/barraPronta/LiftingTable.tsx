@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Table, Button, Badge, Form, Row, Col, Modal } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
-import { setAttemptOneIndexed, setOverrideEntryId } from '../../reducers/liftingReducer';
-import { markAttempt } from '../../actions/barraProntaActions';
+import { markAttempt, updateEntry } from '../../actions/barraProntaActions';
 import { LiftStatus, Lift } from '../../types/barraProntaTypes';
 import './LiftingTable.css';
 
@@ -19,10 +18,26 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   attemptOneIndexed,
 }) => {
   const dispatch = useDispatch();
-  const { lift } = useSelector((state: RootState) => state.lifting);
+  const { lift, selectedEntryId, selectedAttempt, isAttemptActive } = useSelector((state: RootState) => state.lifting);
+  const meet = useSelector((state: RootState) => state.meet);
+
+  // Debug: mostrar estado atual
+  console.log('🔍 LiftingTable - Estado atual:', { 
+    lift, selectedEntryId, selectedAttempt, isAttemptActive 
+  });
+  
+  // Monitorar mudanças no estado para sincronização automática
+  useEffect(() => {
+    console.log('🔄 LiftingTable - Estado mudou, atualizando...', {
+      lift, selectedEntryId, selectedAttempt, isAttemptActive,
+      orderedEntries: orderedEntries.length,
+      currentEntryId, attemptOneIndexed
+    });
+  }, [lift, selectedEntryId, selectedAttempt, isAttemptActive, orderedEntries, currentEntryId, attemptOneIndexed]);
+
   const [showAttemptModal, setShowAttemptModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
-  const [selectedAttempt, setSelectedAttempt] = useState<number>(1);
+  const [localSelectedAttempt, setLocalSelectedAttempt] = useState<number>(1);
   const [attemptWeight, setAttemptWeight] = useState<string>('');
   const [attemptStatus, setAttemptStatus] = useState<LiftStatus>(1);
 
@@ -72,7 +87,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   // Abrir modal para marcar tentativa
   const openAttemptModal = (entry: any, attempt: number) => {
     setSelectedEntry(entry);
-    setSelectedAttempt(attempt);
+    setLocalSelectedAttempt(attempt);
     
     // Carregar peso atual se existir
     const currentWeight = getAttemptWeight(entry, attempt);
@@ -96,7 +111,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     }
 
     // Despachar a ação para marcar a tentativa
-    dispatch(markAttempt(selectedEntry.id, lift, selectedAttempt, attemptStatus, weight) as any);
+    dispatch(markAttempt(selectedEntry.id, lift, localSelectedAttempt, attemptStatus, weight));
     
     // Fechar modal e limpar estado
     setShowAttemptModal(false);
@@ -115,6 +130,93 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     return attempt === attemptOneIndexed;
   };
 
+  // Verificar se uma tentativa está selecionada no footer
+  const isAttemptSelected = (entryId: number, attempt: number): boolean => {
+    const isSelected = selectedEntryId === entryId && selectedAttempt === attempt && isAttemptActive;
+    console.log('🎯 isAttemptSelected:', { entryId, attempt, selectedEntryId, selectedAttempt, isAttemptActive, isSelected });
+    return isSelected;
+  };
+
+  // Função para obter a categoria de peso formatada
+  const getWeightClassDisplay = (entry: any): string => {
+    // Se já tem weightClass formatado, usar ele
+    if (entry.weightClass && entry.weightClass.trim()) {
+      return entry.weightClass;
+    }
+    
+    // Se não tem, criar baseado no weightClassKg
+    if (entry.weightClassKg && entry.weightClassKg > 0) {
+      const classes = entry.sex === 'M' ? meet.weightClassesKgMen : meet.weightClassesKgWomen;
+      const index = classes.indexOf(entry.weightClassKg);
+      if (index === classes.length - 1) {
+        return `${entry.weightClassKg}+ kg`;
+      }
+      return `${entry.weightClassKg} kg`;
+    }
+    
+    // Fallback
+    return 'N/A';
+  };
+
+  // Função para obter o campo de peso baseado no movimento atual
+  const getWeightField = (attempt: number): string => {
+    switch (lift) {
+      case 'S': return `squat${attempt}`;
+      case 'B': return `bench${attempt}`;
+      case 'D': return `deadlift${attempt}`;
+      default: return '';
+    }
+  };
+
+  // Função para obter o campo de status baseado no movimento atual
+  const getStatusField = (): string => {
+    switch (lift) {
+      case 'S': return 'squatStatus';
+      case 'B': return 'benchStatus';
+      case 'D': return 'deadliftStatus';
+      default: return '';
+    }
+  };
+
+  // Função para atualizar o peso de uma tentativa
+  const updateAttemptWeight = (entryId: number, attempt: number, weight: string) => {
+    const weightField = getWeightField(attempt);
+    const statusField = getStatusField();
+    
+    if (weightField && statusField) {
+      const weightValue = weight === '' ? null : parseFloat(weight);
+      
+      // Atualizar o peso
+      dispatch(updateEntry(entryId, { [weightField]: weightValue }));
+      
+      // Se não há status definido, definir como pendente (0)
+      const currentEntry = orderedEntries.find(e => e.id === entryId);
+      if (currentEntry) {
+        const statusArray = currentEntry[statusField] || [0, 0, 0];
+        if (statusArray[attempt - 1] === undefined || statusArray[attempt - 1] === 0) {
+          const newStatusArray = [...statusArray];
+          newStatusArray[attempt - 1] = 0; // Pendente
+          dispatch(updateEntry(entryId, { [statusField]: newStatusArray }));
+        }
+      }
+    }
+  };
+
+  // Função para atualizar o status de uma tentativa
+  const updateAttemptStatus = (entryId: number, attempt: number, status: LiftStatus) => {
+    const statusField = getStatusField();
+    
+    if (statusField) {
+      const currentEntry = orderedEntries.find(e => e.id === entryId);
+      if (currentEntry) {
+        const statusArray = currentEntry[statusField] || [0, 0, 0];
+        const newStatusArray = [...statusArray];
+        newStatusArray[attempt - 1] = status;
+        dispatch(updateEntry(entryId, { [statusField]: newStatusArray }));
+      }
+    }
+  };
+
   return (
     <div className="lifting-table-container">
       <div className="table-header mb-3">
@@ -130,11 +232,12 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
               <th className="text-center">#</th>
               <th>Atleta</th>
               <th className="text-center">Categoria</th>
+              <th className="text-center">Peso (kg)</th>
+              <th className="text-center">Nº Lote</th>
               <th className="text-center">Equipe</th>
               <th className="text-center">1ª Tentativa</th>
               <th className="text-center">2ª Tentativa</th>
               <th className="text-center">3ª Tentativa</th>
-              <th className="text-center">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -160,71 +263,121 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                   </div>
                 </td>
                 <td className="text-center">
-                  {entry.weightClass}
+                  {getWeightClassDisplay(entry)}
+                </td>
+                <td className="text-center">
+                  {entry.bodyweightKg ? `${entry.bodyweightKg} kg` : '-'}
+                </td>
+                <td className="text-center">
+                  {entry.lotNumber || '-'}
                 </td>
                 <td className="text-center">
                   {entry.team}
                 </td>
                 
                 {/* 1ª Tentativa */}
-                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(1) ? 'current-attempt' : ''}`}>
-                  <div className="attempt-weight">
-                    {getAttemptWeight(entry, 1) > 0 ? `${getAttemptWeight(entry, 1)} kg` : '-'}
-                  </div>
-                  <div className="attempt-status">
-                    <Badge bg={getStatusVariant(getAttemptStatus(entry, 1))}>
-                      {getStatusIcon(getAttemptStatus(entry, 1))} {getStatusLabel(getAttemptStatus(entry, 1))}
-                    </Badge>
+                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(1) ? 'current-attempt' : ''} ${isAttemptSelected(entry.id, 1) ? 'selected-attempt' : ''}`}>
+                  <div className="attempt-input-container">
+                    <div className="attempt-weight-input">
+                      <Form.Control
+                        type="number"
+                        value={getAttemptWeight(entry, 1) || ''}
+                        onChange={(e) => updateAttemptWeight(entry.id, 1, e.target.value)}
+                        placeholder="Peso"
+                        step="0.5"
+                        min="0"
+                        size="sm"
+                        className="weight-input"
+                      />
+                      <span className="ms-1">kg</span>
+                    </div>
+                    <div className="attempt-status-selector">
+                      <Form.Select
+                        size="sm"
+                        value={getAttemptStatus(entry, 1) || 0}
+                        onChange={(e) => updateAttemptStatus(entry.id, 1, parseInt(e.target.value) as LiftStatus)}
+                        className="status-select"
+                      >
+                        <option value={0}>⏳ Pendente</option>
+                        <option value={1}>✅ Good Lift</option>
+                        <option value={2}>❌ No Lift</option>
+                        <option value={3}>⏸️ DNS</option>
+                      </Form.Select>
+                    </div>
                   </div>
                 </td>
 
                 {/* 2ª Tentativa */}
-                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(2) ? 'current-attempt' : ''}`}>
-                  <div className="attempt-weight">
-                    {getAttemptWeight(entry, 2) > 0 ? `${getAttemptWeight(entry, 2)} kg` : '-'}
-                  </div>
-                  <div className="attempt-status">
-                    <Badge bg={getStatusVariant(getAttemptStatus(entry, 2))}>
-                      {getStatusIcon(getAttemptStatus(entry, 2))} {getStatusLabel(getAttemptStatus(entry, 2))}
-                    </Badge>
+                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(2) ? 'current-attempt' : ''} ${isAttemptSelected(entry.id, 2) ? 'selected-attempt' : ''}`}>
+                  <div className="attempt-input-container">
+                    <div className="attempt-weight-input">
+                      <Form.Control
+                        type="number"
+                        value={getAttemptWeight(entry, 2) || ''}
+                        onChange={(e) => updateAttemptWeight(entry.id, 2, e.target.value)}
+                        placeholder="Peso"
+                        step="0.5"
+                        min="0"
+                        size="sm"
+                        className="weight-input"
+                      />
+                      <span className="ms-1">kg</span>
+                    </div>
+                    <div className="attempt-status-selector">
+                      <Form.Select
+                        size="sm"
+                        value={getAttemptStatus(entry, 2) || 0}
+                        onChange={(e) => updateAttemptStatus(entry.id, 2, parseInt(e.target.value) as LiftStatus)}
+                        className="status-select"
+                      >
+                        <option value={0}>⏳ Pendente</option>
+                        <option value={1}>✅ Good Lift</option>
+                        <option value={2}>❌ No Lift</option>
+                        <option value={3}>⏸️ DNS</option>
+                      </Form.Select>
+                    </div>
                   </div>
                 </td>
 
                 {/* 3ª Tentativa */}
-                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(3) ? 'current-attempt' : ''}`}>
-                  <div className="attempt-weight">
-                    {getAttemptWeight(entry, 3) > 0 ? `${getAttemptWeight(entry, 3)} kg` : '-'}
-                  </div>
-                  <div className="attempt-status">
-                    <Badge bg={getStatusVariant(getAttemptStatus(entry, 3))}>
-                      {getStatusIcon(getAttemptStatus(entry, 3))} {getStatusLabel(getAttemptStatus(entry, 3))}
-                    </Badge>
+                <td className={`text-center attempt-cell ${isCurrentAthlete(entry.id) && isCurrentAttempt(3) ? 'current-attempt' : ''} ${isAttemptSelected(entry.id, 3) ? 'selected-attempt' : ''}`}>
+                  <div className="attempt-input-container">
+                    <div className="attempt-weight-input">
+                      <Form.Control
+                        type="number"
+                        value={getAttemptWeight(entry, 3) || ''}
+                        onChange={(e) => updateAttemptWeight(entry.id, 3, e.target.value)}
+                        placeholder="Peso"
+                        step="0.5"
+                        min="0"
+                        size="sm"
+                        className="weight-input"
+                      />
+                      <span className="ms-1">kg</span>
+                    </div>
+                    <div className="attempt-status-selector">
+                      <Form.Select
+                        size="sm"
+                        value={getAttemptStatus(entry, 3) || 0}
+                        onChange={(e) => updateAttemptStatus(entry.id, 3, parseInt(e.target.value) as LiftStatus)}
+                        className="status-select"
+                      >
+                        <option value={0}>⏳ Pendente</option>
+                        <option value={1}>✅ Good Lift</option>
+                        <option value={2}>❌ No Lift</option>
+                        <option value={3}>⏸️ DNS</option>
+                      </Form.Select>
+                    </div>
                   </div>
                 </td>
 
-                <td className="text-center">
-                  <div className="action-buttons">
-                    {[1, 2, 3].map((attempt) => (
-                      <Button
-                        key={attempt}
-                        variant="primary"
-                        size="sm"
-                        className="me-1 mb-1"
-                        onClick={() => openAttemptModal(entry, attempt)}
-                        disabled={getAttemptStatus(entry, attempt) !== 0}
-                      >
-                        {attempt}ª Tentativa
-                      </Button>
-                    ))}
-                  </div>
-                </td>
               </tr>
             ))}
           </tbody>
         </Table>
       </div>
 
-      {/* Modal para marcar tentativa */}
+      {/* Modal para marcar tentativa - mantido para compatibilidade */}
       <Modal show={showAttemptModal} onHide={() => setShowAttemptModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -239,7 +392,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                 <br />
                 <strong>Movimento:</strong> {lift === 'S' ? 'Agachamento' : lift === 'B' ? 'Supino' : 'Terra'}
                 <br />
-                <strong>Tentativa:</strong> {selectedAttempt}ª
+                <strong>Tentativa:</strong> {localSelectedAttempt}ª
               </div>
               
               <Form.Group className="mb-3">

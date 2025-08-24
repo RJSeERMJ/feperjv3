@@ -4,6 +4,9 @@ import {
   MeetState, 
   Entry, 
   LiftingState,
+  Lift,
+  LiftStatus,
+  MarkAttemptAction,
   OverwriteStoreAction,
   SetLanguageAction,
   UpdateMeetAction,
@@ -134,7 +137,10 @@ export const createNewMeet = () => {
         lift: 'S' as const,
         attemptOneIndexed: 1,
         overrideAttempt: null,
-        overrideEntryId: null
+        overrideEntryId: null,
+        selectedEntryId: null,
+        selectedAttempt: 1,
+        isAttemptActive: false
       }
     };
     
@@ -268,9 +274,9 @@ export const loadMeetFromFile = (file: File) => {
 };
 
 // Action para marcar tentativa (Good Lift, No Lift, DNS)
-export const markAttempt = (entryId: number, lift: 'S' | 'B' | 'D', attempt: number, status: number, weight: number) => {
+export const markAttempt = (entryId: number, lift: Lift, attempt: number, status: LiftStatus, weight: number): MarkAttemptAction => {
   return {
-    type: 'MARK_ATTEMPT' as const,
+    type: 'MARK_ATTEMPT',
     entryId,
     lift,
     attempt,

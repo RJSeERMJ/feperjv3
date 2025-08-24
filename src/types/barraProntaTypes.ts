@@ -29,6 +29,9 @@ export interface LiftingState {
   attemptOneIndexed: number;
   overrideEntryId: number | null;
   overrideAttempt: number | null;
+  selectedEntryId: number | null; // ID do atleta selecionado
+  selectedAttempt: number; // Tentativa selecionada (1, 2 ou 3)
+  isAttemptActive: boolean; // Se a tentativa está ativa para marcação
 }
 
 export interface LiftingOrder {
@@ -148,7 +151,21 @@ export type ActionTypes =
   | 'UPDATE_ENTRY'
   | 'DELETE_ENTRY'
   | 'MARK_ATTEMPT'
-  | 'SET_LIFTING_STATE';
+  | 'SET_LIFTING_STATE'
+  | 'lifting/setDay'
+  | 'lifting/setPlatform'
+  | 'lifting/setFlight'
+  | 'lifting/setLift'
+  | 'lifting/setAttemptOneIndexed'
+  | 'lifting/setOverrideEntryId'
+  | 'lifting/setOverrideAttempt'
+  | 'lifting/setSelectedEntryId'
+  | 'lifting/setSelectedAttempt'
+  | 'lifting/setAttemptActive'
+  | 'lifting/selectAthleteAndAttempt'
+  | 'lifting/resetLifting'
+  | 'lifting/nextLift'
+  | 'lifting/previousLift';
 
 export type OverwriteStoreAction = {
   type: 'OVERWRITE_STORE';
@@ -195,6 +212,74 @@ export type MarkAttemptAction = {
   weight: number;
 };
 
+// Ações do liftingReducer
+export type SetDayAction = {
+  type: 'lifting/setDay';
+  payload: number;
+};
+
+export type SetPlatformAction = {
+  type: 'lifting/setPlatform';
+  payload: number;
+};
+
+export type SetFlightAction = {
+  type: 'lifting/setFlight';
+  payload: string;
+};
+
+export type SetLiftAction = {
+  type: 'lifting/setLift';
+  payload: Lift;
+};
+
+export type SetAttemptOneIndexedAction = {
+  type: 'lifting/setAttemptOneIndexed';
+  payload: number;
+};
+
+export type SetOverrideEntryIdAction = {
+  type: 'lifting/setOverrideEntryId';
+  payload: number | null;
+};
+
+export type SetOverrideAttemptAction = {
+  type: 'lifting/setOverrideAttempt';
+  payload: number | null;
+};
+
+export type SetSelectedEntryIdAction = {
+  type: 'lifting/setSelectedEntryId';
+  payload: number | null;
+};
+
+export type SetSelectedAttemptAction = {
+  type: 'lifting/setSelectedAttempt';
+  payload: number;
+};
+
+export type SetAttemptActiveAction = {
+  type: 'lifting/setAttemptActive';
+  payload: boolean;
+};
+
+export type SelectAthleteAndAttemptAction = {
+  type: 'lifting/selectAthleteAndAttempt';
+  payload: { entryId: number; attempt: number };
+};
+
+export type ResetLiftingAction = {
+  type: 'lifting/resetLifting';
+};
+
+export type NextLiftAction = {
+  type: 'lifting/nextLift';
+};
+
+export type PreviousLiftAction = {
+  type: 'lifting/previousLift';
+};
+
 export type Action = 
   | OverwriteStoreAction
   | SetLanguageAction
@@ -203,4 +288,18 @@ export type Action =
   | UpdateEntryAction
   | DeleteEntryAction
   | MarkAttemptAction
-  | SetLiftingStateAction;
+  | SetLiftingStateAction
+  | SetDayAction
+  | SetPlatformAction
+  | SetFlightAction
+  | SetLiftAction
+  | SetAttemptOneIndexedAction
+  | SetOverrideEntryIdAction
+  | SetOverrideAttemptAction
+  | SetSelectedEntryIdAction
+  | SetSelectedAttemptAction
+  | SetAttemptActiveAction
+  | SelectAthleteAndAttemptAction
+  | ResetLiftingAction
+  | NextLiftAction
+  | PreviousLiftAction;

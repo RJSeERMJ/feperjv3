@@ -74,7 +74,7 @@ const Registration: React.FC = () => {
       sex: formData.sex,
       birthDate: new Date().toISOString(),
       age: parseInt(formData.age) || 0,
-      weightClass: `${formData.weightClassKg}kg`,
+      weightClass: getWeightClassLabel(formData.weightClassKg, formData.sex),
       weightClassKg: formData.weightClassKg,
       division: formData.division,
       equipment: formData.equipment,

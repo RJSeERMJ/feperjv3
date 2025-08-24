@@ -22,7 +22,7 @@ const Lifting: React.FC = () => {
           Clique no botão abaixo para acessar o novo sistema.
         </Alert>
         
-        <Button 
+                        <Button
           variant="success" 
           size="lg" 
           onClick={() => navigate('/lifting')}
@@ -30,7 +30,7 @@ const Lifting: React.FC = () => {
         >
           <FaExternalLinkAlt className="me-2" />
           Acessar Sistema de Levantamentos
-        </Button>
+                          </Button>
         
         <div className="mt-4">
           <small className="text-muted">
@@ -45,7 +45,7 @@ const Lifting: React.FC = () => {
           </ul>
         </div>
       </div>
-    </div>
+                  </div>
   );
 };
 
