@@ -115,6 +115,7 @@
 
 /* Novos estilos para campos de entrada direta */
 .attempt-input-container {
+  min-height: 80px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -540,4 +541,46 @@
 
 .blocked-attempt .attempt-input-container:hover::after {
   opacity: 1;
+}
+
+/* Estilos para preview do carregamento da barra */
+.bar-load-preview {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.bar-load-preview small {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+}
+
+.plates-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.plate-preview {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.more-plates {
+  font-size: 8px;
+  color: #6c757d;
+  margin-left: 2px;
+}
+
+.bar-load-error {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.bar-load-error small {
+  font-size: 10px;
 }

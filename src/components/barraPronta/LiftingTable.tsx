@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Table, Button, Badge, Form, Modal } from 'react-bootstrap';
+import { Table, Button, Badge, Form, Modal, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { markAttempt, updateEntry } from '../../actions/barraProntaActions';
 import { LiftStatus } from '../../types/barraProntaTypes';
+import { getStableOrderByWeight } from '../../logic/liftingOrder';
+import { selectPlates, getPlateColor } from '../../logic/barLoad';
+import BarLoad from './BarLoad';
 import './LiftingTable.css';
 
 interface LiftingTableProps {
@@ -145,6 +148,100 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   // Agora o status é controlado apenas pelos botões do Footer
   // const updateAttemptStatus = (entryId: number, attempt: number, status: LiftStatus) => { ... };
 
+  // Reorganizar entradas por peso das tentativas usando useMemo (ORDEM ESTÁVEL)
+  const orderedEntriesByWeight = useMemo(() => {
+    if (!orderedEntries || orderedEntries.length === 0) return [];
+    
+    // Obter a tentativa atual baseada no attemptOneIndexed
+    const currentAttempt = attemptOneIndexed;
+    
+    // Organizar por peso para a tentativa atual (ORDEM ESTÁVEL)
+    const attemptsOrdered = getStableOrderByWeight(orderedEntries, lift, currentAttempt);
+    
+    // Se não há tentativas com peso definido para esta tentativa, manter ordem original
+    if (attemptsOrdered.length === 0) {
+      return orderedEntries;
+    }
+    
+    // Criar mapa de ordem baseada no peso
+    const weightOrderMap = new Map<number, number>();
+    attemptsOrdered.forEach((attempt, index) => {
+      weightOrderMap.set(attempt.entryId, index);
+    });
+    
+    // Reorganizar as entradas baseada na ordem de peso (ESTÁVEL)
+    const reorderedEntries = [...orderedEntries].sort((a, b) => {
+      const aOrder = weightOrderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = weightOrderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      
+      // Entradas com peso definido vêm primeiro (ordenadas por peso - ESTÁVEL)
+      if (aOrder !== Number.MAX_SAFE_INTEGER && bOrder !== Number.MAX_SAFE_INTEGER) {
+        return aOrder - bOrder;
+      }
+      
+      // Entradas sem peso vêm depois, mantendo ordem original
+      if (aOrder === Number.MAX_SAFE_INTEGER && bOrder === Number.MAX_SAFE_INTEGER) {
+        return 0;
+      }
+      
+      // Entradas com peso vêm antes das sem peso
+      return aOrder === Number.MAX_SAFE_INTEGER ? 1 : -1;
+    });
+    
+    return reorderedEntries;
+  }, [orderedEntries, lift, attemptOneIndexed]); // Dependências que causam reorganização
+
+  // Função para renderizar carregamento da barra para uma tentativa
+  const renderBarLoad = (entry: any, attempt: number) => {
+    const weight = getAttemptWeight(entry, attempt);
+    if (!weight || weight <= 0) return null;
+    
+    // Obter peso da barra + colares baseado no movimento
+    const getBarAndCollarsWeight = (): number => {
+      switch (lift) {
+        case 'S': return meet.squatBarAndCollarsWeightKg || 20;
+        case 'B': return meet.benchBarAndCollarsWeightKg || 20;
+        case 'D': return meet.deadliftBarAndCollarsWeightKg || 20;
+        default: return 20;
+      }
+    };
+    
+    // Calcular anilhas necessárias
+    const loading = selectPlates(weight, getBarAndCollarsWeight(), meet.plates || [], true);
+    
+    // Verificar se há erro no carregamento
+    const hasError = loading.some(plate => plate.weightAny < 0);
+    
+    if (hasError) {
+      return (
+        <div className="bar-load-error">
+          <small className="text-danger">❌ Peso não possível</small>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="bar-load-preview">
+        <small className="text-muted">Barra: {weight}kg</small>
+        <div className="plates-preview">
+          {loading.slice(0, 3).map((plate, index) => (
+            <div
+              key={index}
+              className="plate-preview"
+              style={{
+                backgroundColor: plate.color,
+                border: plate.color === '#FFFFFF' ? '1px solid #ccc' : 'none'
+              }}
+            />
+          ))}
+          {loading.length > 3 && (
+            <span className="more-plates">+{loading.length - 3}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="lifting-table-container">
       <div className="table-header mb-3">
@@ -169,7 +266,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
             </tr>
           </thead>
           <tbody>
-            {orderedEntries.map((entry, index) => (
+            {orderedEntriesByWeight.map((entry, index) => (
               <tr
                 key={entry.id}
                 className={`table-row ${isCurrentAthlete(entry.id) ? 'current-athlete-row' : ''}`}
@@ -228,6 +325,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 1) === 0 && <span className="status-icon">⏳</span>}
                       </div>
                     </div>
+                    {renderBarLoad(entry, 1)}
                   </div>
                 </td>
 
@@ -256,6 +354,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 2) === 0 && <span className="status-icon">⏳</span>}
                       </div>
                     </div>
+                    {renderBarLoad(entry, 2)}
                   </div>
                 </td>
 
@@ -284,6 +383,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 3) === 0 && <span className="status-icon">⏳</span>}
                       </div>
                     </div>
+                    {renderBarLoad(entry, 3)}
                   </div>
                 </td>
 

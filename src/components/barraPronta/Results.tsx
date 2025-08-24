@@ -10,12 +10,14 @@ import {
   Badge,
   Alert,
   Tabs,
-  Tab
+  Tab,
+  Tooltip,
+  OverlayTrigger
 } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { GlobalState, Entry, Formula } from '../../types/barraProntaTypes';
 import { calculateIPFGLPointsTotal, calculateIPFGLPointsBench } from '../../logic/ipfGLPoints';
-import { FaTrophy, FaMedal, FaChartBar, FaDownload, FaFilter } from 'react-icons/fa';
+import { FaTrophy, FaMedal, FaChartBar, FaDownload, FaFilter, FaInfoCircle } from 'react-icons/fa';
 
 // Componente para ranking por índice (IPF GL Points)
 const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
@@ -150,7 +152,21 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
       ) : (
         <Card>
           <Card.Header>
-            <h5>Ranking por Índice - {sex === 'M' ? 'Masculino' : 'Feminino'} ({indexResults.length} atletas)</h5>
+            <h5>
+              Ranking por Índice - {sex === 'M' ? 'Masculino' : 'Feminino'} ({indexResults.length} atletas)
+              <OverlayTrigger
+                placement="top"
+                overlay={
+                  <Tooltip id="ipf-tooltip">
+                    <strong>IPF GL Points:</strong> Sistema oficial de pontuação da IPF que normaliza 
+                    a performance baseada no peso corporal e equipamento usado. 
+                    Quanto maior a pontuação, melhor a performance relativa.
+                  </Tooltip>
+                }
+              >
+                <FaInfoCircle className="ms-2 text-info" style={{ cursor: 'help' }} />
+              </OverlayTrigger>
+            </h5>
             <small className="text-muted">Ordenado por IPF GL Points (maior pontuação primeiro)</small>
           </Card.Header>
           <Card.Body>
@@ -188,7 +204,26 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
                       </Badge>
                     </td>
                     <td><Badge bg="success" className="fs-6">{entry.total} kg</Badge></td>
-                    <td><Badge bg="primary" className="fs-6">{entry.ipfGLPoints.toFixed(2)}</Badge></td>
+                    <td>
+                      <OverlayTrigger
+                        placement="left"
+                        overlay={
+                          <Tooltip id={`ipf-details-${entry.id}`}>
+                            <div>
+                              <strong>Detalhes da Pontuação:</strong><br />
+                              Total: {entry.total}kg<br />
+                              Peso Corporal: {entry.bodyweightKg}kg<br />
+                              Equipamento: {entry.equipment || 'Sleeves'}<br />
+                              Movimentos: {entry.movements || 'SBD'}
+                            </div>
+                          </Tooltip>
+                        }
+                      >
+                        <Badge bg="primary" className="fs-6" style={{ cursor: 'help' }}>
+                          {entry.ipfGLPoints.toFixed(2)}
+                        </Badge>
+                      </OverlayTrigger>
+                    </td>
                   </tr>
                 ))}
               </tbody>

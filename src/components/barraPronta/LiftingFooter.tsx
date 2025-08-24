@@ -4,7 +4,7 @@ import { Button, Row, Col, Form } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { updateEntry } from '../../actions/barraProntaActions';
 import { Lift } from '../../types/barraProntaTypes';
-import { getLiftingOrder } from '../../logic/liftingOrder';
+import { getLiftingOrder, getStableOrderByWeight } from '../../logic/liftingOrder';
 import './LiftingFooter.css';
 
 const LiftingFooter: React.FC = () => {
@@ -71,88 +71,95 @@ const LiftingFooter: React.FC = () => {
     return (entry as any)[weightField] || 0;
   };
 
-  // Função para navegar automaticamente para o próximo atleta/tentativa
+  // Função para navegar automaticamente para o próximo atleta/tentativa/lift
   const navigateToNext = () => {
     console.log('🔄 Navegando para o próximo...');
-    console.log('🔍 Estado atual antes da navegação:', { selectedEntryId, selectedAttempt, isAttemptActive });
+    console.log('🔍 Estado atual antes da navegação:', { selectedEntryId, selectedAttempt, isAttemptActive, lift, attemptOneIndexed });
     
-    // Encontrar o índice do atleta atual na lista
-    const currentIndex = entriesInFlight.findIndex(e => e.id === selectedEntryId);
-    console.log('🔍 Índice do atleta atual:', currentIndex);
-    
-    if (currentIndex === -1) {
-      console.log('❌ Atleta atual não encontrado na lista');
-      return;
-    }
-    
-    // Verificar se há próxima tentativa para o mesmo atleta
-    const currentEntry = entriesInFlight[currentIndex];
-    const statusField = getStatusField();
-    const statusArray = (currentEntry as any)[statusField] || [0, 0, 0];
-    
-    // Procurar próxima tentativa pendente para o mesmo atleta
-    let nextAttempt = null;
-    for (let i = 0; i < 3; i++) {
-      if (statusArray[i] === 0) { // Pendente
-        nextAttempt = i + 1;
-        break;
-      }
-    }
-    
-    if (nextAttempt && nextAttempt > selectedAttempt) {
-      // Mesmo atleta, próxima tentativa
-      console.log('✅ Navegando para próxima tentativa:', nextAttempt);
-      dispatch({ type: 'lifting/setSelectedAttempt', payload: nextAttempt });
-      dispatch({ type: 'lifting/setAttemptActive', payload: true });
-    } else {
-      // Procurar próximo atleta com tentativas pendentes
-      let nextAthleteIndex = currentIndex + 1;
-      let nextAthleteFound = false;
+    // 1. Verificar se há próximo atleta na mesma tentativa atual
+    const attemptsOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed);
+    if (attemptsOrdered.length > 0) {
+      const currentIndex = attemptsOrdered.findIndex(a => a.entryId === selectedEntryId);
       
-      while (nextAthleteIndex < entriesInFlight.length && !nextAthleteFound) {
-        const nextEntry = entriesInFlight[nextAthleteIndex];
-        const nextStatusArray = (nextEntry as any)[statusField] || [0, 0, 0];
+      if (currentIndex !== -1 && currentIndex < attemptsOrdered.length - 1) {
+        // Há próximo atleta na mesma tentativa
+        const nextAthlete = attemptsOrdered[currentIndex + 1];
+        console.log('✅ Navegando para próximo atleta na mesma tentativa:', nextAthlete.entryId, 'tentativa:', attemptOneIndexed);
         
-        // Verificar se o próximo atleta tem tentativas pendentes
-        for (let i = 0; i < 3; i++) {
-          if (nextStatusArray[i] === 0) { // Pendente
-            console.log('✅ Navegando para próximo atleta:', nextEntry.id, 'tentativa:', i + 1);
-            dispatch({ type: 'lifting/setSelectedEntryId', payload: nextEntry.id });
-            dispatch({ type: 'lifting/setSelectedAttempt', payload: i + 1 });
-            dispatch({ type: 'lifting/setAttemptActive', payload: true });
-            nextAthleteFound = true;
-            break;
-          }
-        }
-        nextAthleteIndex++;
+        dispatch({ type: 'lifting/setSelectedEntryId', payload: nextAthlete.entryId });
+        dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
+        dispatch({ type: 'lifting/setAttemptActive', payload: true });
+        return;
       }
-      
-      if (!nextAthleteFound) {
-        // Voltar para o primeiro atleta se não há mais tentativas pendentes
-        console.log('🔄 Voltando para o primeiro atleta');
-        for (let i = 0; i < entriesInFlight.length; i++) {
-          const entry = entriesInFlight[i];
-          const statusArray = (entry as any)[statusField] || [0, 0, 0];
+    }
+    
+    // 2. Se chegou ao último atleta da tentativa atual, verificar próxima tentativa
+    if (attemptOneIndexed < 3) {
+      const nextAttemptOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed + 1);
+      if (nextAttemptOrdered.length > 0) {
+        // Há atletas na próxima tentativa
+        const firstAthlete = nextAttemptOrdered[0];
+        console.log('✅ Navegando para próxima tentativa:', attemptOneIndexed + 1, 'atleta:', firstAthlete.entryId);
+        
+        dispatch({ type: 'lifting/setAttemptOneIndexed', payload: attemptOneIndexed + 1 });
+        dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
+        dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed + 1 });
+        dispatch({ type: 'lifting/setAttemptActive', payload: true });
+        return;
+      }
+    }
+    
+    // 3. Se chegou à última tentativa (3ª), verificar próximo levantamento
+    if (attemptOneIndexed >= 3) {
+      const nextLift = getNextLift(lift);
+      if (nextLift) {
+        // Mudar para o próximo levantamento
+        console.log('✅ Mudando para próximo levantamento:', nextLift);
+        
+        dispatch({ type: 'lifting/setLift', payload: nextLift });
+        dispatch({ type: 'lifting/setAttemptOneIndexed', payload: 1 });
+        
+        // Verificar se há atletas no próximo levantamento
+        const nextLiftAttempts = getStableOrderByWeight(entriesInFlight, nextLift, 1);
+        if (nextLiftAttempts.length > 0) {
+          const firstAthlete = nextLiftAttempts[0];
+          console.log('✅ Navegando para primeiro atleta do próximo lift:', firstAthlete.entryId);
           
-          for (let j = 0; j < 3; j++) {
-            if (statusArray[j] === 0) { // Pendente
-              console.log('✅ Navegando para primeiro atleta disponível:', entry.id, 'tentativa:', j + 1);
-              dispatch({ type: 'lifting/setSelectedEntryId', payload: entry.id });
-              dispatch({ type: 'lifting/setSelectedAttempt', payload: j + 1 });
-              dispatch({ type: 'lifting/setAttemptActive', payload: true });
-              return;
-            }
-          }
+          dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
+          dispatch({ type: 'lifting/setSelectedAttempt', payload: 1 });
+          dispatch({ type: 'lifting/setAttemptActive', payload: true });
+        } else {
+          // Não há atletas no próximo lift, resetar seleção
+          console.log('🔄 Resetando seleção - não há atletas no próximo lift');
+          dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
+          dispatch({ type: 'lifting/setAttemptActive', payload: false });
         }
-        
-        // Se não há mais tentativas pendentes, resetar seleção
-        console.log('🔄 Resetando seleção - não há mais tentativas');
+        return;
+      } else {
+        // Não há mais movimentos, apenas salvar e resetar
+        console.log('🔄 Fim da competição - não há mais movimentos');
         dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
         dispatch({ type: 'lifting/setAttemptActive', payload: false });
+        return;
       }
     }
     
+    // 4. Se não há mais opções, resetar seleção
+    console.log('🔄 Resetando seleção - fim da competição');
+    dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
+    dispatch({ type: 'lifting/setAttemptActive', payload: false });
+    
     console.log('✅ Navegação concluída');
+  };
+
+  // Função auxiliar para determinar o próximo levantamento
+  const getNextLift = (currentLift: Lift): Lift | null => {
+    switch (currentLift) {
+      case 'S': return 'B'; // Squat → Bench
+      case 'B': return 'D'; // Bench → Deadlift
+      case 'D': return null; // Deadlift é o último
+      default: return null;
+    }
   };
 
   // Handlers para os dropdowns

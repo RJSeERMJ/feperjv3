@@ -166,21 +166,124 @@ const getNextEntryId = (entriesInFlight: Array<Entry>, lifting: LiftingState): n
   return null;
 };
 
+// Função para organizar tentativas por peso crescente seguindo as regras de competição:
+// 1. Primeiro critério: peso (menor peso levanta primeiro)
+// 2. Segundo critério: lot number (menor lot number desempata quando pesos são iguais)
+// 3. Terceiro critério: preservar ordem relativa (índice na lista) quando não há lot numbers
+const organizeAttemptsByWeight = (entriesInFlight: Array<Entry>, lift: Lift, attemptNumber: number): Array<{ entryId: number; weight: number; entry: Entry }> => {
+  const weightField = lift === 'S' ? `squat${attemptNumber}` : lift === 'B' ? `bench${attemptNumber}` : `deadlift${attemptNumber}`;
+  
+  const attemptsWithWeight: Array<{ entryId: number; weight: number; entry: Entry }> = [];
+  
+  entriesInFlight.forEach(entry => {
+    const weight = entry[weightField as keyof Entry] as number;
+    
+    // Só incluir se tem peso definido (independente do status)
+    if (weight && weight > 0) {
+      attemptsWithWeight.push({
+        entryId: entry.id,
+        weight: weight,
+        entry: entry
+      });
+    }
+  });
+  
+  // Ordenar por peso crescente, com desempate por lot number
+  return attemptsWithWeight.sort((a, b) => {
+    // Primeiro critério: peso (menor primeiro)
+    if (a.weight !== b.weight) {
+      return a.weight - b.weight;
+    }
+    
+    // Segundo critério: lot number (menor primeiro) quando ambos têm lot number
+    if (a.entry.lotNumber !== null && a.entry.lotNumber !== undefined && 
+        b.entry.lotNumber !== null && b.entry.lotNumber !== undefined) {
+      return a.entry.lotNumber - b.entry.lotNumber;
+    }
+    
+    // Terceiro critério: preservar ordem relativa quando um ou ambos não têm lot number
+    // Usar o índice original na lista para manter a ordem anterior
+    const aIndex = entriesInFlight.findIndex(e => e.id === a.entryId);
+    const bIndex = entriesInFlight.findIndex(e => e.id === b.entryId);
+    
+    return aIndex - bIndex;
+  });
+};
+
+// Função para obter a ordem estável baseada no peso cadastrado
+export const getStableOrderByWeight = (entriesInFlight: Array<Entry>, lift: Lift, attemptNumber: number): Array<{ entryId: number; weight: number; entry: Entry }> => {
+  return organizeAttemptsByWeight(entriesInFlight, lift, attemptNumber);
+};
+
+// Função para obter a próxima tentativa disponível baseada no peso (independente do status)
+const getNextAttemptByWeight = (entriesInFlight: Array<Entry>, lift: Lift, attemptNumber: number): { entryId: number; weight: number } | null => {
+  const organizedAttempts = organizeAttemptsByWeight(entriesInFlight, lift, attemptNumber);
+  
+  if (organizedAttempts.length > 0) {
+    // Retornar a tentativa com menor peso
+    return {
+      entryId: organizedAttempts[0].entryId,
+      weight: organizedAttempts[0].weight
+    };
+  }
+  
+  return null;
+};
+
 // Função principal: obter a ordem de levantamentos
 export const getLiftingOrder = (
   entriesInFlight: Array<Entry>,
   lifting: LiftingState,
 ): LiftingOrder => {
   const attemptOneIndexed = getActiveAttemptNumber(entriesInFlight, lifting);
-  const currentEntryId = getCurrentEntryId(entriesInFlight, lifting);
-  const nextEntryId = getNextEntryId(entriesInFlight, lifting);
-
-  // Determinar a próxima tentativa para o próximo atleta
+  
+  // Organizar tentativas por peso para a tentativa atual
+  const attemptsOrdered = organizeAttemptsByWeight(entriesInFlight, lifting.lift, attemptOneIndexed);
+  
+  // Determinar o atleta atual baseado na ordem de peso
+  let currentEntryId: number | null = null;
+  if (attemptsOrdered.length > 0) {
+    currentEntryId = attemptsOrdered[0].entryId;
+  }
+  
+  // Determinar o próximo atleta baseado na ordem de peso
+  let nextEntryId: number | null = null;
   let nextAttemptOneIndexed: number | null = null;
-  if (nextEntryId !== null) {
-    const nextEntry = entriesInFlight.find(e => e.id === nextEntryId);
-    if (nextEntry) {
-      nextAttemptOneIndexed = getNextAttemptNumberForEntry(nextEntry, lifting.lift);
+  
+  if (currentEntryId) {
+    // Verificar se o atleta atual tem próxima tentativa
+    const currentEntry = entriesInFlight.find(e => e.id === currentEntryId);
+    if (currentEntry) {
+      const nextAttempt = getNextAttemptNumberForEntry(currentEntry, lifting.lift);
+      if (nextAttempt > attemptOneIndexed) {
+        // Mesmo atleta, próxima tentativa
+        nextEntryId = currentEntryId;
+        nextAttemptOneIndexed = nextAttempt;
+      } else {
+        // Procurar próximo atleta na ordem de peso
+        if (attemptsOrdered.length > 1) {
+          nextEntryId = attemptsOrdered[1].entryId;
+          nextAttemptOneIndexed = attemptOneIndexed;
+        } else {
+          // Se não há mais atletas nesta tentativa, procurar próxima tentativa
+          if (attemptOneIndexed < MAX_ATTEMPTS) {
+            const nextAttemptOrdered = organizeAttemptsByWeight(entriesInFlight, lifting.lift, attemptOneIndexed + 1);
+            if (nextAttemptOrdered.length > 0) {
+              nextEntryId = nextAttemptOrdered[0].entryId;
+              nextAttemptOneIndexed = attemptOneIndexed + 1;
+            }
+          }
+        }
+      }
+    }
+  } else {
+    // Se não há atleta atual, procurar pela primeira tentativa disponível
+    if (attemptOneIndexed < MAX_ATTEMPTS) {
+      const firstAttemptOrdered = organizeAttemptsByWeight(entriesInFlight, lifting.lift, 1);
+      if (firstAttemptOrdered.length > 0) {
+        nextEntryId = firstAttemptOrdered[0].entryId;
+        nextAttemptOneIndexed = 1;
+      }
     }
   }
 
