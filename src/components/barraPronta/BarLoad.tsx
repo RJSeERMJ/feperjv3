@@ -69,13 +69,10 @@ const BarLoad: React.FC<BarLoadProps> = ({ weightKg, rackInfo }) => {
         plateCount++;
       }
 
-      // Se essa anilha é grande e ocorre várias vezes, mostrar um contador
-      const showCounter = plateCount >= 3;
-
-      // Empurrar cada uma das anilhas individualmente
+      // Empurrar cada uma das anilhas individualmente com contador sequencial por tipo
       for (let j = 0; j < plateCount; j++) {
         const plate = loading[i + j];
-        const counter = String(j + 1);
+        const counter = j + 1; // Contador sequencial para este tipo de anilha
 
         // Fundos claros precisam de texto escuro
         const isLight = plate.color === '#FFFFFF' || plate.color === '#FFFF00';
@@ -90,12 +87,12 @@ const BarLoad: React.FC<BarLoadProps> = ({ weightKg, rackInfo }) => {
 
         divs.push(
           <div
-            key={weightAny + '-' + counter}
+            key={weightAny + '-' + i + j}
             className={`plate plate-${weightAny}`}
             style={style}
           >
             <div className="plate-weight">{getWeightText(weightAny)}</div>
-            {showCounter && <div className="plate-counter">{counter}</div>}
+            <div className="plate-counter">{counter}</div>
           </div>
         );
       }

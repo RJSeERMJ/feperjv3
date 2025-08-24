@@ -142,6 +142,23 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 <span className="next-weight-label">Peso da Próxima Tentativa</span>
               </div>
             </div>
+
+            {/* Visualização da Carga da Barra do Próximo Atleta */}
+            {(() => {
+              const weightField = lift === 'S' ? `squat${attemptOneIndexed}` : 
+                                 lift === 'B' ? `bench${attemptOneIndexed}` : 
+                                 `deadlift${attemptOneIndexed}`;
+              const nextWeight = (nextEntry as any)[weightField];
+              return nextWeight && nextWeight > 0 ? (
+                <div className="bar-load-section mt-3">
+                  <h6 className="bar-load-title">Carga da Barra</h6>
+                  <BarLoad 
+                    weightKg={nextWeight}
+                    rackInfo=""
+                  />
+                </div>
+              ) : null;
+            })()}
           </Card.Body>
         </Card>
       )}

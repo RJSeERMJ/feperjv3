@@ -75,11 +75,15 @@ const LiftingFooter: React.FC = () => {
   const navigateToNext = () => {
     console.log('🔄 Navegando para o próximo...');
     console.log('🔍 Estado atual antes da navegação:', { selectedEntryId, selectedAttempt, isAttemptActive, lift, attemptOneIndexed });
+    console.log('🔍 Total de atletas no voo:', entriesInFlight.length);
     
     // 1. Verificar se há próximo atleta na mesma tentativa atual
     const attemptsOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed);
+    console.log('🔍 Tentativas ordenadas por peso para tentativa', attemptOneIndexed, ':', attemptsOrdered);
+    
     if (attemptsOrdered.length > 0) {
       const currentIndex = attemptsOrdered.findIndex(a => a.entryId === selectedEntryId);
+      console.log('🔍 Índice do atleta atual na lista ordenada:', currentIndex);
       
       if (currentIndex !== -1 && currentIndex < attemptsOrdered.length - 1) {
         // Há próximo atleta na mesma tentativa
@@ -90,12 +94,19 @@ const LiftingFooter: React.FC = () => {
         dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
         dispatch({ type: 'lifting/setAttemptActive', payload: true });
         return;
+      } else {
+        console.log('🔍 Atleta atual é o último da tentativa ou não encontrado na lista ordenada');
       }
+    } else {
+      console.log('🔍 Nenhuma tentativa com peso definido para tentativa', attemptOneIndexed);
     }
     
     // 2. Se chegou ao último atleta da tentativa atual, verificar próxima tentativa
     if (attemptOneIndexed < 3) {
+      console.log('🔍 Verificando próxima tentativa:', attemptOneIndexed + 1);
       const nextAttemptOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed + 1);
+      console.log('🔍 Tentativas ordenadas para próxima tentativa:', nextAttemptOrdered);
+      
       if (nextAttemptOrdered.length > 0) {
         // Há atletas na próxima tentativa
         const firstAthlete = nextAttemptOrdered[0];
@@ -106,12 +117,17 @@ const LiftingFooter: React.FC = () => {
         dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed + 1 });
         dispatch({ type: 'lifting/setAttemptActive', payload: true });
         return;
+      } else {
+        console.log('🔍 Nenhuma tentativa com peso definido para próxima tentativa');
       }
     }
     
     // 3. Se chegou à última tentativa (3ª), verificar próximo levantamento
     if (attemptOneIndexed >= 3) {
+      console.log('🔍 Verificando próximo levantamento');
       const nextLift = getNextLift(lift);
+      console.log('🔍 Próximo lift:', nextLift);
+      
       if (nextLift) {
         // Mudar para o próximo levantamento
         console.log('✅ Mudando para próximo levantamento:', nextLift);
@@ -121,6 +137,8 @@ const LiftingFooter: React.FC = () => {
         
         // Verificar se há atletas no próximo levantamento
         const nextLiftAttempts = getStableOrderByWeight(entriesInFlight, nextLift, 1);
+        console.log('🔍 Tentativas para próximo lift:', nextLiftAttempts);
+        
         if (nextLiftAttempts.length > 0) {
           const firstAthlete = nextLiftAttempts[0];
           console.log('✅ Navegando para primeiro atleta do próximo lift:', firstAthlete.entryId);
