@@ -180,54 +180,7 @@ const LiftingPage: React.FC = () => {
           )}
         </div>
 
-        {/* Estatísticas da sessão */}
-        <div className="session-stats">
-          <div className="stats-container">
-            <div className="stat-item">
-              <div className="stat-value">
-                {entriesInFlight.filter((entry: any) => {
-                  const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
-                  const statusArray = entry[statusField] || [];
-                  return statusArray.some((status: any) => status === 1);
-                }).length}
-              </div>
-              <div className="stat-label">Good Lifts</div>
-            </div>
-            
-            <div className="stat-item">
-              <div className="stat-value">
-                {entriesInFlight.filter((entry: any) => {
-                  const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
-                  const statusArray = entry[statusField] || [];
-                  return statusArray.some((status: any) => status === 2);
-                }).length}
-              </div>
-              <div className="stat-label">No Lifts</div>
-            </div>
-            
-            <div className="stat-item">
-              <div className="stat-value">
-                {entriesInFlight.filter((entry: any) => {
-                  const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
-                  const statusArray = entry[statusField] || [];
-                  return statusArray.some((status: any) => status === 3);
-                }).length}
-              </div>
-              <div className="stat-label">DNS</div>
-            </div>
-            
-            <div className="stat-item">
-              <div className="stat-value">
-                {entriesInFlight.filter((entry: any) => {
-                  const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
-                  const statusArray = entry[statusField] || [];
-                  return statusArray.some((status: any) => status === 0);
-                }).length}
-              </div>
-              <div className="stat-label">Pendentes</div>
-            </div>
-          </div>
-        </div>
+
 
         {/* Mensagem se não há tentativas pendentes */}
         {!hasPendingAttempts && (

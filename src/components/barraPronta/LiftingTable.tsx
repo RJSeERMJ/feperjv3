@@ -5,8 +5,7 @@ import { RootState } from '../../store/barraProntaStore';
 import { markAttempt, updateEntry } from '../../actions/barraProntaActions';
 import { LiftStatus } from '../../types/barraProntaTypes';
 import { getStableOrderByWeight } from '../../logic/liftingOrder';
-import { selectPlates, getPlateColor } from '../../logic/barLoad';
-import BarLoad from './BarLoad';
+import { useTimer } from '../../hooks/useTimer';
 import './LiftingTable.css';
 
 interface LiftingTableProps {
@@ -24,6 +23,8 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   const { lift, selectedEntryId, selectedAttempt, isAttemptActive } = useSelector((state: RootState) => state.lifting);
   const meet = useSelector((state: RootState) => state.meet);
 
+
+
   // Debug: mostrar estado atual
   console.log('🔍 LiftingTable - Estado atual:', { 
     lift, selectedEntryId, selectedAttempt, isAttemptActive 
@@ -37,6 +38,8 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
       currentEntryId, attemptOneIndexed
     });
   }, [lift, selectedEntryId, selectedAttempt, isAttemptActive, orderedEntries, currentEntryId, attemptOneIndexed]);
+
+
 
 
 
@@ -79,10 +82,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   const isAttemptAvailable = (entry: any, attempt: number): boolean => {
     if (attempt === 1) return true; // Primeira tentativa sempre disponível
     
-    // Verificar se tempo foi excedido
-    if (checkTimeExceeded(entry.id, attempt)) {
-      return false; // Bloquear se tempo foi excedido
-    }
+
     
     const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
     const statusArray = entry[statusField] || [0, 0, 0];
@@ -234,14 +234,24 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     const isCurrent = isCurrentAthlete(entry.id) && isCurrentAttempt(attempt);
     const isSelected = isAttemptSelected(entry.id, attempt);
     const isAvailable = isAttemptAvailable(entry, attempt);
-    const isTimeExpired = checkTimeExceeded(entry.id, attempt);
+
+    const attemptStatus = getAttemptStatus(entry, attempt);
     
     let classes = baseClass;
     
-    if (isCurrent) classes += ' current-attempt';
-    if (isSelected) classes += ' selected-attempt';
+    // Adicionar classe de status baseada no resultado da tentativa
+    if (attemptStatus > 0) {
+      classes += ` status-${attemptStatus}`;
+    }
+    
+    // Prioridade: Selecionado > Atual > Status
+    if (isSelected) {
+      classes += ' selected-attempt';
+    } else if (isCurrent) {
+      classes += ' current-attempt';
+    }
+    
     if (!isAvailable) classes += ' blocked-attempt';
-    if (isTimeExpired) classes += ' time-expired';
     
     return classes;
   };
@@ -296,12 +306,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     if (weightField) {
       const weightValue = weight === '' ? null : parseFloat(weight);
       
-      // VERIFICAÇÃO DE TEMPO EXCEDIDO: Bloquear inserção se tempo foi excedido
-      if (checkTimeExceeded(entryId, attempt)) {
-        showTimeExceededAlertOnce(entryId, attempt);
-        alert('⏰ TEMPO EXCEDIDO: Não é possível inserir peso após 1 minuto da marcação da tentativa!');
-        return; // Bloquear inserção de peso após tempo excedido
-      }
+
       
       // VALIDAÇÃO: Verificar se o peso é válido apenas quando clicar fora
       if (weightValue !== null) {
@@ -426,154 +431,16 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     }
   }, [orderedEntriesByWeight, selectedEntryId, attemptOneIndexed, dispatch]);
 
-  // Função para renderizar carregamento da barra para uma tentativa
-  const renderBarLoad = (entry: any, attempt: number) => {
-    const weight = getAttemptWeight(entry, attempt);
-    if (!weight || weight <= 0) return null;
-    
-    // Obter peso da barra + colares baseado no movimento
-    const getBarAndCollarsWeight = (): number => {
-      switch (lift) {
-        case 'S': return meet.squatBarAndCollarsWeightKg || 20;
-        case 'B': return meet.benchBarAndCollarsWeightKg || 20;
-        case 'D': return meet.deadliftBarAndCollarsWeightKg || 20;
-        default: return 20;
-      }
-    };
-    
-    // Calcular anilhas necessárias
-    const loading = selectPlates(weight, getBarAndCollarsWeight(), meet.plates || [], true);
-    
-    // Verificar se há erro no carregamento
-    const hasError = loading.some(plate => plate.weightAny < 0);
-    
-    if (hasError) {
-      return (
-        <div className="bar-load-error">
-          <small className="text-danger">❌ Peso não possível</small>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="bar-load-preview">
-        <small className="text-muted">Barra: {weight}kg</small>
-        <div className="plates-preview">
-          {loading.slice(0, 3).map((plate, index) => (
-            <div
-              key={index}
-              className="plate-preview"
-              style={{
-                backgroundColor: plate.color,
-                border: plate.color === '#FFFFFF' ? '1px solid #ccc' : 'none'
-              }}
-            />
-          ))}
-          {loading.length > 3 && (
-            <span className="more-plates">+{loading.length - 3}</span>
-          )}
-        </div>
-      </div>
-    );
-  };
 
-  // NOVA FUNÇÃO: Timer para controle de tempo após marcar tentativa
-  const [attemptTimers, setAttemptTimers] = useState<Map<string, { startTime: number, isActive: boolean }>>(new Map());
-  const [showTimeExceededAlert, setShowTimeExceededAlert] = useState(false);
 
-  // Função para iniciar timer após marcar tentativa
-  const startAttemptTimer = (entryId: number, attempt: number) => {
-    const timerKey = `${entryId}-${attempt}`;
-    const startTime = Date.now();
-    
-    setAttemptTimers(prev => new Map(prev.set(timerKey, { startTime, isActive: true })));
-    
-    console.log('⏰ Timer iniciado para tentativa:', { entryId, attempt, startTime });
-  };
 
-  // Função para verificar se tempo foi excedido
-  const checkTimeExceeded = (entryId: number, attempt: number): boolean => {
-    if (!attemptTimers || !(attemptTimers instanceof Map)) {
-      return false;
-    }
-    const timerKey = `${entryId}-${attempt}`;
-    const timer = attemptTimers.get(timerKey);
-    
-    if (!timer || !timer.isActive) return false;
-    
-    const elapsedTime = Date.now() - timer.startTime;
-    const oneMinute = 60 * 1000; // 1 minuto em milissegundos
-    
-    return elapsedTime > oneMinute;
-  };
 
-  // Função para mostrar alerta de tempo excedido
-  const showTimeExceededAlertOnce = (entryId: number, attempt: number) => {
-    if (checkTimeExceeded(entryId, attempt) && !showTimeExceededAlert) {
-      setShowTimeExceededAlert(true);
-      alert('⚠️ ATENÇÃO: Tempo excedido! Esta tentativa foi marcada há mais de 1 minuto. Verifique se o peso foi inserido corretamente.');
-      
-      // Resetar alerta após mostrar
-      setTimeout(() => setShowTimeExceededAlert(false), 100);
-    }
-  };
 
-  // NOVA FUNÇÃO: Marcar automaticamente como No Attempt quando tempo expira
-  const markAsNoAttemptIfTimeExceeded = (entryId: number, attempt: number) => {
-    if (checkTimeExceeded(entryId, attempt)) {
-      const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
-      const entry = orderedEntries.find(e => e.id === entryId);
-      
-      if (entry) {
-        const statusArray = (entry as any)[statusField] || [0, 0, 0];
-        const currentStatus = statusArray[attempt - 1];
-        
-        // Só marcar como No Attempt se ainda não foi marcada
-        if (currentStatus === 0) {
-          const newStatusArray = [...statusArray];
-          newStatusArray[attempt - 1] = 3; // 3 = No Attempt
-          dispatch(updateEntry(entryId, { [statusField]: newStatusArray }));
-          console.log(`⏰ Timer expirado: Tentativa ${attempt} marcada automaticamente como No Attempt para atleta ${entryId}`);
-          
-          // Desativar timer
-          setAttemptTimers(prev => {
-            const newMap = new Map(prev);
-            newMap.delete(`${entryId}-${attempt}`);
-            return newMap;
-          });
-        }
-      }
-    }
-  };
 
-  // NOVO useEffect: Monitorar timers e marcar como No Attempt quando expirarem
-  useEffect(() => {
-    if (!attemptTimers || !(attemptTimers instanceof Map)) {
-      return;
-    }
-    
-    const timerInterval = setInterval(() => {
-      attemptTimers.forEach((timer, key) => {
-        if (timer.isActive) {
-          const [entryId, attempt] = key.split('-').map(Number);
-          markAsNoAttemptIfTimeExceeded(entryId, attempt);
-        }
-      });
-      
-      // Forçar re-render para atualizar o tempo na interface
-      setAttemptTimers(prev => new Map(prev));
-    }, 1000); // Verificar a cada segundo
 
-    return () => clearInterval(timerInterval);
-  }, [attemptTimers, lift, orderedEntries]);
 
-  // NOVA FUNÇÃO: Verificar se uma tentativa pode ser editada (incluindo verificação de tempo)
+  // NOVA FUNÇÃO: Verificar se uma tentativa pode ser editada
   const canEditAttemptWithTimeCheck = (entry: any, attempt: number): boolean => {
-    // Verificar se tempo foi excedido
-    if (checkTimeExceeded(entry.id, attempt)) {
-      return false; // Bloquear edição se tempo foi excedido
-    }
-    
     // Sempre permitir edição da tentativa atual
     if (attempt === attemptOneIndexed) return true;
     
@@ -585,47 +452,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     return currentStatus === 1 || currentStatus === 2; // Good Lift ou No Lift
   };
 
-  // NOVA FUNÇÃO: Obter tempo restante para uma tentativa
-  const getRemainingTime = (entryId: number, attempt: number): number => {
-    if (!attemptTimers || !(attemptTimers instanceof Map)) {
-      return 0;
-    }
-    const timerKey = `${entryId}-${attempt}`;
-    const timer = attemptTimers.get(timerKey);
-    
-    if (!timer || !timer.isActive) return 0;
-    
-    const elapsedTime = Date.now() - timer.startTime;
-    const oneMinute = 60 * 1000; // 1 minuto em milissegundos
-    const remainingTime = Math.max(0, oneMinute - elapsedTime);
-    
-    return Math.ceil(remainingTime / 1000); // Retorna segundos restantes
-  };
 
-  // NOVA FUNÇÃO: Verificar se uma tentativa tem timer ativo
-  const hasActiveTimer = (entryId: number, attempt: number): boolean => {
-    if (!attemptTimers || !(attemptTimers instanceof Map)) {
-      return false;
-    }
-    const timerKey = `${entryId}-${attempt}`;
-    const timer = attemptTimers.get(timerKey);
-    return timer?.isActive || false;
-  };
-
-  // NOVA FUNÇÃO: Verificar se o timer está urgente (últimos 10 segundos)
-  const isTimerUrgent = (entryId: number, attempt: number): boolean => {
-    const remainingTime = getRemainingTime(entryId, attempt);
-    return remainingTime <= 10 && remainingTime > 0;
-  };
-
-  // NOVA FUNÇÃO: Obter classe CSS para o timer countdown
-  const getTimerCountdownClass = (entryId: number, attempt: number): string => {
-    let classes = 'status-icon timer-countdown';
-    if (isTimerUrgent(entryId, attempt)) {
-      classes += ' urgent';
-    }
-    return classes;
-  };
 
   // Função para verificar se uma tentativa pode ser editada
   const canEditAttempt = (entry: any, attempt: number): boolean => {
@@ -714,25 +541,12 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 1) === 2 && <span className="status-icon">❌</span>}
                         {getAttemptStatus(entry, 1) === 3 && <span className="status-icon">⏸️</span>}
                         {getAttemptStatus(entry, 1) === 0 && (
-                          hasActiveTimer(entry.id, 1) ? (
-                            <span className={getTimerCountdownClass(entry.id, 1)}>
-                              {getRemainingTime(entry.id, 1)}s
-                            </span>
-                          ) : (
-                            <span className="status-icon">⏳</span>
-                          )
+                          <span className="status-icon">⏳</span>
                         )}
                       </div>
-                      {/* Timer visual */}
-                      {hasActiveTimer(entry.id, 1) && (
-                        <div className="timer-indicator">
-                          <small className="text-danger">
-                            ⏰ {getRemainingTime(entry.id, 1)}s
-                          </small>
-                        </div>
-                      )}
+
                     </div>
-                    {renderBarLoad(entry, 1)}
+
                   </div>
                 </td>
 
@@ -764,30 +578,17 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 2) === 2 && <span className="status-icon">❌</span>}
                         {getAttemptStatus(entry, 2) === 3 && <span className="status-icon">⏸️</span>}
                         {getAttemptStatus(entry, 2) === 0 && (
-                          hasActiveTimer(entry.id, 2) ? (
-                            <span className={getTimerCountdownClass(entry.id, 2)}>
-                              {getRemainingTime(entry.id, 2)}s
-                            </span>
-                          ) : (
-                            <span className="status-icon">⏳</span>
-                          )
+                          <span className="status-icon">⏳</span>
                         )}
                       </div>
-                      {/* Timer visual */}
-                      {hasActiveTimer(entry.id, 2) && (
-                        <div className="timer-indicator">
-                          <small className="text-danger">
-                            ⏰ {getRemainingTime(entry.id, 2)}s
-                          </small>
-                        </div>
-                      )}
+
                     </div>
                     {shouldMarkAsNoAttempt(entry, 2) && (
                       <div className="no-attempt-indicator">
                         <small className="text-warning">⚠️ No Attempt</small>
                       </div>
                     )}
-                    {renderBarLoad(entry, 2)}
+
                   </div>
                 </td>
 
@@ -819,30 +620,17 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 3) === 2 && <span className="status-icon">❌</span>}
                         {getAttemptStatus(entry, 3) === 3 && <span className="status-icon">⏸️</span>}
                         {getAttemptStatus(entry, 3) === 0 && (
-                          hasActiveTimer(entry.id, 3) ? (
-                            <span className={getTimerCountdownClass(entry.id, 3)}>
-                              {getRemainingTime(entry.id, 3)}s
-                            </span>
-                          ) : (
-                            <span className="status-icon">⏳</span>
-                          )
+                          <span className="status-icon">⏳</span>
                         )}
                       </div>
-                      {/* Timer visual */}
-                      {hasActiveTimer(entry.id, 3) && (
-                        <div className="timer-indicator">
-                          <small className="text-danger">
-                            ⏰ {getRemainingTime(entry.id, 3)}s
-                          </small>
-                        </div>
-                      )}
+
                     </div>
                     {shouldMarkAsNoAttempt(entry, 3) && (
                       <div className="no-attempt-indicator">
                         <small className="text-warning">⚠️ No Attempt</small>
                       </div>
                     )}
-                    {renderBarLoad(entry, 3)}
+
                   </div>
                 </td>
 

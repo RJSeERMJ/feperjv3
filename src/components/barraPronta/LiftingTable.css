@@ -737,3 +737,88 @@
     transform: scale(1);
   }
 }
+
+/* Cores das células baseadas no status da tentativa */
+.attempt-cell.status-1 {
+  background-color: #d4edda !important; /* Verde para Good Lift */
+  border-color: #c3e6cb !important;
+}
+
+.attempt-cell.status-2 {
+  background-color: #f8d7da !important; /* Vermelho para No Lift */
+  border-color: #f5c6cb !important;
+}
+
+.attempt-cell.status-3 {
+  background-color: #fff3cd !important; /* Amarelo para No Attempt */
+  border-color: #ffeaa7 !important;
+}
+
+/* Célula selecionada - Magenta */
+.attempt-cell.selected-attempt {
+  background-color: #e83e8c !important; /* Magenta */
+  border-color: #d63384 !important;
+  color: white !important;
+}
+
+/* Célula atual */
+.attempt-cell.current-attempt {
+  background-color: #17a2b8 !important; /* Azul para célula atual */
+  border-color: #138496 !important;
+  color: white !important;
+}
+
+/* Timer display dentro do status-visual */
+.timer-countdown {
+  font-size: 11px;
+  font-weight: bold;
+  color: #dc3545;
+  animation: pulse 1s infinite;
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+}
+
+.timer-countdown.timer-urgent {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  animation: urgent-pulse 0.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+@keyframes urgent-pulse {
+  0% { opacity: 1; background-color: #f8d7da; }
+  50% { opacity: 0.5; background-color: #f1b0b7; }
+  100% { opacity: 1; background-color: #f8d7da; }
+}
+
+/* Timer display */
+.timer-display {
+  margin-top: 4px;
+  text-align: center;
+}
+
+.timer-text {
+  font-size: 11px;
+  font-weight: bold;
+  color: #dc3545;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  display: inline-block;
+}
+
+.timer-text.timer-urgent {
+  animation: urgent-pulse 0.5s infinite;
+  background-color: #f1b0b7;
+  border-color: #dc3545;
+}
