@@ -207,7 +207,7 @@ const Results: React.FC = () => {
       result.bench,
       result.deadlift,
       result.total,
-      Math.round(result.points * 10) / 10
+      result.points.toFixed(2)
     ]);
 
     const csvContent = [headers, ...csvData]
@@ -403,10 +403,6 @@ const Results: React.FC = () => {
                         <td>
                           <div>
                             <strong>{result.entry.name}</strong>
-                            <br />
-                            <small className="text-muted">
-                              {result.entry.division} - {result.entry.weightClass} - {getEquipmentDisplayName(result.entry.equipment || 'Raw')}
-                            </small>
                           </div>
                         </td>
                         <td>{result.entry.team}</td>
@@ -417,28 +413,13 @@ const Results: React.FC = () => {
                           </Badge>
                         </td>
                         <td>
-                          <div className="d-flex align-items-center">
-                            <span className="fw-bold">{result.squat}kg</span>
-                            <Badge bg="secondary" className="ms-1">
-                              {result.validAttempts.squat}/3
-                            </Badge>
-                          </div>
+                          <span className="fw-bold">{result.squat}kg</span>
                         </td>
                         <td>
-                          <div className="d-flex align-items-center">
-                            <span className="fw-bold">{result.bench}kg</span>
-                            <Badge bg="secondary" className="ms-1">
-                              {result.validAttempts.bench}/3
-                            </Badge>
-                          </div>
+                          <span className="fw-bold">{result.bench}kg</span>
                         </td>
                         <td>
-                          <div className="d-flex align-items-center">
-                            <span className="fw-bold">{result.deadlift}kg</span>
-                            <Badge bg="secondary" className="ms-1">
-                              {result.validAttempts.deadlift}/3
-                            </Badge>
-                          </div>
+                          <span className="fw-bold">{result.deadlift}kg</span>
                         </td>
                         <td>
                           <span className="fw-bold text-primary fs-5">
@@ -447,7 +428,7 @@ const Results: React.FC = () => {
                         </td>
                         <td>
                           <span className="fw-bold text-success">
-                            {Math.round(result.points * 10) / 10}
+                            {result.points.toFixed(2)}
                           </span>
                         </td>
                       </tr>

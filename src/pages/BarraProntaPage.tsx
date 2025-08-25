@@ -175,17 +175,20 @@ const BarraProntaContent: React.FC = () => {
         allow4thAttempts: false,
         roundTotalsDown: false,
         inKg: true,
-        squatBarAndCollarsWeightKg: 20,
-        benchBarAndCollarsWeightKg: 20,
-        deadliftBarAndCollarsWeightKg: 20,
+        squatBarAndCollarsWeightKg: 25,
+        benchBarAndCollarsWeightKg: 25,
+        deadliftBarAndCollarsWeightKg: 25,
         plates: [
           { weightKg: 25, color: '#FF0000', pairCount: 10 },
-          { weightKg: 20, color: '#0000FF', pairCount: 10 },
-          { weightKg: 15, color: '#FFFF00', pairCount: 10 },
-          { weightKg: 10, color: '#008000', pairCount: 10 },
-          { weightKg: 5, color: '#000000', pairCount: 10 },
-          { weightKg: 2.5, color: '#000000', pairCount: 10 },
-          { weightKg: 1.25, color: '#000000', pairCount: 10 }
+          { weightKg: 20, color: '#0000FF', pairCount: 2 },
+          { weightKg: 15, color: '#FFFF00', pairCount: 2 },
+          { weightKg: 10, color: '#008000', pairCount: 2 },
+          { weightKg: 5, color: '#000000', pairCount: 2 },
+          { weightKg: 2.5, color: '#000000', pairCount: 2 },
+          { weightKg: 1.25, color: '#000000', pairCount: 2 },
+          { weightKg: 0.5, color: '#000000', pairCount: 2 },  
+          { weightKg: 0.25, color: '#000000', pairCount: 2 }
+         
         ],
         showAlternateUnits: false
       };

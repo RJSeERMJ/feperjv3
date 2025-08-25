@@ -106,7 +106,7 @@ const BarWeights: React.FC<BarWeightsProps> = ({
                 Peso deve estar entre 5 e 1000 kg
               </Form.Control.Feedback>
               <Form.Text className="text-muted">
-                Peso padrão: 20 kg
+                Peso padrão: 25 kg
               </Form.Text>
             </Form.Group>
           </Col>
