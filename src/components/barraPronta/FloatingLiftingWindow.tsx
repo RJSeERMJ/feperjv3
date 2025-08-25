@@ -1,11 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { Button, Row, Col, Form } from 'react-bootstrap';
+import React, { useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { RootState } from '../../store/barraProntaStore';
-import { setDay, setPlatform, setFlight, setLift, setAttemptOneIndexed, setSelectedEntryId, setSelectedAttempt, setAttemptActive, selectAthleteAndAttempt } from '../../reducers/liftingReducer';
-import { markAttempt } from '../../actions/barraProntaActions';
-import { Lift } from '../../types/barraProntaTypes';
-import LiftingTable from './LiftingTable';
 import './FloatingLiftingWindow.css';
 
 interface FloatingLiftingWindowProps {
@@ -13,794 +8,246 @@ interface FloatingLiftingWindowProps {
   onClose: () => void;
 }
 
-// Interface para tela múltipla
-interface Screen {
-  availLeft: number;
-  availTop: number;
-  availWidth: number;
-  availHeight: number;
-  width: number;
-  height: number;
-  colorDepth: number;
-  pixelDepth: number;
-  orientation?: ScreenOrientation;
-}
-
 const FloatingLiftingWindow: React.FC<FloatingLiftingWindowProps> = ({ isOpen, onClose }) => {
-  const dispatch = useDispatch();
-  const { day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive } = useSelector((state: RootState) => state.lifting);
-  const { entries } = useSelector((state: RootState) => state.registration);
-  const meet = useSelector((state: RootState) => state.meet);
+  const { day, platform, flight, lift, selectedEntryId, selectedAttempt } = useSelector((state: RootState) => state.lifting);
 
-  // Estados para controle da janela
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [isMultiScreen, setIsMultiScreen] = useState(false);
-  const [isDetached, setIsDetached] = useState(false);
-  const [currentScreen, setCurrentScreen] = useState<Screen | null>(null);
-  const [position, setPosition] = useState(() => {
-    // Carregar posição salva ou usar posição padrão
-    const savedPosition = localStorage.getItem('floatingWindowPosition');
-    if (savedPosition) {
-      try {
-        const parsed = JSON.parse(savedPosition);
-        // Verificar se a posição está dentro dos limites da tela atual
-        if (parsed.x >= 0 && parsed.y >= 0 && 
-            parsed.x < window.screen.availWidth - 400 && 
-            parsed.y < window.screen.availHeight - 300) {
-          return parsed;
-        }
-      } catch (e) {
-        console.warn('Erro ao carregar posição da janela:', e);
-      }
-    }
-    return { x: 100, y: 100 };
-  });
-  const [size, setSize] = useState(() => {
-    // Carregar tamanho salvo ou usar tamanho padrão
-    const savedSize = localStorage.getItem('floatingWindowSize');
-    if (savedSize) {
-      try {
-        return JSON.parse(savedSize);
-      } catch (e) {
-        console.warn('Erro ao carregar tamanho da janela:', e);
-      }
-    }
-    return { width: 1200, height: 800 };
-  });
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
-
-  // Referência para a janela popup
-  const [popupWindow, setPopupWindow] = useState<Window | null>(null);
-
-  // Refs para elementos DOM
-  const windowRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const resizeHandleRef = useRef<HTMLDivElement>(null);
-
-  // Salvar posição e tamanho da janela
-  const saveWindowState = (newPosition: typeof position, newSize: typeof size) => {
-    try {
-      localStorage.setItem('floatingWindowPosition', JSON.stringify(newPosition));
-      localStorage.setItem('floatingWindowSize', JSON.stringify(newSize));
-      localStorage.setItem('floatingWindowDetached', JSON.stringify(isDetached));
-    } catch (e) {
-      console.warn('Erro ao salvar estado da janela:', e);
-    }
-  };
-
-  // Detectar telas múltiplas
-  const detectMultiScreen = () => {
-    if (window.screen.availWidth > 1920) {
-      setIsMultiScreen(true);
-      console.log('🖥️ Múltiplas telas detectadas');
-    } else {
-      setIsMultiScreen(false);
-    }
-  };
-
-  // Detectar telas múltiplas ao inicializar
+  // Abrir popup automaticamente quando o componente é renderizado
   useEffect(() => {
-    detectMultiScreen();
-    window.addEventListener('resize', detectMultiScreen);
-    
-    return () => {
-      window.removeEventListener('resize', detectMultiScreen);
-    };
-  }, []);
+    if (isOpen) {
+      openPopup();
+    }
+  }, [isOpen]);
 
-  // Atualizar conteúdo do popup a cada 500ms
-  useEffect(() => {
-    if (!popupWindow || popupWindow.closed) return;
-
-    const interval = setInterval(() => {
-      if (popupWindow && !popupWindow.closed) {
-        popupWindow.document.body.innerHTML = `
-          <div style="font-family: Arial; padding: 20px;">
-            <h2>🏋️ Atualização em tempo real</h2>
-            <p><strong>Dia:</strong> ${day}</p>
-            <p><strong>Plataforma:</strong> ${platform}</p>
-            <p><strong>Grupo:</strong> ${flight}</p>
-            <p><strong>Movimento:</strong> ${lift}</p>
-            <p><strong>Tentativa:</strong> ${selectedAttempt}</p>
-            <p><strong>Atleta:</strong> ${selectedEntryId ? selectedEntryId : "Nenhum selecionado"}</p>
-            <p><em>Última atualização: ${new Date().toLocaleTimeString()}</em></p>
-          </div>
-        `;
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [popupWindow, day, platform, flight, lift, selectedAttempt, selectedEntryId]);
-
-  // Filtrar atletas pelo dia, plataforma e grupo atual
-  const entriesInFlight = entries.filter((entry: any) => 
-    entry.day === day && 
-    entry.platform === platform && 
-    entry.flight === flight
-  );
-
-  // Função para abrir a janela como popup real (window.open)
-  const openAsPopup = () => {
+  const openPopup = () => {
     try {
-      // Calcular posição para o popup
-      const popupWidth = 1200;
-      const popupHeight = 800;
+      // Configurações simples do popup
+      const popupWidth = 800;
+      const popupHeight = 600;
       const popupX = (window.screen.availWidth - popupWidth) / 2;
       const popupY = (window.screen.availHeight - popupHeight) / 2;
 
-      // Configurações da janela popup
       const popupFeatures = [
         `width=${popupWidth}`,
         `height=${popupHeight}`,
         `left=${popupX}`,
         `top=${popupY}`,
         'resizable=yes',
-        'scrollbars=yes',
+        'scrollbars=no',
         'status=no',
         'toolbar=no',
         'menubar=no',
-        'location=no',
-        'directories=no'
+        'location=no'
       ].join(',');
 
-      // Abrir a janela popup
-      const newWindow = window.open(
-        "", // abrir janela vazia
-        "liftingWindow",
-        popupFeatures
-      );
-      if (newWindow) {
-        setPopupWindow(newWindow);
-        setIsDetached(true);
-        console.log('🔄 Janela popup aberta com sucesso!');
-        
-        // Salvar estado
-        localStorage.setItem('floatingWindowDetached', 'true');
-        localStorage.setItem('popupWindowOpen', 'true');
-        
-        // Fechar a janela flutuante atual
-        onClose();
-        
-        // Focar na nova janela
-        newWindow.focus();
-      } else {
-        console.error('❌ Falha ao abrir janela popup - bloqueado pelo navegador');
-        alert('O popup foi bloqueado pelo navegador. Permita popups para este site.');
-      }
-    } catch (error) {
-      console.error('❌ Erro ao abrir janela popup:', error);
-      alert('Erro ao abrir janela popup. Verifique as configurações do navegador.');
-    }
-  };
-
-  // Função para abrir a janela em tela cheia em outro monitor
-  const openInFullscreen = async () => {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        // Tentar abrir em tela cheia
-        await document.documentElement.requestFullscreen();
-        
-        // Se estiver em tela cheia, maximizar a janela
-        if (document.fullscreenElement) {
-          setIsMaximized(true);
-          setSize({ 
-            width: window.screen.availWidth - 40, 
-            height: window.screen.availHeight - 40 
-          });
-          setPosition({ x: 20, y: 20 });
-        }
-      }
-    } catch (error) {
-      console.warn('Erro ao alternar tela cheia:', error);
-      // Fallback: maximizar normalmente
-      handleMaximize();
-    }
-  };
-
-  // Função para mover a janela para outro monitor
-  const moveToOtherScreen = () => {
-    if (!isMultiScreen) {
-      alert('Múltiplas telas não detectadas. Verifique se há um segundo monitor conectado.');
-      return;
-    }
-
-    // Calcular posição para o segundo monitor
-    const screenWidth = window.screen.availWidth;
-    const screenHeight = window.screen.availHeight;
-    
-    // Se a janela estiver na primeira metade da tela, mover para a segunda
-    if (position.x < screenWidth / 2) {
-      const newX = screenWidth - size.width - 50;
-      setPosition({ x: newX, y: 50 });
-      console.log('🔄 Movendo janela para o segundo monitor:', { x: newX, y: 50 });
-    } else {
-      // Mover de volta para o primeiro monitor
-      setPosition({ x: 50, y: 50 });
-      console.log('🔄 Movendo janela para o primeiro monitor:', { x: 50, y: 50 });
-    }
-  };
-
-  // Handlers para os dropdowns
-  const handleDayChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newDay = parseInt(event.target.value);
-    console.log('🎯 FloatingWindow - handleDayChange chamado:', { newDay });
-    dispatch(setDay(newDay));
-  };
-
-  const handlePlatformChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newPlatform = parseInt(event.target.value);
-    console.log('🎯 FloatingWindow - handlePlatformChange chamado:', { newPlatform });
-    dispatch(setPlatform(newPlatform));
-  };
-
-  const handleLiftChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLift = event.target.value as Lift;
-    dispatch(setLift(newLift));
-  };
-
-  const handleFlightChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newFlight = event.target.value;
-    console.log('🎯 FloatingWindow - handleFlightChange chamado:', { newFlight });
-    dispatch(setFlight(newFlight));
-  };
-
-  const handleAttemptChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newAttempt = parseInt(event.target.value);
-    console.log('🎯 FloatingWindow - handleAttemptChange chamado:', { newAttempt, selectedEntryId });
-    
-    dispatch(setSelectedAttempt(newAttempt));
-    
-    if (selectedEntryId) {
-      console.log('✅ Atualizando tentativa para atleta selecionado:', selectedEntryId, newAttempt);
-      dispatch(selectAthleteAndAttempt({ entryId: selectedEntryId, attempt: newAttempt }));
-    }
-  };
-
-  const handleAthleteChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const entryId = parseInt(event.target.value);
-    console.log('🎯 FloatingWindow - handleAthleteChange chamado:', { entryId, selectedAttempt });
-    
-    if (entryId > 0) {
-      console.log('✅ Selecionando atleta:', entryId, 'tentativa:', selectedAttempt);
-      dispatch(selectAthleteAndAttempt({ entryId, attempt: selectedAttempt }));
-    } else {
-      console.log('❌ Desmarcando seleção');
-      dispatch(setSelectedEntryId(null));
-      dispatch(setAttemptActive(false));
-    }
-  };
-
-  // Handlers para as ações
-  const handleGoodLift = () => {
-    console.log('🎯 FloatingWindow - handleGoodLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
-    
-    if (selectedEntryId && isAttemptActive) {
-      console.log('✅ Marcando Good Lift para:', selectedEntryId, selectedAttempt);
-      dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 1, 0) as any);
-      console.log(`Good Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
+      // Abrir popup
+      const popup = window.open('', 'liftingPopup', popupFeatures);
       
-      // CORREÇÃO: Navegar automaticamente para o próximo após marcar Good Lift
-      // Implementar lógica similar ao LiftingFooter
-      navigateToNextAfterAttempt();
-    } else {
-      console.log('❌ Não é possível marcar Good Lift:', { selectedEntryId, isAttemptActive });
-      alert('Selecione um atleta e uma tentativa primeiro!');
-    }
-  };
-
-  const handleNoLift = () => {
-    console.log('🎯 FloatingWindow - handleNoLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
-    
-    if (selectedEntryId && isAttemptActive) {
-      console.log('✅ Marcando No Lift para:', selectedEntryId, selectedAttempt);
-      dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 2, 0) as any);
-      console.log(`No Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
-      
-      // CORREÇÃO: Navegar automaticamente para o próximo após marcar No Lift
-      // Implementar lógica similar ao LiftingFooter
-      navigateToNextAfterAttempt();
-    } else {
-      console.log('❌ Não é possível marcar No Lift:', { selectedEntryId, isAttemptActive });
-      alert('Selecione um atleta e uma tentativa primeiro!');
-    }
-  };
-
-  // CORREÇÃO: Função para navegar para o próximo após marcar tentativa
-  const navigateToNextAfterAttempt = () => {
-    // Implementar lógica de navegação similar ao LiftingFooter
-    // Por enquanto, apenas resetar a seleção para permitir seleção manual
-    dispatch(setSelectedEntryId(null));
-    dispatch(setAttemptActive(false));
-    console.log('🔄 Tentativa marcada, resetando seleção para próxima seleção manual');
-  };
-
-  // Handlers para controle da janela
-  const handleMinimize = () => {
-    setIsMinimized(true);
-    setIsMaximized(false);
-  };
-
-  const handleMaximize = () => {
-    if (isMaximized) {
-      setIsMaximized(false);
-      setSize({ width: 1200, height: 800 });
-      setPosition({ x: 100, y: 100 });
-    } else {
-      setIsMaximized(true);
-      setSize({ width: window.screen.availWidth - 40, height: window.screen.availHeight - 40 });
-      setPosition({ x: 20, y: 20 });
-    }
-  };
-
-  // Handlers para arrastar com movimento mais livre e suporte a múltiplas telas
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target === headerRef.current || headerRef.current?.contains(e.target as Node)) {
-      setIsDragging(true);
-      const rect = windowRef.current?.getBoundingClientRect();
-      if (rect) {
-        setDragOffset({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top
-        });
-      }
-      e.preventDefault(); // Prevenir seleção de texto
-    }
-  };
-
-  // Handlers para redimensionar
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsResizing(true);
-    setResizeStart({
-      x: e.clientX,
-      y: e.clientY,
-      width: size.width,
-      height: size.height
-    });
-  };
-
-  // Event listeners para mouse com suporte a múltiplas telas
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging && !isMaximized) {
-        const newX = e.clientX - dragOffset.x;
-        const newY = e.clientY - dragOffset.y;
-        
-        // Permitir movimento livre entre monitores
-        // Usar screen.availWidth/Height para suportar múltiplas telas
-        const maxX = window.screen.availWidth - Math.min(size.width, 400);
-        const maxY = window.screen.availHeight - Math.min(size.height, 300);
-        
-        // Permitir que a janela saia da área visível do navegador
-        const clampedX = Math.max(-size.width + 100, Math.min(newX, maxX));
-        const clampedY = Math.max(0, Math.min(newY, maxY));
-        
-        setPosition({ x: clampedX, y: clampedY });
-      }
-      
-      if (isResizing && !isMaximized) {
-        const deltaX = e.clientX - resizeStart.x;
-        const deltaY = e.clientY - resizeStart.y;
-        
-        const newWidth = Math.max(800, Math.min(resizeStart.width + deltaX, window.screen.availWidth - 50));
-        const newHeight = Math.max(600, Math.min(resizeStart.height + deltaY, window.screen.availHeight - 100));
-        
-        setSize({ width: newWidth, height: newHeight });
-      }
-    };
-
-    const handleMouseUp = () => {
-      if (isDragging || isResizing) {
-        // Salvar estado da janela quando parar de arrastar/redimensionar
-        saveWindowState(position, size);
-      }
-      setIsDragging(false);
-      setIsResizing(false);
-    };
-
-    if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, isResizing, dragOffset, resizeStart, isMaximized, position, size]);
-
-  // Salvar estado quando a janela for fechada
-  useEffect(() => {
-    if (!isOpen) {
-      saveWindowState(position, size);
-    }
-  }, [isOpen, position, size]);
-
-  // Carregar estado de destacamento ao inicializar
-  useEffect(() => {
-    const savedDetached = localStorage.getItem('floatingWindowDetached');
-    if (savedDetached === 'true') {
-      setIsDetached(true);
-    }
-  }, []);
-
-  // Gerar opções para os dropdowns
-  const generateDayOptions = () => {
-    const days = [];
-    for (let i = 1; i <= (meet.lengthDays || 2); i++) {
-      days.push(<option key={i} value={i}>Dia {i}</option>);
-    }
-    return days;
-  };
-
-  const generatePlatformOptions = () => {
-    const platforms = [];
-    const maxPlatforms = meet.platformsOnDays?.[day - 1] || 1;
-    for (let i = 1; i <= maxPlatforms; i++) {
-      platforms.push(<option key={i} value={i}>Plataforma {i}</option>);
-    }
-    return platforms;
-  };
-
-  const generateFlightOptions = () => {
-    const flights = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-    return flights.map(flight => (
-      <option key={flight} value={flight}>Grupo {flight}</option>
-    ));
-  };
-
-  const generateAthleteOptions = () => {
-    const options = [
-      <option key="0" value="0">Selecione um atleta</option>
-    ];
-    
-    entriesInFlight.forEach((entry: any) => {
-      options.push(
-        <option key={entry.id} value={entry.id}>
-          {entry.name} - {entry.weightClass}
-        </option>
-      );
-    });
-    
-    return options;
-  };
-
-  // Monitorar mudanças no estado para sincronização automática
-  useEffect(() => {
-    console.log('🔄 FloatingWindow - Estado mudou, atualizando...', {
-      day, platform, flight, lift, attemptOneIndexed,
-      selectedEntryId, selectedAttempt, isAttemptActive,
-      totalEntries: entries.length,
-      filteredEntries: entriesInFlight.length
-    });
-  }, [day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive, entries, entriesInFlight]);
-
-  // NOVO useEffect: Detectar mudanças na ordem dos atletas e selecionar automaticamente
-  const lastOrderHash = useRef<string>('');
-  const isAutoSelecting = useRef<boolean>(false);
-  
-  useEffect(() => {
-    // Evitar execução se já estiver selecionando automaticamente
-    if (isAutoSelecting.current) {
-      return;
-    }
-    
-    // Se a ordem dos atletas mudou, selecionar automaticamente o primeiro
-    if (entriesInFlight.length > 0) {
-      // Obter a ordem dos atletas baseada no peso da tentativa atual
-      const { getStableOrderByWeight } = require('../../logic/liftingOrder');
-      const attemptsOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed);
-      
-      // Criar hash da ordem atual para detectar mudanças
-      const currentOrderHash = attemptsOrdered
-        .map((attempt: any) => `${attempt.entryId}:${attempt.weight}`)
-        .join('|');
-      
-      // Só executar se a ordem realmente mudou
-      if (currentOrderHash !== lastOrderHash.current && attemptsOrdered.length > 0) {
-        const firstAthlete = attemptsOrdered[0];
-        
-        // Verificar se o primeiro atleta da lista reorganizada está selecionado
-        if (selectedEntryId !== firstAthlete.entryId) {
-          console.log('🔄 FloatingWindow - Ordem mudou, selecionando primeiro atleta:', firstAthlete.entryId);
-          
-          // Marcar que está selecionando automaticamente para evitar loops
-          isAutoSelecting.current = true;
-          
-          // Selecionar automaticamente o primeiro atleta
-          dispatch(setSelectedEntryId(firstAthlete.entryId));
-          dispatch(setSelectedAttempt(attemptOneIndexed));
-          dispatch(setAttemptActive(true));
-          
-          console.log('✅ FloatingWindow - Primeiro atleta selecionado automaticamente:', firstAthlete.entryId);
-          
-          // Resetar flag após um delay para permitir que o estado se atualize
-          setTimeout(() => {
-            isAutoSelecting.current = false;
-          }, 100);
-        }
-        
-        // Atualizar hash da ordem
-        lastOrderHash.current = currentOrderHash;
-      }
-    }
-  }, [entriesInFlight, lift, attemptOneIndexed, selectedEntryId, dispatch]);
-
-  if (!isOpen) return null;
-
-  if (isMinimized) {
-    return (
-      <div 
-        className="floating-window-minimized"
-        style={{ 
-          position: 'fixed',
-          top: position.y,
-          left: position.x,
-          zIndex: 1000
-        }}
-        onClick={() => setIsMinimized(false)}
-      >
-        <div className="minimized-header">
-          <span>🏋️ Levantamentos</span>
-          <Button size="sm" variant="outline-secondary" onClick={(e) => { e.stopPropagation(); onClose(); }}>
-            ✕
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={windowRef}
-      className={`floating-window ${isMaximized ? 'maximized' : ''} ${isMultiScreen ? 'multi-screen' : ''} ${isDetached ? 'detached' : ''}`}
-      style={{
-        position: 'fixed',
-        top: position.y,
-        left: position.x,
-        width: size.width,
-        height: size.height,
-        zIndex: isDetached ? 9999 : 1000
-      }}
-      onMouseDown={handleMouseDown}
-    >
-      {/* Cabeçalho da janela */}
-      <div ref={headerRef} className="floating-window-header">
-        <div className="header-title">
-          <span>🏋️ Tela Flutuante - Levantamentos</span>
-          {isMultiScreen && <span className="multi-screen-indicator">🖥️</span>}
-          {isDetached && <span className="detached-indicator">📌</span>}
-        </div>
-        <div className="header-controls">
-          <Button size="sm" variant="outline-secondary" onClick={handleMinimize}>
-            <span>−</span>
-          </Button>
-          <Button size="sm" variant="outline-secondary" onClick={handleMaximize}>
-            <span>{isMaximized ? '⧉' : '⧉'}</span>
-          </Button>
-          {isMultiScreen && (
-            <Button size="sm" variant="outline-info" onClick={moveToOtherScreen} title="Mover para outro monitor">
-              <span>🔄</span>
-            </Button>
-          )}
-          <Button 
-            size="sm" 
-            variant="outline-success"
-            onClick={openAsPopup}
-            title="Abrir como janela independente (popup)"
-          >
-            <span>🪟</span>
-          </Button>
-          <Button size="sm" variant="outline-danger" onClick={onClose}>
-            <span>✕</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Conteúdo da janela */}
-      <div className="floating-window-content">
-        {/* Controles superiores */}
-        <div className="controls-section mb-3">
-          <Row>
-            <Col md={2}>
-              <Form.Group>
-                <Form.Label className="small text-muted">Dia</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={day}
-                  onChange={handleDayChange}
-                  className="custom-select"
-                >
-                  {generateDayOptions()}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group>
-                <Form.Label className="small text-muted">Plataforma</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={platform}
-                  onChange={handlePlatformChange}
-                  className="custom-select"
-                >
-                  {generatePlatformOptions()}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group>
-                <Form.Label className="small text-muted">Movimento</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={lift}
-                  onChange={handleLiftChange}
-                  className="custom-select"
-                >
-                  <option value="S">Agachamento</option>
-                  <option value="B">Supino</option>
-                  <option value="D">Levantamento Terra</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group>
-                <Form.Label className="small text-muted">Grupo</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={flight}
-                  onChange={handleFlightChange}
-                  className="custom-select"
-                >
-                  {generateFlightOptions()}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group>
-                <Form.Label className="small text-muted">Tentativa</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={selectedAttempt}
-                  onChange={handleAttemptChange}
-                  className="custom-select"
-                >
-                  <option value={1}>Tentativa 1</option>
-                  <option value={2}>Tentativa 2</option>
-                  <option value={3}>Tentativa 3</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={2}>
-              <Form.Group>
-                <Form.Label className="small text-muted">Atleta</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={selectedEntryId || 0}
-                  onChange={handleAthleteChange}
-                  className="custom-select"
-                >
-                  {generateAthleteOptions()}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-          </Row>
-        </div>
-
-        {/* Botões de ação */}
-        <div className="action-buttons mb-3">
-          <Row>
-            <Col md={6}>
-              <div className="btn-group me-2" role="group">
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={() => console.log('Alternar pesagens')}
-                >
-                  Alternar Pesagens
-                </Button>
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={openInFullscreen}
-                >
-                  {document.fullscreenElement ? 'Sair da Tela Cheia' : 'Tela Cheia'}
-                </Button>
-                {isMultiScreen && (
-                  <Button
-                    variant="outline-info"
-                    size="sm"
-                    onClick={moveToOtherScreen}
-                    title="Mover para outro monitor"
-                  >
-                    Mover Monitor
-                  </Button>
-                )}
-                <Button
-                  variant="outline-success"
-                  size="sm"
-                  onClick={openAsPopup}
-                  title="Abrir como janela independente (popup)"
-                >
-                  Abrir Popup
-                </Button>
+      if (popup) {
+        // Criar conteúdo HTML simples
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html lang="pt-BR">
+          <head>
+            <meta charset="UTF-8">
+            <title>Levantamentos</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: #f0f0f0;
+                color: #333;
+              }
+              .container {
+                max-width: 700px;
+                margin: 0 auto;
+                background: white;
+                border-radius: 10px;
+                padding: 30px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+              }
+              h1 {
+                text-align: center;
+                color: #2c3e50;
+                margin-bottom: 30px;
+                font-size: 2em;
+              }
+              .info-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 20px;
+                margin-bottom: 30px;
+              }
+              .info-item {
+                background: #ecf0f1;
+                padding: 20px;
+                border-radius: 8px;
+                text-align: center;
+              }
+              .info-item h3 {
+                margin: 0 0 10px 0;
+                color: #7f8c8d;
+                font-size: 1em;
+              }
+              .info-item p {
+                margin: 0;
+                font-size: 1.5em;
+                font-weight: bold;
+                color: #2c3e50;
+              }
+              .timestamp {
+                text-align: center;
+                color: #7f8c8d;
+                font-style: italic;
+                padding: 20px;
+                background: #ecf0f1;
+                border-radius: 8px;
+              }
+              .status {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #27ae60;
+                color: white;
+                padding: 8px 15px;
+                border-radius: 20px;
+                font-size: 0.9em;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="status" id="status">🔄 Atualizando...</div>
+            <div class="container">
+              <h1>🏋️ Levantamentos</h1>
+              <div class="info-grid">
+                <div class="info-item">
+                  <h3>Dia</h3>
+                  <p id="day">-</p>
+                </div>
+                <div class="info-item">
+                  <h3>Plataforma</h3>
+                  <p id="platform">-</p>
+                </div>
+                <div class="info-item">
+                  <h3>Grupo</h3>
+                  <p id="flight">-</p>
+                </div>
+                <div class="info-item">
+                  <h3>Movimento</h3>
+                  <p id="lift">-</p>
+                </div>
+                <div class="info-item">
+                  <h3>Tentativa</h3>
+                  <p id="attempt">-</p>
+                </div>
+                <div class="info-item">
+                  <h3>Atleta</h3>
+                  <p id="athlete">-</p>
+                </div>
               </div>
-            </Col>
-            <Col md={6} className="text-end">
-              <Button
-                variant="danger"
-                size="sm"
-                className="me-2"
-                onClick={handleNoLift}
-                disabled={!isAttemptActive || !selectedEntryId}
-              >
-                Inválido
-              </Button>
-              <Button
-                variant="success"
-                size="sm"
-                onClick={handleGoodLift}
-                disabled={!isAttemptActive || !selectedEntryId}
-              >
-                Válido
-              </Button>
-            </Col>
-          </Row>
-        </div>
-
-        {/* Tabela de levantamentos */}
-        <div className="table-section">
-          {entriesInFlight.length === 0 ? (
-            <div className="no-athletes-message">
-              <div className="alert alert-warning text-center">
-                <strong>⚠️ Nenhum atleta encontrado</strong><br />
-                Verifique as configurações de Dia, Plataforma e Grupo
+              <div class="timestamp">
+                <strong>Última atualização:</strong> <span id="timestamp">-</span>
               </div>
             </div>
-          ) : (
-            <LiftingTable
-              orderedEntries={entriesInFlight}
-              currentEntryId={selectedEntryId}
-              attemptOneIndexed={selectedAttempt}
-            />
-          )}
-        </div>
+            
+            <script>
+              // Função para atualizar dados
+              function updateData(data) {
+                document.getElementById('day').textContent = data.day;
+                document.getElementById('platform').textContent = data.platform;
+                document.getElementById('flight').textContent = data.flight;
+                document.getElementById('lift').textContent = data.lift;
+                document.getElementById('attempt').textContent = data.attempt;
+                document.getElementById('athlete').textContent = data.athlete;
+                document.getElementById('timestamp').textContent = data.timestamp;
+              }
+              
+              // Listener para mensagens
+              window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'UPDATE_DATA') {
+                  updateData(event.data.data);
+                }
+              });
+              
+              // Verificar conexão
+              setInterval(() => {
+                try {
+                  if (window.opener && !window.opener.closed) {
+                    document.getElementById('status').textContent = '✅ Conectado';
+                    document.getElementById('status').style.background = '#27ae60';
+                  } else {
+                    document.getElementById('status').textContent = '❌ Desconectado';
+                    document.getElementById('status').style.background = '#e74c3c';
+                  }
+                } catch (e) {
+                  document.getElementById('status').textContent = '❌ Desconectado';
+                  document.getElementById('status').style.background = '#e74c3c';
+                }
+              }, 1000);
+            </script>
+          </body>
+          </html>
+        `;
+        
+        popup.document.write(htmlContent);
+        popup.document.close();
+        
+        // Focar no popup
+        popup.focus();
+        
+        // Fechar a janela flutuante
+        onClose();
+        
+        // Iniciar atualização automática
+        startAutoUpdate(popup);
+      } else {
+        alert('Popup bloqueado pelo navegador. Permita popups para este site.');
+      }
+    } catch (error) {
+      console.error('Erro ao abrir popup:', error);
+      alert('Erro ao abrir popup.');
+    }
+  };
 
-        {/* Handle para redimensionar */}
-        <div
-          ref={resizeHandleRef}
-          className="resize-handle"
-          onMouseDown={handleResizeMouseDown}
-        />
-      </div>
-    </div>
-  );
+  const startAutoUpdate = (popup: Window) => {
+    const interval = setInterval(() => {
+      try {
+        if (popup.closed) {
+          clearInterval(interval);
+          return;
+        }
+
+        // Preparar dados
+        const liftLabels = {
+          'S': 'Agachamento',
+          'B': 'Supino',
+          'D': 'Levantamento Terra'
+        };
+
+        const data = {
+          day: `Dia ${day}`,
+          platform: `Plataforma ${platform}`,
+          flight: `Grupo ${flight}`,
+          lift: liftLabels[lift] || lift,
+          attempt: `Tentativa ${selectedAttempt}`,
+          athlete: selectedEntryId ? `ID: ${selectedEntryId}` : 'Nenhum',
+          timestamp: new Date().toLocaleTimeString('pt-BR')
+        };
+
+        // Enviar dados para o popup
+        popup.postMessage({
+          type: 'UPDATE_DATA',
+          data: data
+        }, '*');
+
+      } catch (error) {
+        console.warn('Erro na atualização:', error);
+      }
+    }, 500); // Atualizar a cada 500ms
+  };
+
+  // Não renderizar nada - apenas abrir popup
+  return null;
 };
 
 export default FloatingLiftingWindow;

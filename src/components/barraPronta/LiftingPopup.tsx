@@ -13,15 +13,9 @@ const LiftingPopup: React.FC = () => {
   const { entries } = useSelector((state: RootState) => state.registration);
   const meet = useSelector((state: RootState) => state.meet);
 
-  // Debug: mostrar estado atual
-  console.log('🔍 LiftingPopup - Estado atual:', { 
-    day, platform, flight, lift, attemptOneIndexed, 
-    selectedEntryId, selectedAttempt, isAttemptActive 
-  });
-  console.log('🔍 LiftingPopup - Total de atletas:', entries.length);
-
   // Estados para controle da janela popup
   const [windowSize, setWindowSize] = useState({ width: 1200, height: 800 });
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   // Filtrar atletas pelo dia, plataforma e grupo atual
   const entriesInFlight = entries.filter((entry: any) => 
@@ -30,7 +24,14 @@ const LiftingPopup: React.FC = () => {
     entry.flight === flight
   );
 
-  console.log('🔍 LiftingPopup - Atletas filtrados:', entriesInFlight.length, { day, platform, flight });
+  // Sistema de reload automático a cada 5 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      window.location.reload(); // força reload como F5
+    }, 1000); // 1000 ms para não ser muito agressivo
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Monitorar mudanças no estado para sincronização automática
   useEffect(() => {
@@ -103,23 +104,19 @@ const LiftingPopup: React.FC = () => {
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize(); // Definir tamanho inicial
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Handlers para os dropdowns
   const handleDayChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newDay = parseInt(event.target.value);
-    console.log('🎯 Popup - handleDayChange chamado:', { newDay });
+    console.log('🎯 LiftingPopup - handleDayChange chamado:', { newDay });
     dispatch({ type: 'lifting/setDay', payload: newDay });
   };
 
   const handlePlatformChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newPlatform = parseInt(event.target.value);
-    console.log('🎯 Popup - handlePlatformChange chamado:', { newPlatform });
+    console.log('🎯 LiftingPopup - handlePlatformChange chamado:', { newPlatform });
     dispatch({ type: 'lifting/setPlatform', payload: newPlatform });
   };
 
@@ -130,13 +127,13 @@ const LiftingPopup: React.FC = () => {
 
   const handleFlightChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newFlight = event.target.value;
-    console.log('🎯 Popup - handleFlightChange chamado:', { newFlight });
+    console.log('🎯 LiftingPopup - handleFlightChange chamado:', { newFlight });
     dispatch({ type: 'lifting/setFlight', payload: newFlight });
   };
 
   const handleAttemptChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newAttempt = parseInt(event.target.value);
-    console.log('🎯 Popup - handleAttemptChange chamado:', { newAttempt, selectedEntryId });
+    console.log('🎯 LiftingPopup - handleAttemptChange chamado:', { newAttempt, selectedEntryId });
     
     dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
     
@@ -148,7 +145,7 @@ const LiftingPopup: React.FC = () => {
 
   const handleAthleteChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const entryId = parseInt(event.target.value);
-    console.log('🎯 Popup - handleAthleteChange chamado:', { entryId, selectedAttempt });
+    console.log('🎯 LiftingPopup - handleAthleteChange chamado:', { entryId, selectedAttempt });
     
     if (entryId > 0) {
       console.log('✅ Selecionando atleta:', entryId, 'tentativa:', selectedAttempt);
@@ -162,16 +159,12 @@ const LiftingPopup: React.FC = () => {
 
   // Handlers para as ações
   const handleGoodLift = () => {
-    console.log('🎯 Popup - handleGoodLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
+    console.log('🎯 LiftingPopup - handleGoodLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
       console.log('✅ Marcando Good Lift para:', selectedEntryId, selectedAttempt);
       dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 1, 0) as any);
       console.log(`Good Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
-      
-      // CORREÇÃO: Navegar automaticamente para o próximo após marcar Good Lift
-      // Implementar lógica similar ao LiftingFooter
-      navigateToNextAfterAttempt();
     } else {
       console.log('❌ Não é possível marcar Good Lift:', { selectedEntryId, isAttemptActive });
       alert('Selecione um atleta e uma tentativa primeiro!');
@@ -179,48 +172,16 @@ const LiftingPopup: React.FC = () => {
   };
 
   const handleNoLift = () => {
-    console.log('🎯 Popup - handleNoLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
+    console.log('🎯 LiftingPopup - handleNoLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
       console.log('✅ Marcando No Lift para:', selectedEntryId, selectedAttempt);
       dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 2, 0) as any);
       console.log(`No Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
-      
-      // CORREÇÃO: Navegar automaticamente para o próximo após marcar No Lift
-      // Implementar lógica similar ao LiftingFooter
-      navigateToNextAfterAttempt();
     } else {
       console.log('❌ Não é possível marcar No Lift:', { selectedEntryId, isAttemptActive });
       alert('Selecione um atleta e uma tentativa primeiro!');
     }
-  };
-
-  // CORREÇÃO: Função para navegar para o próximo após marcar tentativa
-  const navigateToNextAfterAttempt = () => {
-    // Implementar lógica de navegação similar ao LiftingFooter
-    // Por enquanto, apenas resetar a seleção para permitir seleção manual
-    dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
-    dispatch({ type: 'lifting/setAttemptActive', payload: false });
-    console.log('🔄 Tentativa marcada, resetando seleção para próxima seleção manual');
-  };
-
-  // Função para fechar a janela popup
-  const closePopup = () => {
-    window.close();
-  };
-
-  // Função para maximizar a janela popup
-  const maximizePopup = () => {
-    if (window.screen.availWidth && window.screen.availHeight) {
-      window.resizeTo(window.screen.availWidth - 40, window.screen.availHeight - 40);
-      window.moveTo(20, 20);
-    }
-  };
-
-  // Função para minimizar a janela popup
-  const minimizePopup = () => {
-    window.resizeTo(400, 300);
-    window.moveTo(20, 20);
   };
 
   // Gerar opções para os dropdowns
@@ -253,7 +214,7 @@ const LiftingPopup: React.FC = () => {
       <option key="0" value="0">Selecione um atleta</option>
     ];
     
-    entriesInFlight.forEach(entry => {
+    entriesInFlight.forEach((entry: any) => {
       options.push(
         <option key={entry.id} value={entry.id}>
           {entry.name} - {entry.weightClass}
@@ -266,44 +227,163 @@ const LiftingPopup: React.FC = () => {
 
   return (
     <div className="lifting-popup">
-      {/* Cabeçalho da janela popup */}
+      {/* Indicador de reload automático */}
+      <div className="auto-update-indicator">
+        <span className="update-status">🔄 Reload automático a cada 5 segundos</span>
+        <span className="last-update">Última atualização: {lastUpdate.toLocaleTimeString('pt-BR')}</span>
+      </div>
+
+      {/* Cabeçalho */}
       <div className="popup-header">
-        <div className="header-title">
-          <span>🏋️ Tabela de Levantamentos - {lift === 'S' ? 'Agachamento' : lift === 'B' ? 'Supino' : 'Levantamento Terra'}</span>
-          <span className="popup-indicator">🪟</span>
-        </div>
-        <div className="header-controls">
-          <Button size="sm" variant="outline-secondary" onClick={minimizePopup} title="Minimizar">
-            <span>−</span>
-          </Button>
-          <Button size="sm" variant="outline-secondary" onClick={maximizePopup} title="Maximizar">
-            <span>⧉</span>
-          </Button>
-          <Button size="sm" variant="outline-danger" onClick={closePopup} title="Fechar">
-            <span>✕</span>
-          </Button>
+        <h2>🏋️ Levantamentos - Tempo Real</h2>
+        <div className="header-info">
+          <span>Dia: {day}</span>
+          <span>Plataforma: {platform}</span>
+          <span>Grupo: {flight}</span>
+          <span>Movimento: {lift}</span>
         </div>
       </div>
 
-      {/* Conteúdo da janela popup - APENAS TABELA DE VISUALIZAÇÃO */}
-      <div className="popup-content">
-        {/* Tabela de levantamentos - APENAS PARA VISUALIZAÇÃO */}
-        <div className="table-section">
-          {entriesInFlight.length === 0 ? (
-            <div className="no-athletes-message">
-              <div className="alert alert-info text-center">
-                <strong>📊 Aguardando dados da tela principal...</strong><br />
-                Configure os levantamentos na tela principal para ver os dados aqui
-              </div>
+      {/* Controles superiores */}
+      <div className="controls-section">
+        <Row>
+          <Col md={2}>
+            <Form.Group>
+              <Form.Label className="small text-muted">Dia</Form.Label>
+              <Form.Select
+                size="sm"
+                value={day}
+                onChange={handleDayChange}
+                className="custom-select"
+              >
+                {generateDayOptions()}
+              </Form.Select>
+            </Form.Group>
+          </Col>
+          <Col md={2}>
+            <Form.Group>
+              <Form.Label className="small text-muted">Plataforma</Form.Label>
+              <Form.Select
+                size="sm"
+                value={platform}
+                onChange={handlePlatformChange}
+                className="custom-select"
+              >
+                {generatePlatformOptions()}
+              </Form.Select>
+            </Form.Group>
+          </Col>
+          <Col md={2}>
+            <Form.Group>
+              <Form.Label className="small text-muted">Movimento</Form.Label>
+              <Form.Select
+                size="sm"
+                value={lift}
+                onChange={handleLiftChange}
+                className="custom-select"
+              >
+                <option value="S">Agachamento</option>
+                <option value="B">Supino</option>
+                <option value="D">Levantamento Terra</option>
+              </Form.Select>
+            </Form.Group>
+          </Col>
+          <Col md={2}>
+            <Form.Group>
+              <Form.Label className="small text-muted">Grupo</Form.Label>
+              <Form.Select
+                size="sm"
+                value={flight}
+                onChange={handleFlightChange}
+                className="custom-select"
+              >
+                {generateFlightOptions()}
+              </Form.Select>
+            </Form.Group>
+          </Col>
+          <Col md={2}>
+            <Form.Group>
+              <Form.Label className="small text-muted">Tentativa</Form.Label>
+              <Form.Select
+                size="sm"
+                value={selectedAttempt}
+                onChange={handleAttemptChange}
+                className="custom-select"
+              >
+                <option value={1}>Tentativa 1</option>
+                <option value={2}>Tentativa 2</option>
+                <option value={3}>Tentativa 3</option>
+              </Form.Select>
+            </Form.Group>
+          </Col>
+          <Col md={2}>
+            <Form.Group>
+              <Form.Label className="small text-muted">Atleta</Form.Label>
+              <Form.Select
+                size="sm"
+                value={selectedEntryId || 0}
+                onChange={handleAthleteChange}
+                className="custom-select"
+              >
+                {generateAthleteOptions()}
+              </Form.Select>
+            </Form.Group>
+          </Col>
+        </Row>
+      </div>
+
+      {/* Botões de ação */}
+      <div className="action-buttons">
+        <Row>
+          <Col md={6}>
+            <div className="btn-group" role="group">
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={() => console.log('Alternar pesagens')}
+              >
+                Alternar Pesagens
+              </Button>
             </div>
-          ) : (
-            <LiftingTable
-              orderedEntries={entriesInFlight}
-              currentEntryId={selectedEntryId}
-              attemptOneIndexed={selectedAttempt}
-            />
-          )}
-        </div>
+          </Col>
+          <Col md={6} className="text-end">
+            <Button
+              variant="danger"
+              size="sm"
+              className="me-2"
+              onClick={handleNoLift}
+              disabled={!isAttemptActive || !selectedEntryId}
+            >
+              Inválido
+            </Button>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={handleGoodLift}
+              disabled={!isAttemptActive || !selectedEntryId}
+            >
+              Válido
+            </Button>
+          </Col>
+        </Row>
+      </div>
+
+      {/* Tabela de levantamentos */}
+      <div className="table-section">
+        {entriesInFlight.length === 0 ? (
+          <div className="no-athletes-message">
+            <div className="alert alert-warning text-center">
+              <strong>⚠️ Nenhum atleta encontrado</strong><br />
+              Verifique as configurações de Dia, Plataforma e Grupo
+            </div>
+          </div>
+        ) : (
+          <LiftingTable
+            orderedEntries={entriesInFlight}
+            currentEntryId={selectedEntryId}
+            attemptOneIndexed={selectedAttempt}
+          />
+        )}
       </div>
     </div>
   );

@@ -58,7 +58,8 @@ const initialState: GlobalState = {
     overrideAttempt: null,
     selectedEntryId: null,
     selectedAttempt: 1,
-    isAttemptActive: false
+    isAttemptActive: false,
+    attemptTimers: new Map()
   }
 };
 

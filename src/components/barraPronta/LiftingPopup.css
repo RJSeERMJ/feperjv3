@@ -408,3 +408,72 @@
 .lifting-popup .btn-danger:hover::before {
   left: 100%;
 }
+
+/* Estilos para o indicador de atualização automática */
+.auto-update-indicator {
+  background: linear-gradient(90deg, #4CAF50, #45a049);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 0 0 15px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9em;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+.auto-update-indicator .update-status {
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auto-update-indicator .last-update {
+  opacity: 0.9;
+  font-size: 0.85em;
+}
+
+.auto-update-indicator .update-count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-weight: bold;
+  font-size: 0.85em;
+}
+
+/* Responsividade para o indicador */
+@media (max-width: 768px) {
+  .auto-update-indicator {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+    padding: 15px 20px;
+  }
+  
+  .auto-update-indicator .update-status,
+  .auto-update-indicator .last-update,
+  .auto-update-indicator .update-count {
+    font-size: 0.8em;
+  }
+}
+
+@media (max-width: 480px) {
+  .auto-update-indicator {
+    padding: 12px 15px;
+  }
+  
+  .auto-update-indicator .update-status,
+  .auto-update-indicator .last-update,
+  .auto-update-indicator .update-count {
+    font-size: 0.75em;
+  }
+}

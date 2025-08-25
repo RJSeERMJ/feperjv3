@@ -13,6 +13,7 @@ const initialState: LiftingState = {
   selectedEntryId: null, // ID do atleta selecionado
   selectedAttempt: 1, // Tentativa selecionada (1, 2 ou 3)
   isAttemptActive: false, // Se a tentativa está ativa para marcação
+  attemptTimers: new Map(), // Timer para controle de tempo após marcar tentativa
 };
 
 const liftingSlice = createSlice({
@@ -90,6 +91,32 @@ const liftingSlice = createSlice({
       state.selectedEntryId = null;
       state.selectedAttempt = 1;
       state.isAttemptActive = false;
+      state.attemptTimers = new Map();
+    },
+
+    // Iniciar timer para uma tentativa
+    startAttemptTimer: (state: LiftingState, action: PayloadAction<{ entryId: number; attempt: number }>) => {
+      const { entryId, attempt } = action.payload;
+      const timerKey = `${entryId}-${attempt}`;
+      const startTime = Date.now();
+      
+      state.attemptTimers.set(timerKey, { startTime, isActive: true });
+      console.log('⏰ Timer iniciado globalmente para tentativa:', { entryId, attempt, startTime });
+    },
+
+    // Parar timer para uma tentativa
+    stopAttemptTimer: (state: LiftingState, action: PayloadAction<{ entryId: number; attempt: number }>) => {
+      const { entryId, attempt } = action.payload;
+      const timerKey = `${entryId}-${attempt}`;
+      
+      state.attemptTimers.delete(timerKey);
+      console.log('⏰ Timer parado globalmente para tentativa:', { entryId, attempt });
+    },
+
+    // Limpar todos os timers
+    clearAllTimers: (state: LiftingState) => {
+      state.attemptTimers.clear();
+      console.log('⏰ Todos os timers foram limpos');
     },
 
     // Próximo movimento (S -> B -> D -> S...)
@@ -141,6 +168,9 @@ export const {
   setAttemptActive,
   selectAthleteAndAttempt,
   resetLifting,
+  startAttemptTimer,
+  stopAttemptTimer,
+  clearAllTimers,
   nextLift,
   previousLift,
 } = liftingSlice.actions;

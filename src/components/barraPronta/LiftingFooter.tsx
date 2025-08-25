@@ -3,8 +3,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Button, Row, Col, Form } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { updateEntry } from '../../actions/barraProntaActions';
-import { Lift, LiftStatus } from '../../types/barraProntaTypes';
+import { Lift, LiftStatus, LiftingState } from '../../types/barraProntaTypes';
 import { getLiftingOrder, getStableOrderByWeight } from '../../logic/liftingOrder';
+import { useTimer } from '../../hooks/useTimer';
 import './LiftingFooter.css';
 
 const LiftingFooter: React.FC = () => {
@@ -21,7 +22,7 @@ const LiftingFooter: React.FC = () => {
   );
 
   // Obter a ordem de levantamentos atualizada
-  const liftingOrder = getLiftingOrder(entriesInFlight, { day, platform, flight, lift, attemptOneIndexed, overrideEntryId: null, overrideAttempt: null, selectedEntryId, selectedAttempt, isAttemptActive });
+  const liftingOrder = getLiftingOrder(entriesInFlight, { day, platform, flight, lift, attemptOneIndexed, overrideEntryId: null, overrideAttempt: null, selectedEntryId, selectedAttempt, isAttemptActive, attemptTimers: new Map() } as LiftingState);
 
   // Debug: mostrar estado atual
   console.log('🔍 LiftingFooter - Estado atual:', { 
@@ -148,6 +149,61 @@ const LiftingFooter: React.FC = () => {
     
     const weightField = getWeightField(attempt);
     return (entry as any)[weightField] || 0;
+  };
+
+  // NOVA FUNÇÃO: Obter o status da tentativa anterior
+  const getPreviousAttemptStatus = (entryId: number, attempt: number): LiftStatus => {
+    if (attempt <= 1) return 0; // Primeira tentativa não tem anterior
+    
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return 0;
+    
+    const statusField = getStatusField();
+    const statusArray = (entry as any)[statusField] || [];
+    
+    return statusArray[attempt - 2] || 0; // attempt - 2 porque array é 0-indexed
+  };
+
+  // NOVA FUNÇÃO: Calcular peso automático quando timer expira
+  const calculateAutoWeight = (entryId: number, attempt: number): number => {
+    if (attempt <= 1) return 0; // Primeira tentativa não tem peso automático
+    
+    const previousWeight = getCurrentAttemptWeight(entryId, attempt - 1);
+    const previousStatus = getPreviousAttemptStatus(entryId, attempt);
+    
+    if (previousWeight <= 0) return 0;
+    
+    // Se tentativa anterior foi válida (Good Lift), aumenta 2,5kg
+    if (previousStatus === 1) {
+      return previousWeight + 2.5;
+    }
+    // Se tentativa anterior foi inválida (No Lift), repete o mesmo peso
+    else if (previousStatus === 2) {
+      return previousWeight;
+    }
+    
+    return 0; // Para outros status, não aplica peso automático
+  };
+
+  // NOVA FUNÇÃO: Aplicar peso automático quando timer expira
+  const applyAutoWeight = (entryId: number, attempt: number) => {
+    const autoWeight = calculateAutoWeight(entryId, attempt);
+    
+    if (autoWeight > 0) {
+      const weightField = getWeightField(attempt);
+      const previousStatus = getPreviousAttemptStatus(entryId, attempt);
+      const statusText = previousStatus === 1 ? 'válida' : 'inválida';
+      
+      console.log(`⏰ Timer expirado: Aplicando peso automático ${autoWeight}kg (tentativa anterior foi ${statusText})`);
+      
+      dispatch(updateEntry(entryId, { [weightField]: autoWeight }));
+      
+      // Mostrar alerta informativo
+      alert(`⏰ TEMPO EXCEDIDO!\nPeso automático aplicado: ${autoWeight}kg\n(Tentativa anterior foi ${statusText})`);
+    } else {
+      console.log('⏰ Timer expirado: Não foi possível aplicar peso automático');
+      alert('⏰ TEMPO EXCEDIDO!\nNão foi possível aplicar peso automático.');
+    }
   };
 
   // Função para navegar automaticamente para o próximo atleta/tentativa/lift
@@ -410,42 +466,33 @@ const LiftingFooter: React.FC = () => {
     return currentStatus === 3; // No Attempt
   };
 
-  // NOVA FUNÇÃO: Timer para controle de tempo após marcar tentativa
-  const [attemptTimers, setAttemptTimers] = useState<Map<string, { startTime: number, isActive: boolean }>>(new Map());
-  const [showTimeExceededAlert, setShowTimeExceededAlert] = useState(false);
-
-  // Função para iniciar timer após marcar tentativa
-  const startAttemptTimer = (entryId: number, attempt: number) => {
-    const timerKey = `${entryId}-${attempt}`;
-    const startTime = Date.now();
-    
-    setAttemptTimers(prev => new Map(prev.set(timerKey, { startTime, isActive: true })));
-    
-    console.log('⏰ Timer iniciado para tentativa:', { entryId, attempt, startTime });
-  };
-
-  // Função para verificar se tempo foi excedido
-  const checkTimeExceeded = (entryId: number, attempt: number): boolean => {
-    const timerKey = `${entryId}-${attempt}`;
-    const timer = attemptTimers.get(timerKey);
-    
-    if (!timer || !timer.isActive) return false;
-    
-    const elapsedTime = Date.now() - timer.startTime;
-    const oneMinute = 60 * 1000; // 1 minuto em milissegundos
-    
-    return elapsedTime > oneMinute;
-  };
-
-  // Função para mostrar alerta de tempo excedido
-  const showTimeExceededAlertOnce = (entryId: number, attempt: number) => {
-    if (checkTimeExceeded(entryId, attempt) && !showTimeExceededAlert) {
-      setShowTimeExceededAlert(true);
-      alert('⚠️ ATENÇÃO: Tempo excedido! Esta tentativa foi marcada há mais de 1 minuto. Verifique se o peso foi inserido corretamente.');
-      
-      // Resetar alerta após mostrar
-      setTimeout(() => setShowTimeExceededAlert(false), 100);
+  // NOVO TIMER: Usar o hook personalizado com comportamento corrigido
+  const timer = useTimer({
+    duration: 60, // 60 segundos
+    onExpire: () => {
+      // Quando o timer expira, aplicar peso automático em vez de marcar como No Attempt
+      if (selectedEntryId && selectedAttempt) {
+        console.log('⏰ Timer expirado para atleta:', selectedEntryId, 'tentativa:', selectedAttempt);
+        
+        // Aplicar peso automático baseado no status da tentativa anterior
+        applyAutoWeight(selectedEntryId, selectedAttempt);
+        
+        // NÃO parar o timer - ele continua contando para o próximo atleta
+        console.log('⏰ Timer continua contando para próximo atleta');
+      }
     }
+  });
+
+  // Função para iniciar timer quando marcar uma tentativa
+  const startAttemptTimer = () => {
+    timer.start();
+    console.log('⏰ Timer iniciado para próxima tentativa do atleta atual');
+  };
+
+  // Função para verificar se uma tentativa pode ser marcada (SEM verificação de tempo)
+  const canMarkAttemptWithTimeCheck = (entryId: number, attempt: number): boolean => {
+    // REMOVIDO: Verificação de tempo expirado - timer não bloqueia marcação
+    return canMarkAttempt(entryId, attempt);
   };
 
   // NOVA FUNÇÃO: Mostrar mensagens de erro para tentativas
@@ -541,8 +588,8 @@ const LiftingFooter: React.FC = () => {
     console.log('🎯 handleGoodLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
-      // Verificar se a tentativa pode ser marcada
-      if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
+      // Verificar se a tentativa pode ser marcada (SEM verificação de tempo)
+      if (!canMarkAttemptWithTimeCheck(selectedEntryId, selectedAttempt)) {
         // Mostrar mensagem de erro específica
         showAttemptErrorMessage(selectedEntryId, selectedAttempt);
         return;
@@ -574,8 +621,8 @@ const LiftingFooter: React.FC = () => {
           
           console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para Good Lift`);
           
-          // INICIAR TIMER para esta tentativa
-          startAttemptTimer(selectedEntryId, selectedAttempt);
+          // INICIAR TIMER para próxima tentativa do mesmo atleta
+          startAttemptTimer();
           
           // Navegar automaticamente para o próximo - IMEDIATAMENTE
           navigateToNext();
@@ -591,8 +638,8 @@ const LiftingFooter: React.FC = () => {
     console.log('🎯 handleNoLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
-      // Verificar se a tentativa pode ser marcada
-      if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
+      // Verificar se a tentativa pode ser marcada (SEM verificação de tempo)
+      if (!canMarkAttemptWithTimeCheck(selectedEntryId, selectedAttempt)) {
         // Mostrar mensagem de erro específica
         showAttemptErrorMessage(selectedEntryId, selectedAttempt);
         return;
@@ -624,8 +671,8 @@ const LiftingFooter: React.FC = () => {
           
           console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para No Lift`);
           
-          // INICIAR TIMER para esta tentativa
-          startAttemptTimer(selectedEntryId, selectedAttempt);
+          // INICIAR TIMER para próxima tentativa do mesmo atleta
+          startAttemptTimer();
           
           // Navegar automaticamente para o próximo - IMEDIATAMENTE
           navigateToNext();
@@ -635,11 +682,6 @@ const LiftingFooter: React.FC = () => {
       console.log('❌ Não é possível marcar No Lift:', { selectedEntryId, isAttemptActive });
       alert('Selecione um atleta e uma tentativa primeiro!');
     }
-  };
-
-  const handleToggleWeights = () => {
-    // Implementar alternar pesagens
-    console.log('Alternar pesagens');
   };
 
   const handleToggleFullscreen = () => {
@@ -789,13 +831,18 @@ const LiftingFooter: React.FC = () => {
         <Col md={4}>
           <div className="right-controls">
             <div className="btn-group me-2" role="group">
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={handleToggleWeights}
-              >
-                Alternar Pesagens
-              </Button>
+              {/* Timer indicator no lugar do botão Alternar Pesagens */}
+              {timer.isActive ? (
+                <div className={`timer-display-btn ${timer.getTimerClass()}`}>
+                  <span className="timer-text">
+                    ⏰ {timer.formattedTime}
+                  </span>
+                </div>
+              ) : (
+                <div className="timer-display-btn timer-inactive">
+                  <span className="timer-text">⏰ --</span>
+                </div>
+              )}
               <Button
                 variant="outline-secondary"
                 size="sm"

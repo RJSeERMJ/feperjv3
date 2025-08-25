@@ -32,6 +32,7 @@ export interface LiftingState {
   selectedEntryId: number | null; // ID do atleta selecionado
   selectedAttempt: number; // Tentativa selecionada (1, 2 ou 3)
   isAttemptActive: boolean; // Se a tentativa está ativa para marcação
+  attemptTimers: Map<string, { startTime: number; isActive: boolean }>; // Timer para controle de tempo
 }
 
 export interface LiftingOrder {
