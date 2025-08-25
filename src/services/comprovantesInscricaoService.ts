@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { atletaService, equipeService, competicaoService, inscricaoService } from './firebaseService';
+import { notificacoesService } from './notificacoesService';
 
 // Interface para comprovante de inscrição
 export interface ComprovanteInscricao {
@@ -303,6 +304,20 @@ export const comprovantesInscricaoService = {
         competicao: dadosReais.nomeCompeticao,
         arquivo: file.name
       });
+
+      // Criar notificação automática no mural
+      try {
+        await notificacoesService.criarNotificacaoAutomatica(
+          equipeId,
+          dadosReais.nomeEquipe,
+          'COMPROVANTE_INSCRICAO',
+          file.name
+        );
+        console.log('✅ Notificação criada automaticamente');
+      } catch (error) {
+        console.error('❌ Erro ao criar notificação:', error);
+        // Não falhar o upload se a notificação falhar
+      }
 
       return comprovante;
     } catch (error) {

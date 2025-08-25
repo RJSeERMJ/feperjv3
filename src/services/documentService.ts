@@ -1,4 +1,6 @@
 import { supabase, STORAGE_CONFIG, validateFileExtension, validateFileSize } from '../config/supabase';
+import { notificacoesService } from './notificacoesService';
+import { atletaService, equipeService } from './firebaseService';
 
 export interface Documento {
   id?: string;
@@ -12,6 +14,34 @@ export interface Documento {
   dataUpload: Date;
   contentType: string;
 }
+
+// Função para buscar dados do atleta e equipe
+const buscarDadosAtletaEquipe = async (atletaId: string) => {
+  try {
+    const atleta = await atletaService.getById(atletaId);
+    if (!atleta) {
+      throw new Error(`Atleta com ID ${atletaId} não encontrado`);
+    }
+    
+    if (!atleta.idEquipe) {
+      throw new Error(`Atleta ${atleta.nome} não possui equipe associada`);
+    }
+    
+    const equipe = await equipeService.getById(atleta.idEquipe);
+    if (!equipe) {
+      throw new Error(`Equipe com ID ${atleta.idEquipe} não encontrada`);
+    }
+    
+    return {
+      nomeAtleta: atleta.nome,
+      nomeEquipe: equipe.nomeEquipe,
+      idEquipe: equipe.id
+    };
+  } catch (error) {
+    console.error('Erro ao buscar dados do atleta/equipe:', error);
+    throw error;
+  }
+};
 
 export const documentService = {
   // Gerar URL temporária com expiração
@@ -86,6 +116,43 @@ export const documentService = {
         dataUpload: new Date(),
         contentType: file.type
       };
+
+      // Criar notificação automática no mural
+      try {
+        const dadosAtletaEquipe = await buscarDadosAtletaEquipe(atletaId);
+        
+        // Mapear tipo de documento para o tipo de notificação
+        let tipoNotificacao: 'COMPROVANTE_RESIDENCIA' | 'FOTO_3X4' | 'CERTIFICADO_ADEL' | 'COMPROVANTE_INSCRICAO';
+        
+        switch (documentType) {
+          case 'comprovante-residencia':
+            tipoNotificacao = 'COMPROVANTE_RESIDENCIA';
+            break;
+          case 'foto-3x4':
+            tipoNotificacao = 'FOTO_3X4';
+            break;
+          case 'certificado-adel':
+            tipoNotificacao = 'CERTIFICADO_ADEL';
+            break;
+          case 'matricula':
+            tipoNotificacao = 'COMPROVANTE_INSCRICAO';
+            break;
+          default:
+            tipoNotificacao = 'COMPROVANTE_RESIDENCIA';
+        }
+
+        await notificacoesService.criarNotificacaoAutomatica(
+          dadosAtletaEquipe.idEquipe!,
+          dadosAtletaEquipe.nomeEquipe,
+          tipoNotificacao,
+          `${dadosAtletaEquipe.nomeAtleta} - ${file.name}`
+        );
+        
+        console.log('✅ Notificação criada automaticamente para documento do atleta');
+      } catch (error) {
+        console.error('❌ Erro ao criar notificação:', error);
+        // Não falhar o upload se a notificação falhar
+      }
 
       return documento;
     } catch (error) {

@@ -14,6 +14,8 @@ import { Bar, Pie } from 'react-chartjs-2';
 import { FaUsers, FaTrophy, FaUserFriends, FaChartLine } from 'react-icons/fa';
 import { dashboardService } from '../services/firebaseService';
 import { DashboardStats } from '../types';
+import MuralAvisos from './MuralAvisos';
+import { useAuth } from '../contexts/AuthContext';
 
 ChartJS.register(
   CategoryScale,
@@ -29,6 +31,7 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     loadStats();
@@ -73,23 +76,7 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const pieData = {
-    labels: ['Masculino', 'Feminino'],
-    datasets: [
-      {
-        data: [stats.atletasPorSexo.masculino, stats.atletasPorSexo.feminino],
-        backgroundColor: [
-          'rgba(54, 162, 235, 0.8)',
-          'rgba(255, 99, 132, 0.8)',
-        ],
-        borderColor: [
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 99, 132, 1)',
-        ],
-        borderWidth: 1,
-      },
-    ],
-  };
+  // Removido o gráfico de distribuição por sexo
 
   const barData = {
     labels: stats.atletasPorEquipe.map(item => item.equipe),
@@ -186,21 +173,8 @@ const Dashboard: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Gráficos */}
+      {/* Gráficos e Mural de Avisos */}
       <Row>
-        <Col lg={6} className="mb-4">
-          <Card>
-            <Card.Header>
-              <h5 className="mb-0">Distribuição por Sexo</h5>
-            </Card.Header>
-            <Card.Body>
-              <div style={{ height: '300px' }}>
-                <Pie data={pieData} options={chartOptions} />
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-        
         <Col lg={6} className="mb-4">
           <Card>
             <Card.Header>
@@ -212,6 +186,10 @@ const Dashboard: React.FC = () => {
               </div>
             </Card.Body>
           </Card>
+        </Col>
+        
+        <Col lg={6} className="mb-4">
+          <MuralAvisos idEquipe={user?.tipo !== 'admin' ? user?.idEquipe : undefined} />
         </Col>
       </Row>
 

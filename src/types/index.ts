@@ -181,6 +181,20 @@ export interface DashboardStats {
   maioresTotaisFeminino: Array<{ atleta: string; total: number }>;
 }
 
+export interface NotificacaoDocumento {
+  id?: string;
+  idEquipe: string;
+  nomeEquipe: string;
+  tipoDocumento: 'COMPROVANTE_INSCRICAO' | 'COMPROVANTE_ANUIDADE' | 'COMPROVANTE_RESIDENCIA' | 'FOTO_3X4' | 'CERTIFICADO_ADEL';
+  nomeDocumento: string;
+  dataEnvio: Date;
+  status: 'PENDENTE' | 'APROVADO' | 'RECUSADO' | 'EXCLUIDO';
+  observacoes?: string;
+  aprovadoPor?: string;
+  dataAprovacao?: Date;
+  dataExclusao?: Date;
+}
+
 export interface LoginCredentials {
   login: string;
   senha: string;

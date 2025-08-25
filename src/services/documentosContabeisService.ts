@@ -1,4 +1,5 @@
 import { supabase, CONTABIL_CONFIG } from '../config/supabase';
+import { notificacoesService } from './notificacoesService';
 
 // Interface para documento contábil
 export interface DocumentoContabil {
@@ -152,6 +153,20 @@ export const documentosContabeisService = {
         tamanho: file.size,
         contentType: file.type
       };
+
+      // Criar notificação automática no mural (documentos contábeis são sempre enviados por admin)
+      try {
+        await notificacoesService.criarNotificacaoAutomatica(
+          'admin', // ID especial para admin
+          'Administração FEPERJ',
+          tipo === 'DEMONSTRATIVO' ? 'COMPROVANTE_RESIDENCIA' : 'CERTIFICADO_ADEL', // Usando tipos existentes
+          file.name
+        );
+        console.log('✅ Notificação criada automaticamente');
+      } catch (error) {
+        console.error('❌ Erro ao criar notificação:', error);
+        // Não falhar o upload se a notificação falhar
+      }
 
       return documento;
     } catch (error) {

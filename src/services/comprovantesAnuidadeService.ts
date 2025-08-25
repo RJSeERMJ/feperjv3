@@ -1,5 +1,6 @@
 import { supabase, COMPROVANTES_CONFIG } from '../config/supabase';
 import { atletaService, equipeService, pagamentoService, anuidadeService } from './firebaseService';
+import { notificacoesService } from './notificacoesService';
 
 // Interface para log de aprovação (mantida para compatibilidade)
 export interface LogAprovacao {
@@ -301,6 +302,20 @@ export const comprovantesAnuidadeService = {
         equipe: dadosReais.nomeEquipe,
         arquivo: file.name
       });
+
+      // Criar notificação automática no mural
+      try {
+        await notificacoesService.criarNotificacaoAutomatica(
+          equipeId,
+          dadosReais.nomeEquipe,
+          'COMPROVANTE_ANUIDADE',
+          file.name
+        );
+        console.log('✅ Notificação criada automaticamente');
+      } catch (error) {
+        console.error('❌ Erro ao criar notificação:', error);
+        // Não falhar o upload se a notificação falhar
+      }
 
       return comprovante;
     } catch (error) {
