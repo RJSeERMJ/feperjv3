@@ -51,7 +51,21 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   const getAttemptStatus = (entry: any, attempt: number): LiftStatus => {
     const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
     const statusArray = entry[statusField] || [];
-    return statusArray[attempt - 1] || 0;
+    const status = statusArray[attempt - 1] || 0;
+    
+    // Debug: mostrar status apenas quando há status definido
+    if (status > 0) {
+      console.log('📊 STATUS DA TENTATIVA:', { 
+        entryId: entry.id, 
+        entryName: entry.name, 
+        attempt, 
+        status, 
+        statusText: status === 1 ? 'Good Lift' : status === 2 ? 'No Lift' : 'No Attempt',
+        lift 
+      });
+    }
+    
+    return status;
   };
 
   // Obter o peso de uma tentativa
@@ -73,7 +87,19 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   // Verificar se uma tentativa está selecionada no footer
   const isAttemptSelected = (entryId: number, attempt: number): boolean => {
     const isSelected = selectedEntryId === entryId && selectedAttempt === attempt && isAttemptActive;
-    console.log('🎯 isAttemptSelected:', { entryId, attempt, selectedEntryId, selectedAttempt, isAttemptActive, isSelected });
+    
+    // Debug mais detalhado apenas quando há seleção
+    if (isSelected) {
+      console.log('🎯 CÉLULA SELECIONADA:', { 
+        entryId, 
+        attempt, 
+        selectedEntryId, 
+        selectedAttempt, 
+        isAttemptActive,
+        entryName: orderedEntries.find(e => e.id === entryId)?.name 
+      });
+    }
+    
     return isSelected;
   };
 
@@ -243,11 +269,14 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
       classes += ` status-${attemptStatus}`;
     }
     
-    // Prioridade: Selecionado > Atual > Status
-    if (isSelected) {
-      classes += ' selected-attempt';
-    } else if (isCurrent) {
-      classes += ' current-attempt';
+    // CORREÇÃO: Prioridade corrigida - Status tem prioridade sobre seleção
+    // Apenas aplicar seleção/atual se não há status definido
+    if (attemptStatus === 0) {
+      if (isSelected) {
+        classes += ' selected-attempt';
+      } else if (isCurrent) {
+        classes += ' current-attempt';
+      }
     }
     
     if (!isAvailable) classes += ' blocked-attempt';

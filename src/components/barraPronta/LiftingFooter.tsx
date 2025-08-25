@@ -65,8 +65,16 @@ const LiftingFooter: React.FC = () => {
       .map(attempt => `${attempt.entryId}:${attempt.weight}`)
       .join('|');
     
-    // Só executar se a ordem realmente mudou
-    if (currentOrderHash !== lastOrderHash.current && attemptsOrdered.length > 0) {
+    console.log('🔄 autoSelectFirstAthlete - Verificando:', {
+      currentOrderHash,
+      lastOrderHash: lastOrderHash.current,
+      selectedEntryId,
+      attemptsOrderedLength: attemptsOrdered.length,
+      firstAthlete: attemptsOrdered[0]?.entryId
+    });
+    
+    // Só executar se a ordem realmente mudou ou se não há atleta selecionado
+    if ((currentOrderHash !== lastOrderHash.current || !selectedEntryId) && attemptsOrdered.length > 0) {
       const firstAthlete = attemptsOrdered[0];
       
       // Verificar se o primeiro atleta já está selecionado
@@ -120,7 +128,25 @@ const LiftingFooter: React.FC = () => {
     
     // NOVA FUNCIONALIDADE: Selecionar automaticamente o primeiro atleta
     autoSelectFirstAthlete();
-  }, [day, platform, flight, lift, attemptOneIndexed, entries, entriesInFlight, liftingOrder]);
+    
+    // CORREÇÃO: Verificar se o atleta selecionado ainda existe na lista atual
+    if (selectedEntryId && !entriesInFlight.find(e => e.id === selectedEntryId)) {
+      console.log('🔄 Atleta selecionado não encontrado na lista atual, resetando seleção');
+      dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
+      dispatch({ type: 'lifting/setAttemptActive', payload: false });
+    }
+    
+    // CORREÇÃO ADICIONAL: Forçar seleção automática se não há atleta selecionado
+    if (!selectedEntryId && entriesInFlight.length > 0) {
+      console.log('🔄 Nenhum atleta selecionado, forçando seleção automática');
+      setTimeout(() => {
+        autoSelectFirstAthlete();
+      }, 100);
+    }
+    
+    // DEBUG: Verificar se o selectedEntryId está sendo atualizado corretamente
+    console.log('🔍 LiftingFooter - selectedEntryId atual:', selectedEntryId);
+  }, [day, platform, flight, lift, attemptOneIndexed, entries, entriesInFlight, liftingOrder, selectedEntryId]);
 
   // Função para obter o campo de status baseado no movimento atual
   const getStatusField = (): string => {
@@ -211,6 +237,7 @@ const LiftingFooter: React.FC = () => {
     // 1. Verificar se há próximo atleta na mesma tentativa atual
     const attemptsOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed);
     console.log('🔍 Tentativas ordenadas por peso para tentativa', attemptOneIndexed, ':', attemptsOrdered);
+    console.log('🔍 Tentativas ordenadas para navegação:', attemptsOrdered.map(a => ({ entryId: a.entryId, weight: a.weight })));
     
     if (attemptsOrdered.length > 0) {
       const currentIndex = attemptsOrdered.findIndex(a => a.entryId === selectedEntryId);
@@ -221,9 +248,17 @@ const LiftingFooter: React.FC = () => {
         const nextAthlete = attemptsOrdered[currentIndex + 1];
         console.log('✅ Navegando para próximo atleta na mesma tentativa:', nextAthlete.entryId, 'tentativa:', attemptOneIndexed);
         
+        // CORREÇÃO: Atualizar tanto selectedEntryId quanto currentEntryId (via attemptOneIndexed)
+        console.log('🔄 navigateToNext - Atualizando para próximo atleta:', nextAthlete.entryId);
         dispatch({ type: 'lifting/setSelectedEntryId', payload: nextAthlete.entryId });
         dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
         dispatch({ type: 'lifting/setAttemptActive', payload: true });
+        
+        // CORREÇÃO: Forçar atualização do attemptOneIndexed para sincronizar com a lógica de liftingOrder
+        setTimeout(() => {
+          dispatch({ type: 'lifting/setAttemptOneIndexed', payload: attemptOneIndexed });
+        }, 50);
+        
         return;
       } else {
         console.log('🔍 Atleta atual é o último da tentativa ou não encontrado na lista ordenada');
@@ -243,7 +278,9 @@ const LiftingFooter: React.FC = () => {
         const firstAthlete = nextAttemptOrdered[0];
         console.log('✅ Navegando para próxima tentativa:', attemptOneIndexed + 1, 'atleta:', firstAthlete.entryId);
         
-        // CORREÇÃO: Não resetar attemptOneIndexed, apenas atualizar selectedAttempt
+        // CORREÇÃO: Atualizar attemptOneIndexed para sincronizar com a lógica de liftingOrder
+        console.log('🔄 navigateToNext - Atualizando para próxima tentativa:', attemptOneIndexed + 1, 'atleta:', firstAthlete.entryId);
+        dispatch({ type: 'lifting/setAttemptOneIndexed', payload: attemptOneIndexed + 1 });
         dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
         dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed + 1 });
         dispatch({ type: 'lifting/setAttemptActive', payload: true });
@@ -264,8 +301,8 @@ const LiftingFooter: React.FC = () => {
         console.log('✅ Mudando para próximo levantamento:', nextLift);
         
         dispatch({ type: 'lifting/setLift', payload: nextLift });
-        // CORREÇÃO: Manter attemptOneIndexed como 1 apenas para o novo lift
-        // dispatch({ type: 'lifting/setAttemptOneIndexed', payload: 1 });
+        // CORREÇÃO: Resetar attemptOneIndexed para 1 no novo lift
+        dispatch({ type: 'lifting/setAttemptOneIndexed', payload: 1 });
         
         // Verificar se há atletas no próximo levantamento
         const nextLiftAttempts = getStableOrderByWeight(entriesInFlight, nextLift, 1);
@@ -275,6 +312,7 @@ const LiftingFooter: React.FC = () => {
           const firstAthlete = nextLiftAttempts[0];
           console.log('✅ Navegando para primeiro atleta do próximo lift:', firstAthlete.entryId);
           
+          console.log('🔄 navigateToNext - Atualizando para próximo lift:', nextLift, 'atleta:', firstAthlete.entryId);
           dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
           dispatch({ type: 'lifting/setSelectedAttempt', payload: 1 });
           dispatch({ type: 'lifting/setAttemptActive', payload: true });

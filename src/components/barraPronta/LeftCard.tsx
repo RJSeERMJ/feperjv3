@@ -24,20 +24,27 @@ const LeftCard: React.FC<LeftCardProps> = ({
   const meet = useSelector((state: RootState) => state.meet);
   const { day, platform, flight } = useSelector((state: RootState) => state.lifting);
 
-  // Monitorar mudanças no estado para sincronização automática
-  useEffect(() => {
-    console.log('🔄 LeftCard - Estado mudou, atualizando...', {
-      currentEntryId, nextEntryId, lift, attemptOneIndexed,
-      day, platform, flight,
-      totalEntries: entries.length
-    });
-  }, [currentEntryId, nextEntryId, lift, attemptOneIndexed, day, platform, flight, entries]);
-
   // Encontrar o atleta atual
   const currentEntry = currentEntryId ? entries.find((e: any) => e.id === currentEntryId) : null;
   
   // Encontrar o próximo atleta
   const nextEntry = nextEntryId ? entries.find((e: any) => e.id === nextEntryId) : null;
+
+  // Monitorar mudanças no estado para sincronização automática
+  useEffect(() => {
+    console.log('🔄 LeftCard - Estado mudou, atualizando...', {
+      currentEntryId, nextEntryId, lift, attemptOneIndexed,
+      day, platform, flight,
+      totalEntries: entries.length,
+      currentEntry: currentEntry?.name,
+      currentWeight: getCurrentWeight()
+    });
+    
+    // Forçar re-render se o atleta atual mudou
+    if (currentEntry) {
+      console.log('✅ LeftCard - Atleta atual atualizado:', currentEntry.name, 'peso:', getCurrentWeight());
+    }
+  }, [currentEntryId, nextEntryId, lift, attemptOneIndexed, day, platform, flight, entries, currentEntry]);
 
   // Obter o peso atual baseado no movimento e tentativa
   const getCurrentWeight = (): number => {
@@ -47,7 +54,19 @@ const LeftCard: React.FC<LeftCardProps> = ({
                        lift === 'B' ? `bench${attemptOneIndexed}` : 
                        `deadlift${attemptOneIndexed}`;
     
-    return (currentEntry as any)[weightField] || 0;
+    const weight = (currentEntry as any)[weightField] || 0;
+    
+    // Debug: mostrar peso atual
+    console.log('🔍 LeftCard - Peso atual:', { 
+      currentEntryId, 
+      lift, 
+      attemptOneIndexed, 
+      weightField, 
+      weight,
+      currentEntry: currentEntry?.name 
+    });
+    
+    return weight;
   };
 
   // Obter o nome do movimento

@@ -742,27 +742,30 @@
 .attempt-cell.status-1 {
   background-color: #d4edda !important; /* Verde para Good Lift */
   border-color: #c3e6cb !important;
+  color: #155724 !important;
 }
 
 .attempt-cell.status-2 {
   background-color: #f8d7da !important; /* Vermelho para No Lift */
   border-color: #f5c6cb !important;
+  color: #721c24 !important;
 }
 
 .attempt-cell.status-3 {
   background-color: #fff3cd !important; /* Amarelo para No Attempt */
   border-color: #ffeaa7 !important;
+  color: #856404 !important;
 }
 
-/* Célula selecionada - Magenta */
-.attempt-cell.selected-attempt {
+/* Célula selecionada - Magenta (apenas quando não há status definido) */
+.attempt-cell.selected-attempt:not(.status-1):not(.status-2):not(.status-3) {
   background-color: #e83e8c !important; /* Magenta */
   border-color: #d63384 !important;
   color: white !important;
 }
 
-/* Célula atual */
-.attempt-cell.current-attempt {
+/* Célula atual (apenas quando não há status definido) */
+.attempt-cell.current-attempt:not(.status-1):not(.status-2):not(.status-3) {
   background-color: #17a2b8 !important; /* Azul para célula atual */
   border-color: #138496 !important;
   color: white !important;

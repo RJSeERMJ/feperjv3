@@ -14,6 +14,9 @@ const BarLoad: React.FC<BarLoadProps> = ({ weightKg, rackInfo }) => {
   const { lift } = useSelector((state: RootState) => state.lifting);
   const meet = useSelector((state: RootState) => state.meet);
   
+  // Debug: mostrar peso recebido
+  console.log('🔍 BarLoad - Peso recebido:', { weightKg, lift, rackInfo });
+  
   // Obter peso da barra + colares baseado no movimento
   const getBarAndCollarsWeight = (): number => {
     switch (lift) {

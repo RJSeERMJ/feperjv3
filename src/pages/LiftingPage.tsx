@@ -11,12 +11,12 @@ import './LiftingPage.css';
 
 const LiftingPage: React.FC = () => {
   const dispatch = useDispatch();
-  const { day, platform, flight, lift, attemptOneIndexed } = useSelector((state: RootState) => state.lifting);
+  const { day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt } = useSelector((state: RootState) => state.lifting);
   const { entries } = useSelector((state: RootState) => state.registration);
   
   // Debug: mostrar estado atual
   console.log('🔍 LiftingPage - Estado atual:', { 
-    day, platform, flight, lift, attemptOneIndexed
+    day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt
   });
   console.log('🔍 LiftingPage - Total de atletas:', entries.length);
   
@@ -35,11 +35,11 @@ const LiftingPage: React.FC = () => {
   // Monitorar mudanças no estado para sincronização automática
   useEffect(() => {
     console.log('🔄 LiftingPage - Estado mudou, atualizando...', {
-      day, platform, flight, lift, attemptOneIndexed,
+      day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt,
       totalEntries: entries.length,
       filteredEntries: entriesInFlight.length
     });
-  }, [day, platform, flight, lift, attemptOneIndexed, entries, entriesInFlight]);
+  }, [day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, entries, entriesInFlight]);
 
   // Obter a ordem de levantamentos
   const liftingOrder = getLiftingOrder(entriesInFlight, {
@@ -50,18 +50,35 @@ const LiftingPage: React.FC = () => {
     attemptOneIndexed,
     overrideEntryId: null,
     overrideAttempt: null,
-    selectedEntryId: null,
-    selectedAttempt: 1,
+    selectedEntryId: selectedEntryId,
+    selectedAttempt: selectedAttempt,
     isAttemptActive: false
   } as any);
 
-  // Atualizar estado quando mudar
+  // CORREÇÃO: Sincronizar currentEntryId com attemptOneIndexed quando necessário
   useEffect(() => {
+    console.log('🔄 LiftingPage - Sincronizando liftingOrder:', {
+      currentEntryId: liftingOrder.currentEntryId,
+      nextEntryId: liftingOrder.nextEntryId,
+      attemptOneIndexed: liftingOrder.attemptOneIndexed,
+      selectedEntryId: selectedEntryId,
+      selectedAttempt: selectedAttempt
+    });
+    
+    // DEBUG: Verificar se o próximo atleta está sendo calculado corretamente
+    console.log('🔍 LiftingPage - Próximo atleta:', {
+      nextEntryId: liftingOrder.nextEntryId,
+      selectedEntryId: selectedEntryId,
+      currentEntryId: liftingOrder.currentEntryId
+    });
+    
     if (liftingOrder.currentEntryId !== null) {
-      // Usar a ação do store combinado
-      dispatch({ type: 'lifting/setAttemptOneIndexed', payload: liftingOrder.attemptOneIndexed });
+      // Atualizar attemptOneIndexed se necessário
+      if (liftingOrder.attemptOneIndexed !== attemptOneIndexed) {
+        dispatch({ type: 'lifting/setAttemptOneIndexed', payload: liftingOrder.attemptOneIndexed });
+      }
     }
-  }, [liftingOrder.currentEntryId, liftingOrder.attemptOneIndexed, dispatch]);
+  }, [liftingOrder.currentEntryId, liftingOrder.nextEntryId, liftingOrder.attemptOneIndexed, selectedEntryId, selectedAttempt, attemptOneIndexed, dispatch]);
 
   // Verificar se há tentativas pendentes
   const hasPendingAttempts = entriesInFlight.some((entry: any) => {
@@ -160,10 +177,10 @@ const LiftingPage: React.FC = () => {
               {/* Card da esquerda com informações do atleta atual */}
               <div className="left-panel">
                 <LeftCard
-                  currentEntryId={liftingOrder.currentEntryId}
+                  currentEntryId={selectedEntryId || liftingOrder.currentEntryId}
                   nextEntryId={liftingOrder.nextEntryId}
                   lift={lift}
-                  attemptOneIndexed={attemptOneIndexed}
+                  attemptOneIndexed={selectedAttempt || attemptOneIndexed}
                   entries={entriesInFlight}
                 />
               </div>

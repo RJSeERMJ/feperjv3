@@ -246,23 +246,28 @@ export const getLiftingOrder = (
     currentEntryId = attemptsOrdered[0].entryId;
   }
   
+  // CORREÇÃO: Usar selectedEntryId se disponível para calcular o próximo atleta
+  const activeEntryId = lifting.selectedEntryId || currentEntryId;
+  
   // Determinar o próximo atleta baseado na ordem de peso
   let nextEntryId: number | null = null;
   let nextAttemptOneIndexed: number | null = null;
   
-  if (currentEntryId) {
-    // Verificar se o atleta atual tem próxima tentativa
-    const currentEntry = entriesInFlight.find(e => e.id === currentEntryId);
-    if (currentEntry) {
-      const nextAttempt = getNextAttemptNumberForEntry(currentEntry, lifting.lift);
+  if (activeEntryId) {
+    // Verificar se o atleta ativo tem próxima tentativa
+    const activeEntry = entriesInFlight.find(e => e.id === activeEntryId);
+    if (activeEntry) {
+      const nextAttempt = getNextAttemptNumberForEntry(activeEntry, lifting.lift);
       if (nextAttempt > attemptOneIndexed) {
         // Mesmo atleta, próxima tentativa
-        nextEntryId = currentEntryId;
+        nextEntryId = activeEntryId;
         nextAttemptOneIndexed = nextAttempt;
       } else {
         // Procurar próximo atleta na ordem de peso
-        if (attemptsOrdered.length > 1) {
-          nextEntryId = attemptsOrdered[1].entryId;
+        const currentIndex = attemptsOrdered.findIndex(a => a.entryId === activeEntryId);
+        if (currentIndex !== -1 && currentIndex < attemptsOrdered.length - 1) {
+          // Há próximo atleta na mesma tentativa
+          nextEntryId = attemptsOrdered[currentIndex + 1].entryId;
           nextAttemptOneIndexed = attemptOneIndexed;
         } else {
           // Se não há mais atletas nesta tentativa, procurar próxima tentativa
@@ -277,8 +282,11 @@ export const getLiftingOrder = (
       }
     }
   } else {
-    // Se não há atleta atual, procurar pela primeira tentativa disponível
-    if (attemptOneIndexed < MAX_ATTEMPTS) {
+    // Se não há atleta ativo, procurar pela primeira tentativa disponível
+    if (attemptsOrdered.length > 0) {
+      nextEntryId = attemptsOrdered[0].entryId;
+      nextAttemptOneIndexed = attemptOneIndexed;
+    } else if (attemptOneIndexed < MAX_ATTEMPTS) {
       const firstAttemptOrdered = organizeAttemptsByWeight(entriesInFlight, lifting.lift, 1);
       if (firstAttemptOrdered.length > 0) {
         nextEntryId = firstAttemptOrdered[0].entryId;
