@@ -42,7 +42,6 @@ import { documentosContabeisService, DocumentoContabil } from '../services/docum
 import { comprovantesAnuidadeService, ComprovanteAnuidade } from '../services/comprovantesAnuidadeService';
 import { comprovantesInscricaoService, ComprovanteInscricao } from '../services/comprovantesInscricaoService';
 import { Equipe, Atleta, Competicao, InscricaoCompeticao } from '../types';
-import { testSupabaseConnection } from '../config/supabase';
 
 interface Anuidade {
   id?: string;
@@ -695,19 +694,6 @@ const FinanceiroPage: React.FC = () => {
              >
                <FaFileUpload className="me-2" />
                Prestação de Contas
-             </Button>
-             <Button 
-               variant="outline-info" 
-               onClick={async () => {
-                 const result = await testSupabaseConnection();
-                 if (result.success) {
-                   toast.success(result.message || 'Conectividade OK!');
-                 } else {
-                   toast.error(`Erro: ${result.error}`);
-                 }
-               }}
-             >
-               🧪 Testar Supabase
              </Button>
           </div>
         )}

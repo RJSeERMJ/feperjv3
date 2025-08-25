@@ -177,6 +177,8 @@ export interface DashboardStats {
   atletasPorSexo: { masculino: number; feminino: number };
   atletasPorEquipe: Array<{ equipe: string; quantidade: number }>;
   maioresTotais: Array<{ atleta: string; total: number }>;
+  maioresTotaisMasculino: Array<{ atleta: string; total: number }>;
+  maioresTotaisFeminino: Array<{ atleta: string; total: number }>;
 }
 
 export interface LoginCredentials {

@@ -104,14 +104,27 @@ const Dashboard: React.FC = () => {
     ],
   };
 
-  const topTotaisData = {
-    labels: stats.maioresTotais.map(item => item.atleta),
+  const topTotaisDataMasculino = {
+    labels: stats.maioresTotaisMasculino.map(item => item.atleta),
     datasets: [
       {
         label: 'Maior Total (kg)',
-        data: stats.maioresTotais.map(item => item.total),
-        backgroundColor: 'rgba(255, 159, 64, 0.8)',
-        borderColor: 'rgba(255, 159, 64, 1)',
+        data: stats.maioresTotaisMasculino.map(item => item.total),
+        backgroundColor: 'rgba(54, 162, 235, 0.8)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const topTotaisDataFeminino = {
+    labels: stats.maioresTotaisFeminino.map(item => item.atleta),
+    datasets: [
+      {
+        label: 'Maior Total (kg)',
+        data: stats.maioresTotaisFeminino.map(item => item.total),
+        backgroundColor: 'rgba(255, 99, 132, 0.8)',
+        borderColor: 'rgba(255, 99, 132, 1)',
         borderWidth: 1,
       },
     ],
@@ -203,15 +216,34 @@ const Dashboard: React.FC = () => {
       </Row>
 
       <Row>
-        <Col lg={12}>
+        <Col lg={6} className="mb-4">
           <Card>
             <Card.Header>
-              <h5 className="mb-0">Top 10 Maiores Totais</h5>
+              <h5 className="mb-0">Top 10 Maiores Totais - Masculino</h5>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '400px' }}>
                 <Bar 
-                  data={topTotaisData} 
+                  data={topTotaisDataMasculino} 
+                  options={{
+                    ...chartOptions,
+                    indexAxis: 'y' as const,
+                  }} 
+                />
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+        
+        <Col lg={6} className="mb-4">
+          <Card>
+            <Card.Header>
+              <h5 className="mb-0">Top 10 Maiores Totais - Feminino</h5>
+            </Card.Header>
+            <Card.Body>
+              <div style={{ height: '400px' }}>
+                <Bar 
+                  data={topTotaisDataFeminino} 
                   options={{
                     ...chartOptions,
                     indexAxis: 'y' as const,

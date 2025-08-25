@@ -690,6 +690,25 @@ export const dashboardService = {
         total: a.maiorTotal || 0
       }));
 
+    // Top 10 maiores totais por sexo
+    const maioresTotaisMasculino = atletas
+      .filter(a => a.maiorTotal && a.maiorTotal > 0 && a.sexo === 'M')
+      .sort((a, b) => (b.maiorTotal || 0) - (a.maiorTotal || 0))
+      .slice(0, 10)
+      .map(a => ({
+        atleta: a.nome,
+        total: a.maiorTotal || 0
+      }));
+
+    const maioresTotaisFeminino = atletas
+      .filter(a => a.maiorTotal && a.maiorTotal > 0 && a.sexo === 'F')
+      .sort((a, b) => (b.maiorTotal || 0) - (a.maiorTotal || 0))
+      .slice(0, 10)
+      .map(a => ({
+        atleta: a.nome,
+        total: a.maiorTotal || 0
+      }));
+
     return {
       totalAtletas: atletas.length,
       totalEquipes: equipes.length,
@@ -701,7 +720,9 @@ export const dashboardService = {
         feminino: atletasFeminino
       },
       atletasPorEquipe,
-      maioresTotais
+      maioresTotais,
+      maioresTotaisMasculino,
+      maioresTotaisFeminino
     };
   }
 };

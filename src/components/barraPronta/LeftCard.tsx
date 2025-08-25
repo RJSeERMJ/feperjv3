@@ -114,11 +114,15 @@ const LeftCard: React.FC<LeftCardProps> = ({
             {/* Visualização da Carga da Barra */}
             {getCurrentWeight() > 0 && (
               <div className="bar-load-section mt-3">
-                <h6 className="bar-load-title">Carga da Barra</h6>
-                <BarLoad 
-                  weightKg={getCurrentWeight()}
-                  rackInfo=""
-                />
+                <div className="loading-bar">
+                  <div className="attempt-text">{getCurrentWeight()}kg</div>
+                  <div className="bar-area">
+                    <BarLoad 
+                      weightKg={getCurrentWeight()}
+                      rackInfo=""
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </Card.Body>
@@ -170,11 +174,15 @@ const LeftCard: React.FC<LeftCardProps> = ({
               const nextWeight = (nextEntry as any)[weightField];
               return nextWeight && nextWeight > 0 ? (
                 <div className="bar-load-section mt-3">
-                  <h6 className="bar-load-title">Carga da Barra</h6>
-                  <BarLoad 
-                    weightKg={nextWeight}
-                    rackInfo=""
-                  />
+                  <div className="loading-bar">
+                    <div className="attempt-text">{nextWeight}kg</div>
+                    <div className="bar-area">
+                      <BarLoad 
+                        weightKg={nextWeight}
+                        rackInfo=""
+                      />
+                    </div>
+                  </div>
                 </div>
               ) : null;
             })()}
@@ -182,32 +190,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
         </Card>
       )}
 
-      {/* Card de Informações da Competição */}
-      <Card className="competition-info-card mt-3">
-        <Card.Header>
-          <h6 className="mb-0">📋 Informações da Competição</h6>
-        </Card.Header>
-        <Card.Body>
-          <div className="competition-details">
-            <div className="detail-item">
-              <span className="detail-label">Competição:</span>
-              <span className="detail-value">{meet.name || 'Não definida'}</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">Local:</span>
-              <span className="detail-value">{meet.city}, {meet.state}</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">Data:</span>
-              <span className="detail-value">{meet.date || 'Não definida'}</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">Federação:</span>
-              <span className="detail-value">{meet.federation}</span>
-            </div>
-          </div>
-        </Card.Body>
-      </Card>
+
     </div>
   );
 };
