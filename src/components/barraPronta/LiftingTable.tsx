@@ -259,10 +259,16 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     const isCurrent = isCurrentAthlete(entry.id) && isCurrentAttempt(attempt);
     const isSelected = isAttemptSelected(entry.id, attempt);
     const isAvailable = isAttemptAvailable(entry, attempt);
+    const isClickable = canClickAttempt(entry, attempt);
 
     const attemptStatus = getAttemptStatus(entry, attempt);
     
     let classes = baseClass;
+    
+    // Adicionar classe clickable se a tentativa pode ser clicada
+    if (isClickable) {
+      classes += ' clickable';
+    }
     
     // Adicionar classe de status baseada no resultado da tentativa
     if (attemptStatus > 0) {
@@ -491,6 +497,34 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     return canEditAttemptWithTimeCheck(entry, attempt);
   };
 
+  // NOVA FUNÇÃO: Verificar se uma tentativa pode ser clicada para seleção
+  const canClickAttempt = (entry: any, attempt: number): boolean => {
+    // Verificar se a tentativa tem peso definido
+    const weight = getAttemptWeight(entry, attempt);
+    const status = getAttemptStatus(entry, attempt);
+    
+    // Permitir clique se tem peso definido OU já foi marcada OU é a primeira tentativa
+    return (weight > 0) || (status > 0) || (attempt === 1);
+  };
+
+  // NOVA FUNÇÃO: Lidar com clique em uma tentativa
+  const handleAttemptClick = (entryId: number, attempt: number) => {
+    console.log('🎯 handleAttemptClick chamado:', { entryId, attempt });
+    
+    const entry = orderedEntries.find(e => e.id === entryId);
+    if (!entry) return;
+    
+    if (canClickAttempt(entry, attempt)) {
+      console.log('✅ Selecionando tentativa:', attempt, 'do atleta:', entryId);
+      dispatch({ type: 'lifting/setSelectedEntryId', payload: entryId });
+      dispatch({ type: 'lifting/setSelectedAttempt', payload: attempt });
+      dispatch({ type: 'lifting/setAttemptActive', payload: true });
+    } else {
+      console.log('❌ Tentativa não pode ser selecionada:', attempt);
+      alert(`A tentativa ${attempt} não tem peso definido nem foi marcada. Defina o peso primeiro.`);
+    }
+  };
+
   return (
     <div className="lifting-table-container">
       <div className="table-header mb-3">
@@ -550,7 +584,11 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                 </td>
                 
                 {/* 1ª Tentativa */}
-                <td className={getAttemptCellClass(entry, 1)}>
+                <td 
+                  className={getAttemptCellClass(entry, 1)}
+                  onClick={() => handleAttemptClick(entry.id, 1)}
+                  title={canClickAttempt(entry, 1) ? "Clique para selecionar esta tentativa" : "Tentativa não disponível"}
+                >
                   <div className="attempt-input-container">
                     <div className="attempt-weight-input">
                       <Form.Control
@@ -564,6 +602,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         size="sm"
                         className="weight-input"
                         disabled={false} // Primeira tentativa sempre disponível
+                        onClick={(e) => e.stopPropagation()} // Evitar conflito com clique da célula
                       />
                       <span className="ms-1">kg</span>
                     </div>
@@ -583,7 +622,11 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                 </td>
 
                 {/* 2ª Tentativa */}
-                <td className={getAttemptCellClass(entry, 2)}>
+                <td 
+                  className={getAttemptCellClass(entry, 2)}
+                  onClick={() => handleAttemptClick(entry.id, 2)}
+                  title={canClickAttempt(entry, 2) ? "Clique para selecionar esta tentativa" : "Tentativa não disponível"}
+                >
                   <div className="attempt-input-container">
                     <div className="attempt-weight-input">
                       <Form.Control
@@ -601,6 +644,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         className={`weight-input ${shouldMarkAsNoAttempt(entry, 2) ? 'no-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 2)}
                         data-min-weight={getMinWeightForAttempt(entry, 2)}
+                        onClick={(e) => e.stopPropagation()} // Evitar conflito com clique da célula
                       />
                       <span className="ms-1">kg</span>
                     </div>
@@ -625,7 +669,11 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                 </td>
 
                 {/* 3ª Tentativa */}
-                <td className={getAttemptCellClass(entry, 3)}>
+                <td 
+                  className={getAttemptCellClass(entry, 3)}
+                  onClick={() => handleAttemptClick(entry.id, 3)}
+                  title={canClickAttempt(entry, 3) ? "Clique para selecionar esta tentativa" : "Tentativa não disponível"}
+                >
                   <div className="attempt-input-container">
                     <div className="attempt-weight-input">
                       <Form.Control
@@ -643,6 +691,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         className={`weight-input ${shouldMarkAsNoAttempt(entry, 3) ? 'no-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 3)}
                         data-min-weight={getMinWeightForAttempt(entry, 3)}
+                        onClick={(e) => e.stopPropagation()} // Evitar conflito com clique da célula
                       />
                       <span className="ms-1">kg</span>
                     </div>

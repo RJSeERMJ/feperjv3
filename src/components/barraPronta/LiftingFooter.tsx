@@ -465,19 +465,43 @@ const LiftingFooter: React.FC = () => {
       return false;
     }
     
-    // NOVA LÓGICA: Permitir edição de tentativas já marcadas
+    // CORREÇÃO: Permitir edição de tentativas já marcadas (incluindo tentativas anteriores)
     if (isAttemptAlreadyMarked(entryId, attempt)) {
       console.log('✅ Tentativa já marcada - permitindo edição');
       return true; // Permitir edição
     }
     
-    // NOVA VERIFICAÇÃO: Verificar se o peso é válido (progressivo)
-    if (!isWeightValid(entryId, attempt)) {
+    // CORREÇÃO: Para tentativas anteriores, permitir se tem peso definido
+    if (attempt < attemptOneIndexed) {
+      console.log('✅ Tentativa anterior - permitindo se tem peso definido');
+      return true; // Permitir se tem peso definido
+    }
+    
+    // NOVA VERIFICAÇÃO: Verificar se o peso é válido (progressivo) apenas para tentativa atual
+    if (attempt === attemptOneIndexed && !isWeightValid(entryId, attempt)) {
       console.log('❌ Tentativa não pode ser marcada: peso não é progressivo');
       return false;
     }
     
     return true;
+  };
+
+  // NOVA FUNÇÃO: Verificar se uma tentativa pode ser acessada
+  const canAccessAttempt = (entryId: number, attempt: number): boolean => {
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return false;
+    
+    // Verificar se a tentativa tem peso definido
+    const weightField = lift === 'S' ? `squat${attempt}` : lift === 'B' ? `bench${attempt}` : `deadlift${attempt}`;
+    const weight = (entry as any)[weightField];
+    
+    // Verificar se a tentativa já foi marcada
+    const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
+    const statusArray = (entry as any)[statusField] || [];
+    const status = statusArray[attempt - 1] || 0;
+    
+    // CORREÇÃO: Permitir acesso se tem peso definido OU já foi marcada OU é a primeira tentativa
+    return (weight !== null && weight !== undefined && weight > 0) || status > 0 || attempt === 1;
   };
 
   // NOVA FUNÇÃO: Verificar se uma tentativa pode ser editada
@@ -490,6 +514,39 @@ const LiftingFooter: React.FC = () => {
     
     // Permitir edição de tentativas já marcadas (para correções)
     return isAttemptAlreadyMarked(entryId, attempt);
+  };
+
+  // NOVA FUNÇÃO: Navegar para uma tentativa específica
+  const navigateToAttempt = (entryId: number, attempt: number) => {
+    console.log('🎯 navigateToAttempt chamado:', { entryId, attempt });
+    
+    if (canAccessAttempt(entryId, attempt)) {
+      console.log('✅ Navegando para tentativa:', attempt, 'do atleta:', entryId);
+      dispatch({ type: 'lifting/setSelectedEntryId', payload: entryId });
+      dispatch({ type: 'lifting/setSelectedAttempt', payload: attempt });
+      dispatch({ type: 'lifting/setAttemptActive', payload: true });
+    } else {
+      console.log('❌ Tentativa não pode ser acessada:', attempt);
+      alert(`A tentativa ${attempt} não tem peso definido nem foi marcada. Defina o peso primeiro.`);
+    }
+  };
+
+  // NOVA FUNÇÃO: Verificar se uma tentativa pode ser acessada de forma mais permissiva
+  const canAccessAttemptPermissive = (entryId: number, attempt: number): boolean => {
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return false;
+    
+    // Verificar se a tentativa tem peso definido
+    const weightField = lift === 'S' ? `squat${attempt}` : lift === 'B' ? `bench${attempt}` : `deadlift${attempt}`;
+    const weight = (entry as any)[weightField];
+    
+    // Verificar se a tentativa já foi marcada
+    const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
+    const statusArray = (entry as any)[statusField] || [];
+    const status = statusArray[attempt - 1] || 0;
+    
+    // CORREÇÃO: Permitir acesso se tem peso definido OU já foi marcada OU é a primeira tentativa OU é a tentativa atual
+    return (weight !== null && weight !== undefined && weight > 0) || status > 0 || attempt === 1 || attempt === attemptOneIndexed;
   };
 
   // NOVA FUNÇÃO: Verificar se próxima tentativa deve abrir após No Attempt
@@ -647,12 +704,22 @@ const LiftingFooter: React.FC = () => {
     const newAttempt = parseInt(event.target.value);
     console.log('🎯 handleAttemptChange chamado:', { newAttempt, selectedEntryId });
     
-    dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
-    
-    // Se há um atleta selecionado, atualizar a tentativa selecionada
+    // CORREÇÃO: Permitir voltar para tentativas anteriores
     if (selectedEntryId) {
-      console.log('✅ Atualizando tentativa para atleta selecionado:', selectedEntryId, newAttempt);
-      dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { entryId: selectedEntryId, attempt: newAttempt } });
+      // Usar a função mais permissiva
+      if (canAccessAttemptPermissive(selectedEntryId, newAttempt)) {
+        console.log('✅ Permitindo navegação para tentativa:', newAttempt);
+        dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
+        dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { entryId: selectedEntryId, attempt: newAttempt } });
+      } else {
+        console.log('❌ Tentativa não pode ser acessada:', newAttempt);
+        alert(`A tentativa ${newAttempt} não tem peso definido nem foi marcada. Defina o peso primeiro.`);
+        // Reverter para a tentativa anterior
+        event.target.value = selectedAttempt.toString();
+      }
+    } else {
+      // Se não há atleta selecionado, apenas atualizar a tentativa
+      dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
     }
   };
 

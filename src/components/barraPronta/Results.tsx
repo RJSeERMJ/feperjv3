@@ -15,7 +15,7 @@ import {
   OverlayTrigger
 } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
-import { GlobalState, Entry, Formula } from '../../types/barraProntaTypes';
+import { GlobalState, Entry, Formula, LiftStatus } from '../../types/barraProntaTypes';
 import { calculateIPFGLPointsTotal, calculateIPFGLPointsBench } from '../../logic/ipfGLPoints';
 import { FaTrophy, FaMedal, FaChartBar, FaDownload, FaFilter, FaInfoCircle } from 'react-icons/fa';
 
@@ -101,16 +101,26 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
     }
   };
 
-  // Função para obter melhor tentativa
+  // Função para obter melhor tentativa (CORRIGIDA)
   const getBestLift = (entry: Entry, lift: 'S' | 'B' | 'D'): number => {
     const liftPrefix = lift.toLowerCase();
+    const statusField = `${liftPrefix}Status` as keyof Entry;
+    const statusArray = (entry[statusField] as LiftStatus[]) || [];
+    
+    // Obter tentativas e seus status
     const attempts = [
-      entry[`${liftPrefix}1` as keyof Entry] as number | null,
-      entry[`${liftPrefix}2` as keyof Entry] as number | null,
-      entry[`${liftPrefix}3` as keyof Entry] as number | null,
-      entry[`${liftPrefix}4` as keyof Entry] as number | null,
+      { weight: entry[`${liftPrefix}1` as keyof Entry] as number | null, status: statusArray[0] || 0 },
+      { weight: entry[`${liftPrefix}2` as keyof Entry] as number | null, status: statusArray[1] || 0 },
+      { weight: entry[`${liftPrefix}3` as keyof Entry] as number | null, status: statusArray[2] || 0 },
+      { weight: entry[`${liftPrefix}4` as keyof Entry] as number | null, status: statusArray[3] || 0 }
     ];
-    return Math.max(...attempts.filter((w): w is number => w !== null));
+    
+    // Filtrar apenas tentativas válidas (Good Lift = status 1)
+    const validAttempts = attempts
+      .filter(attempt => attempt.status === 1 && attempt.weight !== null && attempt.weight > 0)
+      .map(attempt => attempt.weight as number);
+    
+    return validAttempts.length > 0 ? Math.max(...validAttempts) : 0;
   };
 
   // Função para obter categoria de peso
@@ -134,11 +144,26 @@ const IndexRanking: React.FC<{ sex: 'M' | 'F' }> = ({ sex }) => {
   // Filtrar atletas por sexo e calcular pontuação IPF GL
   const indexResults = registration.entries
     .filter(entry => entry.sex === sex)
-    .map(entry => ({
-      ...entry,
-      total: getTotal(entry),
-      ipfGLPoints: calculateIPFGLPoints(entry)
-    }))
+    .map(entry => {
+      const total = getTotal(entry);
+      const ipfGLPoints = calculateIPFGLPoints(entry);
+      
+      // Debug: mostrar atletas com resultados válidos
+      if (total > 0 && ipfGLPoints > 0) {
+        console.log(`📊 IndexRanking - ${sex === 'M' ? 'Masculino' : 'Feminino'}:`, {
+          id: entry.id,
+          name: entry.name,
+          total,
+          ipfGLPoints
+        });
+      }
+      
+      return {
+        ...entry,
+        total,
+        ipfGLPoints
+      };
+    })
     .filter(entry => entry.total > 0 && entry.ipfGLPoints > 0)
     .sort((a, b) => b.ipfGLPoints - a.ipfGLPoints);
 
@@ -351,17 +376,36 @@ const Results: React.FC = () => {
     return Math.round((total * 500 / denominator) * 100) / 100;
   };
 
-  // Função para obter melhor tentativa
+  // Função para obter melhor tentativa (CORRIGIDA)
   const getBestLift = (entry: Entry, lift: 'S' | 'B' | 'D'): number => {
     const liftPrefix = lift.toLowerCase();
-    const attempts = [
-      entry[`${liftPrefix}1` as keyof Entry] as number | null,
-      entry[`${liftPrefix}2` as keyof Entry] as number | null,
-      entry[`${liftPrefix}3` as keyof Entry] as number | null,
-      entry[`${liftPrefix}4` as keyof Entry] as number | null
-    ].filter(weight => weight !== null && weight > 0);
+    const statusField = `${liftPrefix}Status` as keyof Entry;
+    const statusArray = (entry[statusField] as LiftStatus[]) || [];
     
-    return attempts.length > 0 ? Math.max(...attempts.filter((w): w is number => w !== null)) : 0;
+    // Obter tentativas e seus status
+    const attempts = [
+      { weight: entry[`${liftPrefix}1` as keyof Entry] as number | null, status: statusArray[0] || 0 },
+      { weight: entry[`${liftPrefix}2` as keyof Entry] as number | null, status: statusArray[1] || 0 },
+      { weight: entry[`${liftPrefix}3` as keyof Entry] as number | null, status: statusArray[2] || 0 },
+      { weight: entry[`${liftPrefix}4` as keyof Entry] as number | null, status: statusArray[3] || 0 }
+    ];
+    
+    // Filtrar apenas tentativas válidas (Good Lift = status 1)
+    const validAttempts = attempts
+      .filter(attempt => attempt.status === 1 && attempt.weight !== null && attempt.weight > 0)
+      .map(attempt => attempt.weight as number);
+    
+    // Debug: mostrar tentativas válidas
+    if (validAttempts.length > 0) {
+      console.log(`📊 getBestLift - ${lift}:`, {
+        entryId: entry.id,
+        entryName: entry.name,
+        validAttempts,
+        bestLift: Math.max(...validAttempts)
+      });
+    }
+    
+    return validAttempts.length > 0 ? Math.max(...validAttempts) : 0;
   };
 
   // Função para calcular pontos baseado na fórmula
@@ -413,6 +457,14 @@ const Results: React.FC = () => {
 
   // Processar resultados
   const processedResults = useMemo(() => {
+    console.log('🔄 Results - Processando resultados...', {
+      totalEntries: registration.entries.length,
+      filterSex,
+      filterDivision,
+      filterWeightClass,
+      activeTab
+    });
+    
     const validEntries = registration.entries
       .filter(entry => {
         const total = getTotal(entry);
@@ -422,23 +474,48 @@ const Results: React.FC = () => {
         if (filterWeightClass !== 'all' && (entry.weightClassKg || 0).toString() !== filterWeightClass) return false;
         return true;
       })
-      .map(entry => ({
-        ...entry,
-        squat: getBestLift(entry, 'S'),
-        bench: getBestLift(entry, 'B'),
-        deadlift: getBestLift(entry, 'D'),
-        total: getTotal(entry),
-        points: calculatePoints(entry)
-      }));
+      .map(entry => {
+        const squat = getBestLift(entry, 'S');
+        const bench = getBestLift(entry, 'B');
+        const deadlift = getBestLift(entry, 'D');
+        const total = getTotal(entry);
+        const points = calculatePoints(entry);
+        
+        // Debug: mostrar atletas com resultados válidos
+        if (total > 0) {
+          console.log(`📊 Results - Atleta com resultados:`, {
+            id: entry.id,
+            name: entry.name,
+            squat,
+            bench,
+            deadlift,
+            total,
+            points
+          });
+        }
+        
+        return {
+          ...entry,
+          squat,
+          bench,
+          deadlift,
+          total,
+          points
+        };
+      });
 
     // Ordenar por pontos (ou total absoluto se não há pontos)
-    return validEntries.sort((a, b) => {
+    const sortedResults = validEntries.sort((a, b) => {
       if (activeTab === 'absolute') {
         return b.total - a.total;
       } else {
         return b.points - a.points;
       }
     });
+    
+    console.log(`✅ Results - Processamento concluído: ${sortedResults.length} atletas válidos`);
+    
+    return sortedResults;
   }, [registration.entries, meet.formula, filterSex, filterDivision, filterWeightClass, activeTab]);
 
   // Agrupar por categoria

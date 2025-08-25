@@ -101,16 +101,60 @@
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  border: 2px solid transparent;
 }
 
 .attempt-cell.clickable:hover {
-  background-color: #f8f9fa;
+  background-color: #e3f2fd;
   transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.15);
+  border-color: #2196f3;
 }
 
 .attempt-cell.clickable:active {
   transform: scale(0.98);
+  background-color: #bbdefb;
+}
+
+/* Célula selecionada */
+.attempt-cell.selected-attempt {
+  background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%) !important;
+  border: 2px solid #4caf50;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.attempt-cell.selected-attempt:hover {
+  background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%) !important;
+  transform: scale(1.01);
+}
+
+/* Célula atual */
+.attempt-cell.current-attempt {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%) !important;
+  border: 2px solid #ffc107;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+}
+
+.attempt-cell.current-attempt:hover {
+  background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%) !important;
+  transform: scale(1.01);
+}
+
+/* Indicador de clique */
+.click-indicator {
+  text-align: center;
+  margin-top: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.attempt-cell.clickable:hover .click-indicator {
+  opacity: 1;
+}
+
+.click-indicator small {
+  font-size: 10px;
+  font-weight: 500;
 }
 
 /* Novos estilos para campos de entrada direta */
