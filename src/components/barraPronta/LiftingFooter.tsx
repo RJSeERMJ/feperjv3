@@ -31,6 +31,21 @@ const LiftingFooter: React.FC = () => {
   console.log('🔍 LiftingFooter - Atletas disponíveis:', entriesInFlight.length);
   console.log('🔍 LiftingFooter - Ordem de levantamentos:', liftingOrder);
 
+  // Função para sincronizar o estado da tentativa atual
+  const syncAttemptState = () => {
+    // Se não há tentativa selecionada, usar a tentativa atual do sistema
+    if (!selectedEntryId || !isAttemptActive) {
+      console.log('🔄 Sincronizando estado: usando tentativa atual do sistema:', attemptOneIndexed);
+      return;
+    }
+    
+    // Se a tentativa selecionada é diferente da tentativa atual do sistema, sincronizar
+    if (selectedAttempt !== attemptOneIndexed) {
+      console.log('🔄 Sincronizando estado: atualizando selectedAttempt para:', attemptOneIndexed);
+      dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
+    }
+  };
+
   // Monitorar mudanças no estado para sincronização automática
   useEffect(() => {
     console.log('🔄 LiftingFooter - Estado mudou, atualizando...', {
@@ -40,6 +55,9 @@ const LiftingFooter: React.FC = () => {
       filteredEntries: entriesInFlight.length,
       liftingOrder
     });
+    
+    // Sincronizar estado da tentativa
+    syncAttemptState();
   }, [day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive, entries, entriesInFlight, liftingOrder]);
 
   // Função para obter o campo de status baseado no movimento atual
@@ -112,7 +130,7 @@ const LiftingFooter: React.FC = () => {
         const firstAthlete = nextAttemptOrdered[0];
         console.log('✅ Navegando para próxima tentativa:', attemptOneIndexed + 1, 'atleta:', firstAthlete.entryId);
         
-        dispatch({ type: 'lifting/setAttemptOneIndexed', payload: attemptOneIndexed + 1 });
+        // CORREÇÃO: Não resetar attemptOneIndexed, apenas atualizar selectedAttempt
         dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
         dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed + 1 });
         dispatch({ type: 'lifting/setAttemptActive', payload: true });
@@ -133,7 +151,8 @@ const LiftingFooter: React.FC = () => {
         console.log('✅ Mudando para próximo levantamento:', nextLift);
         
         dispatch({ type: 'lifting/setLift', payload: nextLift });
-        dispatch({ type: 'lifting/setAttemptOneIndexed', payload: 1 });
+        // CORREÇÃO: Manter attemptOneIndexed como 1 apenas para o novo lift
+        // dispatch({ type: 'lifting/setAttemptOneIndexed', payload: 1 });
         
         // Verificar se há atletas no próximo levantamento
         const nextLiftAttempts = getStableOrderByWeight(entriesInFlight, nextLift, 1);
@@ -178,6 +197,45 @@ const LiftingFooter: React.FC = () => {
       case 'D': return null; // Deadlift é o último
       default: return null;
     }
+  };
+
+  // Função para verificar se uma tentativa já foi definida
+  const isAttemptAlreadyDefined = (entryId: number, attempt: number): boolean => {
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return false;
+    
+    const weightField = getWeightField(attempt);
+    const weight = (entry as any)[weightField];
+    
+    return weight && weight > 0;
+  };
+
+  // Função para verificar se uma tentativa já foi marcada (Good/No Lift)
+  const isAttemptAlreadyMarked = (entryId: number, attempt: number): boolean => {
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return false;
+    
+    const statusField = getStatusField();
+    const statusArray = (entry as any)[statusField] || [];
+    
+    return statusArray[attempt - 1] === 1 || statusArray[attempt - 1] === 2;
+  };
+
+  // Função para verificar se é possível marcar uma tentativa
+  const canMarkAttempt = (entryId: number, attempt: number): boolean => {
+    // Verificar se a tentativa tem peso definido
+    if (!isAttemptAlreadyDefined(entryId, attempt)) {
+      console.log('❌ Tentativa não pode ser marcada: peso não definido');
+      return false;
+    }
+    
+    // Verificar se a tentativa já foi marcada
+    if (isAttemptAlreadyMarked(entryId, attempt)) {
+      console.log('❌ Tentativa não pode ser marcada: já foi marcada');
+      return false;
+    }
+    
+    return true;
   };
 
   // Handlers para os dropdowns
@@ -238,6 +296,12 @@ const LiftingFooter: React.FC = () => {
     console.log('🎯 handleGoodLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
+      // Verificar se a tentativa pode ser marcada
+      if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
+        alert('Esta tentativa não pode ser marcada. Verifique se o peso está definido e se não foi marcada anteriormente.');
+        return;
+      }
+      
       // Obter o peso atual da tentativa
       const currentWeight = getCurrentAttemptWeight(selectedEntryId, selectedAttempt);
       
@@ -275,6 +339,12 @@ const LiftingFooter: React.FC = () => {
     console.log('🎯 handleNoLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
     
     if (selectedEntryId && isAttemptActive) {
+      // Verificar se a tentativa pode ser marcada
+      if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
+        alert('Esta tentativa não pode ser marcada. Verifique se o peso está definido e se não foi marcada anteriormente.');
+        return;
+      }
+      
       // Obter o peso atual da tentativa
       const currentWeight = getCurrentAttemptWeight(selectedEntryId, selectedAttempt);
       

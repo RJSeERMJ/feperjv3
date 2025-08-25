@@ -37,7 +37,8 @@ const liftingSlice = createSlice({
     // Definir movimento atual
     setLift: (state: LiftingState, action: PayloadAction<Lift>) => {
       state.lift = action.payload;
-      state.attemptOneIndexed = 1; // Resetar para primeira tentativa
+      // CORREÇÃO: Não resetar sempre para primeira tentativa
+      // state.attemptOneIndexed = 1; // Resetar para primeira tentativa
     },
 
     // Definir tentativa atual
@@ -104,7 +105,8 @@ const liftingSlice = createSlice({
           state.lift = 'S';
           break;
       }
-      state.attemptOneIndexed = 1; // Resetar para primeira tentativa
+      // CORREÇÃO: Não resetar sempre para primeira tentativa
+      // state.attemptOneIndexed = 1; // Resetar para primeira tentativa
     },
 
     // Movimento anterior (D -> B -> S -> D...)
@@ -120,7 +122,8 @@ const liftingSlice = createSlice({
           state.lift = 'B';
           break;
       }
-      state.attemptOneIndexed = 1; // Resetar para primeira tentativa
+      // CORREÇÃO: Não resetar sempre para primeira tentativa
+      // state.attemptOneIndexed = 1; // Resetar para primeira tentativa
     },
   },
 });

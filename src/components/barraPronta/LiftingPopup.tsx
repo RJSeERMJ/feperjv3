@@ -117,6 +117,10 @@ const LiftingPopup: React.FC = () => {
       console.log('✅ Marcando Good Lift para:', selectedEntryId, selectedAttempt);
       dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 1, 0) as any);
       console.log(`Good Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
+      
+      // CORREÇÃO: Navegar automaticamente para o próximo após marcar Good Lift
+      // Implementar lógica similar ao LiftingFooter
+      navigateToNextAfterAttempt();
     } else {
       console.log('❌ Não é possível marcar Good Lift:', { selectedEntryId, isAttemptActive });
       alert('Selecione um atleta e uma tentativa primeiro!');
@@ -130,10 +134,23 @@ const LiftingPopup: React.FC = () => {
       console.log('✅ Marcando No Lift para:', selectedEntryId, selectedAttempt);
       dispatch(markAttempt(selectedEntryId, lift, selectedAttempt, 2, 0) as any);
       console.log(`No Lift marcado para atleta ${selectedEntryId}, tentativa ${selectedAttempt}`);
+      
+      // CORREÇÃO: Navegar automaticamente para o próximo após marcar No Lift
+      // Implementar lógica similar ao LiftingFooter
+      navigateToNextAfterAttempt();
     } else {
       console.log('❌ Não é possível marcar No Lift:', { selectedEntryId, isAttemptActive });
       alert('Selecione um atleta e uma tentativa primeiro!');
     }
+  };
+
+  // CORREÇÃO: Função para navegar para o próximo após marcar tentativa
+  const navigateToNextAfterAttempt = () => {
+    // Implementar lógica de navegação similar ao LiftingFooter
+    // Por enquanto, apenas resetar a seleção para permitir seleção manual
+    dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
+    dispatch({ type: 'lifting/setAttemptActive', payload: false });
+    console.log('🔄 Tentativa marcada, resetando seleção para próxima seleção manual');
   };
 
   // Função para fechar a janela popup
