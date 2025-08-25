@@ -197,12 +197,8 @@ const LiftingFooter: React.FC = () => {
       console.log(`⏰ Timer expirado: Aplicando peso automático ${autoWeight}kg (tentativa anterior foi ${statusText})`);
       
       dispatch(updateEntry(entryId, { [weightField]: autoWeight }));
-      
-      // Mostrar alerta informativo
-      alert(`⏰ TEMPO EXCEDIDO!\nPeso automático aplicado: ${autoWeight}kg\n(Tentativa anterior foi ${statusText})`);
     } else {
       console.log('⏰ Timer expirado: Não foi possível aplicar peso automático');
-      alert('⏰ TEMPO EXCEDIDO!\nNão foi possível aplicar peso automático.');
     }
   };
 
@@ -466,27 +462,82 @@ const LiftingFooter: React.FC = () => {
     return currentStatus === 3; // No Attempt
   };
 
-  // NOVO TIMER: Usar o hook personalizado com comportamento corrigido
-  const timer = useTimer({
-    duration: 60, // 60 segundos
-    onExpire: () => {
-      // Quando o timer expira, aplicar peso automático em vez de marcar como No Attempt
-      if (selectedEntryId && selectedAttempt) {
-        console.log('⏰ Timer expirado para atleta:', selectedEntryId, 'tentativa:', selectedAttempt);
-        
-        // Aplicar peso automático baseado no status da tentativa anterior
-        applyAutoWeight(selectedEntryId, selectedAttempt);
-        
-        // NÃO parar o timer - ele continua contando para o próximo atleta
-        console.log('⏰ Timer continua contando para próximo atleta');
-      }
-    }
-  });
+  // SISTEMA DE MÚLTIPLOS TIMERS: Armazenar timers por atleta
+  const [activeTimers, setActiveTimers] = useState<Map<string, { timeLeft: number, athleteName: string, startTime: number }>>(new Map());
+
+  // Função para iniciar timer para um atleta específico
+  const startTimerForAthlete = (entryId: number, attempt: number, athleteName: string) => {
+    const timerKey = `${entryId}-${attempt}`;
+    
+    // Adicionar timer à lista de timers ativos
+    setActiveTimers(prev => {
+      const newTimers = new Map(prev);
+      newTimers.set(timerKey, { 
+        timeLeft: 60, 
+        athleteName, 
+        startTime: Date.now() 
+      });
+      return newTimers;
+    });
+
+    console.log('⏰ Timer iniciado para atleta:', athleteName, 'tentativa:', attempt);
+  };
+
+  // Função para parar timer de um atleta específico
+  const stopTimerForAthlete = (entryId: number, attempt: number) => {
+    const timerKey = `${entryId}-${attempt}`;
+    
+    setActiveTimers(prev => {
+      const newTimers = new Map(prev);
+      newTimers.delete(timerKey);
+      return newTimers;
+    });
+
+    console.log('⏰ Timer parado para atleta:', entryId, 'tentativa:', attempt);
+  };
+
+  // useEffect para gerenciar a contagem regressiva dos timers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveTimers(prev => {
+        const newTimers = new Map();
+        let hasChanges = false;
+
+        prev.forEach((timerData, key) => {
+          const elapsed = Math.floor((Date.now() - timerData.startTime) / 1000);
+          const timeLeft = Math.max(0, 60 - elapsed);
+
+          if (timeLeft > 0) {
+            newTimers.set(key, { ...timerData, timeLeft });
+          } else {
+            // Timer expirou
+            const [entryId, attempt] = key.split('-').map(Number);
+            console.log('⏰ Timer expirado para atleta:', entryId, 'tentativa:', attempt);
+            
+            // Aplicar peso automático
+            applyAutoWeight(entryId, attempt);
+            console.log('⏰ Timer removido da tela:', key);
+          }
+          
+          hasChanges = true;
+        });
+
+        return hasChanges ? newTimers : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Função para iniciar timer quando marcar uma tentativa
-  const startAttemptTimer = () => {
-    timer.start();
-    console.log('⏰ Timer iniciado para próxima tentativa do atleta atual');
+  const startAttemptTimer = (entryId?: number, attempt?: number, athleteName?: string) => {
+    const targetEntryId = entryId || selectedEntryId;
+    const targetAttempt = attempt || selectedAttempt;
+    const targetAthleteName = athleteName || entries.find(e => e.id === targetEntryId)?.name || 'Atleta';
+    
+    if (targetEntryId && targetAttempt) {
+      startTimerForAthlete(targetEntryId, targetAttempt, targetAthleteName);
+    }
   };
 
   // Função para verificar se uma tentativa pode ser marcada (SEM verificação de tempo)
@@ -622,7 +673,8 @@ const LiftingFooter: React.FC = () => {
           console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para Good Lift`);
           
           // INICIAR TIMER para próxima tentativa do mesmo atleta
-          startAttemptTimer();
+          const athleteName = entriesInFlight.find(e => e.id === selectedEntryId)?.name || 'Atleta';
+          startAttemptTimer(selectedEntryId, selectedAttempt, athleteName);
           
           // Navegar automaticamente para o próximo - IMEDIATAMENTE
           navigateToNext();
@@ -672,7 +724,8 @@ const LiftingFooter: React.FC = () => {
           console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para No Lift`);
           
           // INICIAR TIMER para próxima tentativa do mesmo atleta
-          startAttemptTimer();
+          const athleteName = entriesInFlight.find(e => e.id === selectedEntryId)?.name || 'Atleta';
+          startAttemptTimer(selectedEntryId, selectedAttempt, athleteName);
           
           // Navegar automaticamente para o próximo - IMEDIATAMENTE
           navigateToNext();
@@ -741,7 +794,7 @@ const LiftingFooter: React.FC = () => {
         <Col md={8}>
           <div className="left-controls">
             <Row>
-              <Col md={2}>
+              <Col md={1}>
                 <Form.Group>
                   <Form.Label className="small text-muted">Dia</Form.Label>
                   <Form.Select
@@ -831,12 +884,27 @@ const LiftingFooter: React.FC = () => {
         <Col md={4}>
           <div className="right-controls">
             <div className="btn-group me-2" role="group">
-              {/* Timer indicator no lugar do botão Alternar Pesagens */}
-              {timer.isActive ? (
-                <div className={`timer-display-btn ${timer.getTimerClass()}`}>
-                  <span className="timer-text">
-                    ⏰ {timer.formattedTime}
-                  </span>
+              {/* Múltiplos Timers */}
+              {activeTimers.size > 0 ? (
+                <div className="multiple-timers-container">
+                  {Array.from(activeTimers.entries()).map(([timerKey, timerData]) => {
+                    const getTimerClass = () => {
+                      if (timerData.timeLeft <= 10) return "timer-urgent";
+                      if (timerData.timeLeft <= 30) return "timer-warning";
+                      return "timer-normal";
+                    };
+                    
+                    return (
+                      <div key={timerKey} className={`timer-display-btn ${getTimerClass()}`}>
+                        <span className="timer-text">
+                          ⏰ {timerData.timeLeft}s
+                        </span>
+                        <span className="timer-athlete-name">
+                          {timerData.athleteName}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="timer-display-btn timer-inactive">

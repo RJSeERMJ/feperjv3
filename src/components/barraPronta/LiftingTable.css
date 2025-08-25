@@ -804,21 +804,39 @@
 .timer-display {
   margin-top: 4px;
   text-align: center;
-}
-
-.timer-text {
   font-size: 11px;
   font-weight: bold;
-  color: #dc3545;
   padding: 2px 6px;
   border-radius: 3px;
+  display: inline-block;
   background-color: #f8d7da;
   border: 1px solid #f5c6cb;
-  display: inline-block;
+  color: #dc3545;
 }
 
-.timer-text.timer-urgent {
+.timer-display.timer-normal {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+.timer-display.timer-warning {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
+  animation: pulse 1s infinite;
+}
+
+.timer-display.timer-urgent {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #dc3545;
   animation: urgent-pulse 0.5s infinite;
-  background-color: #f1b0b7;
-  border-color: #dc3545;
+}
+
+.timer-display.timer-expired {
+  background-color: #dc3545;
+  border-color: #c82333;
+  color: white;
+  animation: urgent-pulse 0.3s infinite;
 }

@@ -5,7 +5,6 @@ import { RootState } from '../../store/barraProntaStore';
 import { markAttempt, updateEntry } from '../../actions/barraProntaActions';
 import { LiftStatus } from '../../types/barraProntaTypes';
 import { getStableOrderByWeight } from '../../logic/liftingOrder';
-import { useTimer } from '../../hooks/useTimer';
 import './LiftingTable.css';
 
 interface LiftingTableProps {
@@ -390,6 +389,8 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   // NOVO useEffect: Detectar mudanças na ordem dos atletas e selecionar automaticamente
   const lastOrderHash = useRef<string>('');
   const isAutoSelecting = useRef<boolean>(false);
+
+
   
   useEffect(() => {
     // Evitar execução se já estiver selecionando automaticamente
@@ -451,6 +452,8 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     
     return currentStatus === 1 || currentStatus === 2; // Good Lift ou No Lift
   };
+
+
 
 
 

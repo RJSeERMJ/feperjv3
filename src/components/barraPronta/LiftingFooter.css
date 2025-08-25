@@ -225,6 +225,76 @@
   }
 }
 
+/* Múltiplos Timers */
+.multiple-timers-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 10px;
+  align-items: center;
+  overflow: visible;
+  max-width: none;
+}
+
+.timer-display-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding:10px 12px;
+  border-radius: 6px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  min-width: 80px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  height: 60px;
+}
+
+.timer-display-btn.timer-normal {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+.timer-display-btn.timer-warning {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
+  animation: countdown-pulse 1s infinite;
+}
+
+.timer-display-btn.timer-urgent {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #dc3545;
+  animation: urgent-pulse 0.5s infinite;
+}
+
+.timer-display-btn.timer-inactive {
+  background-color: #e9ecef;
+  border-color: #dee2e6;
+  color: #6c757d;
+}
+
+.timer-text {
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.timer-athlete-name {
+  font-size: 9px;
+  font-weight: normal;
+  line-height: 1;
+  margin-top: 2px;
+  opacity: 0.8;
+  text-align: center;
+  max-width: 70px;
+ 
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Responsividade */
 @media (max-width: 1200px) {
   .lifting-footer {
