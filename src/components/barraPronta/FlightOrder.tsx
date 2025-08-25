@@ -14,7 +14,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { GlobalState, Entry, Flight } from '../../types/barraProntaTypes';
 import { updateEntry, setLiftingState } from '../../actions/barraProntaActions';
-import { FaPlane, FaEdit, FaRandom, FaSave, FaFilter, FaWeightHanging } from 'react-icons/fa';
+import { FaPlane, FaEdit, FaRandom, FaFilter, FaWeightHanging } from 'react-icons/fa';
 
 const FlightOrder: React.FC = () => {
   const dispatch = useDispatch();
@@ -38,27 +38,7 @@ const FlightOrder: React.FC = () => {
     return true;
   });
 
-  // Função para calcular total parcial baseado nos movimentos
-  const getPartialTotal = (entry: Entry): number => {
-    let total = 0;
 
-    // Agachamento (primeira tentativa)
-    if (entry.squat1) {
-      total += entry.squat1;
-    }
-
-    // Supino (primeira tentativa)
-    if (entry.bench1) {
-      total += entry.bench1;
-    }
-
-    // Terra (primeira tentativa)
-    if (entry.deadlift1) {
-      total += entry.deadlift1;
-    }
-
-    return total;
-  };
 
   // Função para obter o peso do agachamento (para ordenação)
   const getSquatWeight = (entry: Entry): number => {
@@ -101,13 +81,7 @@ const FlightOrder: React.FC = () => {
     }
   };
 
-  const handleSetLiftingState = () => {
-    dispatch(setLiftingState({
-      day: selectedDay,
-      platform: selectedPlatform,
-      flight: filterFlight !== 'all' ? filterFlight : 'A'
-    }));
-  };
+
 
   const getWeightClassLabel = (weight: number, sex: 'M' | 'F') => {
     const classes = sex === 'M' ? meet.weightClassesKgMen : meet.weightClassesKgWomen;
@@ -121,14 +95,8 @@ const FlightOrder: React.FC = () => {
   const getFlightStats = (flight: Flight) => {
     const entries = entriesByFlight[flight];
     const total = entries.length;
-    const weighed = entries.filter(e => e.bodyweightKg !== null).length;
-    const men = entries.filter(e => e.sex === 'M').length;
-    const women = entries.filter(e => e.sex === 'F').length;
     
-    // Calcular total parcial do grupo
-    const groupTotal = entries.reduce((sum, entry) => sum + getPartialTotal(entry), 0);
-    
-    return { total, weighed, men, women, groupTotal };
+    return { total };
   };
 
   return (
@@ -144,10 +112,6 @@ const FlightOrder: React.FC = () => {
               <Button variant="outline-primary" onClick={handleAutoAssignFlights}>
                 <FaRandom className="me-2" />
                 Auto Distribuir
-              </Button>
-              <Button variant="success" onClick={handleSetLiftingState}>
-                <FaSave className="me-2" />
-                Definir Estado
               </Button>
             </div>
           </div>
@@ -247,44 +211,7 @@ const FlightOrder: React.FC = () => {
         </Col>
       </Row>
 
-              {/* Resumo Geral */}
-      <Row className="mb-4">
-        <Col>
-          <Card>
-            <Card.Header>
-              <h5>📊 Resumo Geral dos Grupos</h5>
-            </Card.Header>
-            <Card.Body>
-              <Row>
-                {flights.map(flight => {
-                  const stats = getFlightStats(flight);
-                  if (stats.total === 0) return null;
-                  
-                  return (
-                    <Col key={flight} md={3} className="mb-3">
-                      <div className="text-center p-3 border rounded">
-                        <h6 className="text-primary">Grupo {flight}</h6>
-                        <div className="h4 mb-1">{stats.total}</div>
-                        <small className="text-muted">atletas</small>
-                        <div className="mt-2">
-                          <Badge bg="success" className="fs-6">
-                            {stats.groupTotal} kg
-                          </Badge>
-                        </div>
-                        <div className="mt-1">
-                          <small className="text-muted">
-                            M: {stats.men} | F: {stats.women}
-                          </small>
-                        </div>
-                      </div>
-                    </Col>
-                  );
-                })}
-              </Row>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+
 
       {/* Organização por Grupos */}
       <Row className="mb-4">
