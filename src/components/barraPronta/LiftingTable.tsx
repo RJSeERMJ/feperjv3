@@ -88,7 +88,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
   const isAttemptSelected = (entryId: number, attempt: number): boolean => {
     const isSelected = selectedEntryId === entryId && selectedAttempt === attempt && isAttemptActive;
     
-    // Debug mais detalhado apenas quando há seleção
+    // Debug apenas quando há seleção
     if (isSelected) {
       console.log('🎯 CÉLULA SELECIONADA:', { 
         entryId, 
@@ -275,14 +275,11 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
       classes += ` status-${attemptStatus}`;
     }
     
-    // CORREÇÃO: Prioridade corrigida - Status tem prioridade sobre seleção
-    // Apenas aplicar seleção/atual se não há status definido
-    if (attemptStatus === 0) {
-      if (isSelected) {
-        classes += ' selected-attempt';
-      } else if (isCurrent) {
-        classes += ' current-attempt';
-      }
+    // CORREÇÃO: Aplicar seleção independente do status
+    if (isSelected) {
+      classes += ' selected-attempt';
+    } else if (isCurrent && attemptStatus === 0) {
+      classes += ' current-attempt';
     }
     
     if (!isAvailable) classes += ' blocked-attempt';

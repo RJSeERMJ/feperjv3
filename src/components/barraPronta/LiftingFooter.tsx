@@ -34,17 +34,15 @@ const LiftingFooter: React.FC = () => {
 
   // Função para sincronizar o estado da tentativa atual
   const syncAttemptState = () => {
-    // Se não há tentativa selecionada, usar a tentativa atual do sistema
+    // ✅ CORREÇÃO: Só sincronizar se não há tentativa selecionada ou se não está ativa
     if (!selectedEntryId || !isAttemptActive) {
       console.log('🔄 Sincronizando estado: usando tentativa atual do sistema:', attemptOneIndexed);
       return;
     }
     
-    // Se a tentativa selecionada é diferente da tentativa atual do sistema, sincronizar
-    if (selectedAttempt !== attemptOneIndexed) {
-      console.log('🔄 Sincronizando estado: atualizando selectedAttempt para:', attemptOneIndexed);
-      dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
-    }
+    // ✅ CORREÇÃO: NÃO forçar sincronização quando há seleção manual
+    // Permitir que o usuário selecione tentativas anteriores livremente
+    console.log('🔄 Sincronização automática desabilitada - permitindo seleção manual');
   };
 
   // NOVA FUNÇÃO: Selecionar automaticamente o primeiro atleta da lista reorganizada
@@ -54,6 +52,12 @@ const LiftingFooter: React.FC = () => {
   const autoSelectFirstAthlete = () => {
     // Evitar execução se já estiver selecionando automaticamente
     if (isAutoSelecting.current) {
+      return;
+    }
+    
+    // ✅ CORREÇÃO: Só executar se não há atleta selecionado
+    if (selectedEntryId) {
+      console.log('🔄 autoSelectFirstAthlete - Atleta já selecionado, não interferindo');
       return;
     }
     
@@ -73,43 +77,31 @@ const LiftingFooter: React.FC = () => {
       firstAthlete: attemptsOrdered[0]?.entryId
     });
     
-    // Só executar se a ordem realmente mudou ou se não há atleta selecionado
-    if ((currentOrderHash !== lastOrderHash.current || !selectedEntryId) && attemptsOrdered.length > 0) {
+    // Só executar se a ordem realmente mudou e há atletas disponíveis
+    if (currentOrderHash !== lastOrderHash.current && attemptsOrdered.length > 0) {
       const firstAthlete = attemptsOrdered[0];
       
-      // Verificar se o primeiro atleta já está selecionado
-      if (selectedEntryId !== firstAthlete.entryId) {
-        console.log('🔄 Seleção automática: primeiro atleta da lista reorganizada:', firstAthlete.entryId);
-        
-        // Marcar que está selecionando automaticamente para evitar loops
-        isAutoSelecting.current = true;
-        
-        // Selecionar automaticamente o primeiro atleta
-        dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
-        dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
-        dispatch({ type: 'lifting/setAttemptActive', payload: true });
-        
-        console.log('✅ Atleta selecionado automaticamente:', firstAthlete.entryId, 'tentativa:', attemptOneIndexed);
-        
-        // Resetar flag após um delay para permitir que o estado se atualize
-        setTimeout(() => {
-          isAutoSelecting.current = false;
-        }, 100);
-      } else {
-        console.log('🔄 Primeiro atleta já está selecionado:', firstAthlete.entryId);
-      }
+      console.log('🔄 Seleção automática: primeiro atleta da lista reorganizada:', firstAthlete.entryId);
+      
+      // Marcar que está selecionando automaticamente para evitar loops
+      isAutoSelecting.current = true;
+      
+      // Selecionar automaticamente o primeiro atleta
+      dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
+      dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
+      dispatch({ type: 'lifting/setAttemptActive', payload: true });
+      
+      console.log('✅ Atleta selecionado automaticamente:', firstAthlete.entryId, 'tentativa:', attemptOneIndexed);
+      
+      // Resetar flag após um delay para permitir que o estado se atualize
+      setTimeout(() => {
+        isAutoSelecting.current = false;
+      }, 100);
       
       // Atualizar hash da ordem
       lastOrderHash.current = currentOrderHash;
     } else if (attemptsOrdered.length === 0) {
       console.log('🔄 Nenhum atleta com peso definido para tentativa:', attemptOneIndexed);
-      
-      // Se não há atletas com peso definido, desmarcar seleção
-      if (selectedEntryId) {
-        console.log('🔄 Desmarcando seleção - não há atletas disponíveis');
-        dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
-        dispatch({ type: 'lifting/setAttemptActive', payload: false });
-      }
     }
   };
 
@@ -126,8 +118,10 @@ const LiftingFooter: React.FC = () => {
     // Sincronizar estado da tentativa
     syncAttemptState();
     
-    // NOVA FUNCIONALIDADE: Selecionar automaticamente o primeiro atleta
-    autoSelectFirstAthlete();
+    // ✅ CORREÇÃO: Só selecionar automaticamente se não há atleta selecionado
+    if (!selectedEntryId) {
+      autoSelectFirstAthlete();
+    }
     
     // CORREÇÃO: Verificar se o atleta selecionado ainda existe na lista atual
     if (selectedEntryId && !entriesInFlight.find(e => e.id === selectedEntryId)) {
@@ -136,17 +130,9 @@ const LiftingFooter: React.FC = () => {
       dispatch({ type: 'lifting/setAttemptActive', payload: false });
     }
     
-    // CORREÇÃO ADICIONAL: Forçar seleção automática se não há atleta selecionado
-    if (!selectedEntryId && entriesInFlight.length > 0) {
-      console.log('🔄 Nenhum atleta selecionado, forçando seleção automática');
-      setTimeout(() => {
-        autoSelectFirstAthlete();
-      }, 100);
-    }
-    
     // DEBUG: Verificar se o selectedEntryId está sendo atualizado corretamente
     console.log('🔍 LiftingFooter - selectedEntryId atual:', selectedEntryId);
-  }, [day, platform, flight, lift, attemptOneIndexed, entries, entriesInFlight, liftingOrder, selectedEntryId]);
+  }, [day, platform, flight, lift, attemptOneIndexed, entries, entriesInFlight, liftingOrder]); // ✅ REMOVIDO selectedEntryId das dependências
 
   // Função para obter o campo de status baseado no movimento atual
   const getStatusField = (): string => {
@@ -704,21 +690,16 @@ const LiftingFooter: React.FC = () => {
     const newAttempt = parseInt(event.target.value);
     console.log('🎯 handleAttemptChange chamado:', { newAttempt, selectedEntryId });
     
-    // CORREÇÃO: Permitir voltar para tentativas anteriores
+    // ✅ CORREÇÃO: Permitir navegação livre entre tentativas para correções
     if (selectedEntryId) {
-      // Usar a função mais permissiva
-      if (canAccessAttemptPermissive(selectedEntryId, newAttempt)) {
-        console.log('✅ Permitindo navegação para tentativa:', newAttempt);
-        dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
-        dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { entryId: selectedEntryId, attempt: newAttempt } });
-      } else {
-        console.log('❌ Tentativa não pode ser acessada:', newAttempt);
-        alert(`A tentativa ${newAttempt} não tem peso definido nem foi marcada. Defina o peso primeiro.`);
-        // Reverter para a tentativa anterior
-        event.target.value = selectedAttempt.toString();
-      }
+      console.log('✅ Permitindo navegação para tentativa:', newAttempt, 'do atleta:', selectedEntryId);
+      
+      // ✅ SIMPLIFICADO: Permitir navegação para qualquer tentativa se o atleta está selecionado
+      dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
+      dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { entryId: selectedEntryId, attempt: newAttempt } });
     } else {
       // Se não há atleta selecionado, apenas atualizar a tentativa
+      console.log('⚠️ Nenhum atleta selecionado, apenas atualizando tentativa');
       dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
     }
   };
@@ -728,7 +709,7 @@ const LiftingFooter: React.FC = () => {
     console.log('🎯 handleAthleteChange chamado:', { entryId, selectedAttempt });
     
     if (entryId > 0) {
-      // Selecionar atleta e tentativa atual
+      // ✅ SIMPLIFICADO: Selecionar atleta e tentativa atual sem validações
       console.log('✅ Selecionando atleta:', entryId, 'tentativa:', selectedAttempt);
       dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { entryId, attempt: selectedAttempt } });
     } else {
@@ -961,6 +942,7 @@ const LiftingFooter: React.FC = () => {
                     value={selectedAttempt}
                     onChange={handleAttemptChange}
                     className="custom-select"
+
                   >
                     <option value={1}>Tentativa 1</option>
                     <option value={2}>Tentativa 2</option>
@@ -1023,6 +1005,7 @@ const LiftingFooter: React.FC = () => {
               >
                 Alternar Tela Cheia
               </Button>
+
             </div>
             <Button
               variant="danger"
