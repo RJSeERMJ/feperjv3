@@ -49,6 +49,48 @@ const LiftingFooter: React.FC = () => {
   const lastOrderHash = useRef<string>('');
   const isAutoSelecting = useRef<boolean>(false);
   
+  // ✅ NOVO: Sistema de memorização do estado anterior para correções
+  const previousState = useRef<{
+    entryId: number | null;
+    attempt: number;
+    isActive: boolean;
+  } | null>(null);
+  
+  // ✅ NOVO: Flag para identificar se estamos fazendo uma correção
+  const isMakingCorrection = useRef<boolean>(false);
+  
+  // ✅ NOVA FUNÇÃO: Memorizar estado atual antes de fazer correção
+  const memorizeCurrentState = () => {
+    previousState.current = {
+      entryId: selectedEntryId,
+      attempt: selectedAttempt,
+      isActive: isAttemptActive
+    };
+    console.log('💾 Estado memorizado:', previousState.current);
+  };
+  
+  // ✅ NOVA FUNÇÃO: Restaurar estado anterior após correção
+  const restorePreviousState = () => {
+    if (previousState.current) {
+      console.log('🔄 Restaurando estado anterior:', previousState.current);
+      
+      if (previousState.current.entryId) {
+        dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { 
+          entryId: previousState.current.entryId, 
+          attempt: previousState.current.attempt 
+        }});
+      } else {
+        dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
+        dispatch({ type: 'lifting/setSelectedAttempt', payload: previousState.current.attempt });
+        dispatch({ type: 'lifting/setAttemptActive', payload: previousState.current.isActive });
+      }
+      
+      // Limpar estado memorizado
+      previousState.current = null;
+      isMakingCorrection.current = false;
+    }
+  };
+  
   const autoSelectFirstAthlete = () => {
     // Evitar execução se já estiver selecionando automaticamente
     if (isAutoSelecting.current) {
@@ -694,6 +736,14 @@ const LiftingFooter: React.FC = () => {
     if (selectedEntryId) {
       console.log('✅ Permitindo navegação para tentativa:', newAttempt, 'do atleta:', selectedEntryId);
       
+      // ✅ NOVO: Detectar se é uma correção (tentativa anterior)
+      const isCorrection = newAttempt < attemptOneIndexed;
+      
+      if (isCorrection && !isMakingCorrection.current) {
+        memorizeCurrentState();
+        isMakingCorrection.current = true;
+      }
+      
       // ✅ SIMPLIFICADO: Permitir navegação para qualquer tentativa se o atleta está selecionado
       dispatch({ type: 'lifting/setSelectedAttempt', payload: newAttempt });
       dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { entryId: selectedEntryId, attempt: newAttempt } });
@@ -711,6 +761,15 @@ const LiftingFooter: React.FC = () => {
     if (entryId > 0) {
       // ✅ SIMPLIFICADO: Selecionar atleta e tentativa atual sem validações
       console.log('✅ Selecionando atleta:', entryId, 'tentativa:', selectedAttempt);
+      
+      // ✅ NOVO: Detectar se é uma correção (tentativa anterior)
+      const isCorrection = selectedAttempt < attemptOneIndexed;
+      
+      if (isCorrection && !isMakingCorrection.current) {
+        memorizeCurrentState();
+        isMakingCorrection.current = true;
+      }
+      
       dispatch({ type: 'lifting/selectAthleteAndAttempt', payload: { entryId, attempt: selectedAttempt } });
     } else {
       // Desmarcar seleção
@@ -758,12 +817,18 @@ const LiftingFooter: React.FC = () => {
           
           console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para Good Lift`);
           
-          // INICIAR TIMER para próxima tentativa do mesmo atleta
-          const athleteName = entriesInFlight.find(e => e.id === selectedEntryId)?.name || 'Atleta';
-          startAttemptTimer(selectedEntryId, selectedAttempt, athleteName);
-          
-          // Navegar automaticamente para o próximo - IMEDIATAMENTE
-          navigateToNext();
+          // ✅ NOVO: Verificar se é uma correção e restaurar estado anterior
+          if (isMakingCorrection.current) {
+            // Restaurar estado anterior após um pequeno delay
+            setTimeout(() => {
+              restorePreviousState();
+            }, 500);
+          } else {
+            // Navegação normal para marcações da tentativa atual
+            const athleteName = entriesInFlight.find(e => e.id === selectedEntryId)?.name || 'Atleta';
+            startAttemptTimer(selectedEntryId, selectedAttempt, athleteName);
+            navigateToNext();
+          }
         }
       }
     } else {
@@ -809,12 +874,18 @@ const LiftingFooter: React.FC = () => {
           
           console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para No Lift`);
           
-          // INICIAR TIMER para próxima tentativa do mesmo atleta
-          const athleteName = entriesInFlight.find(e => e.id === selectedEntryId)?.name || 'Atleta';
-          startAttemptTimer(selectedEntryId, selectedAttempt, athleteName);
-          
-          // Navegar automaticamente para o próximo - IMEDIATAMENTE
-          navigateToNext();
+          // ✅ NOVO: Verificar se é uma correção e restaurar estado anterior
+          if (isMakingCorrection.current) {
+            // Restaurar estado anterior após um pequeno delay
+            setTimeout(() => {
+              restorePreviousState();
+            }, 500);
+          } else {
+            // Navegação normal para marcações da tentativa atual
+            const athleteName = entriesInFlight.find(e => e.id === selectedEntryId)?.name || 'Atleta';
+            startAttemptTimer(selectedEntryId, selectedAttempt, athleteName);
+            navigateToNext();
+          }
         }
       }
     } else {
