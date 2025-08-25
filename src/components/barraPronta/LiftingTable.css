@@ -584,3 +584,58 @@
 .bar-load-error small {
   font-size: 10px;
 }
+
+/* Estilos para tentativas DNS (Did Not Start) */
+.dns-attempt {
+  background-color: #fff3cd !important;
+  border-color: #ffeaa7 !important;
+  color: #856404 !important;
+}
+
+.dns-attempt:focus {
+  background-color: #fff3cd !important;
+  border-color: #ffeaa7 !important;
+  color: #856404 !important;
+  box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important;
+}
+
+.dns-indicator {
+  margin-top: 5px;
+  text-align: center;
+  padding: 2px 6px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+/* Estilos para validação de peso */
+.weight-input.invalid-weight {
+  background-color: #f8d7da !important;
+  border-color: #f5c6cb !important;
+  color: #721c24 !important;
+}
+
+.weight-input.invalid-weight:focus {
+  background-color: #f8d7da !important;
+  border-color: #f5c6cb !important;
+  color: #721c24 !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+/* Estilos para indicadores de peso mínimo */
+.weight-input[data-min-weight]::placeholder {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Estilos para tentativas bloqueadas por peso inválido */
+.attempt-cell.weight-invalid {
+  background-color: #f8f9fa;
+  opacity: 0.7;
+}
+
+.attempt-cell.weight-invalid .weight-input {
+  cursor: not-allowed;
+  background-color: #e9ecef;
+}

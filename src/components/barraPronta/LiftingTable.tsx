@@ -85,6 +85,59 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     return previousAttempt === 1 || previousAttempt === 2; // 1 = Good Lift, 2 = No Lift
   };
 
+  // NOVA FUNÇÃO: Verificar se o peso é válido (progressivo)
+  const isWeightValid = (entry: any, attempt: number, newWeight: number): boolean => {
+    if (attempt === 1) return true; // Primeira tentativa sempre válida
+    
+    // Verificar se o peso é maior que zero
+    if (newWeight <= 0) return false;
+    
+    // Verificar se é maior que a tentativa anterior
+    for (let i = attempt - 1; i >= 1; i--) {
+      const previousWeight = getAttemptWeight(entry, i);
+      if (previousWeight > 0 && newWeight <= previousWeight) {
+        return false; // Peso deve ser maior que o anterior
+      }
+    }
+    
+    return true;
+  };
+
+  // NOVA FUNÇÃO: Obter mensagem de erro para peso inválido
+  const getWeightValidationMessage = (entry: any, attempt: number, newWeight: number): string | null => {
+    if (attempt === 1) return null;
+    
+    if (newWeight <= 0) return 'Peso deve ser maior que zero';
+    
+    // Verificar se é maior que a tentativa anterior
+    for (let i = attempt - 1; i >= 1; i--) {
+      const previousWeight = getAttemptWeight(entry, i);
+      if (previousWeight > 0 && newWeight <= previousWeight) {
+        return `Peso deve ser maior que ${previousWeight}kg (${i}ª tentativa)`;
+      }
+    }
+    
+    return null;
+  };
+
+  // NOVA FUNÇÃO: Verificar se uma tentativa deve ser marcada como DNS
+  const shouldMarkAsDNS = (entry: any, attempt: number): boolean => {
+    // Se é a primeira tentativa, não marcar como DNS
+    if (attempt === 1) return false;
+    
+    // Verificar se a tentativa anterior foi marcada
+    const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
+    const statusArray = entry[statusField] || [0, 0, 0];
+    const previousAttempt = statusArray[attempt - 2];
+    
+    // Se a tentativa anterior foi marcada (Good/No Lift) e a atual não tem peso, marcar como DNS
+    if ((previousAttempt === 1 || previousAttempt === 2) && !getAttemptWeight(entry, attempt)) {
+      return true;
+    }
+    
+    return false;
+  };
+
   // Função para obter a classe CSS baseada na disponibilidade da tentativa
   const getAttemptCellClass = (entry: any, attempt: number): string => {
     const baseClass = `text-center attempt-cell`;
@@ -139,8 +192,47 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     if (weightField) {
       const weightValue = weight === '' ? null : parseFloat(weight);
       
-      // Atualizar apenas o peso
+      // Atualizar o peso imediatamente (sem validação durante digitação)
       dispatch(updateEntry(entryId, { [weightField]: weightValue }));
+    }
+  };
+
+  // NOVA FUNÇÃO: Validar e processar peso quando usuário clicar fora da célula
+  const handleWeightBlur = (entryId: number, attempt: number, weight: string) => {
+    const weightField = getWeightField(attempt);
+    
+    if (weightField) {
+      const weightValue = weight === '' ? null : parseFloat(weight);
+      
+      // VALIDAÇÃO: Verificar se o peso é válido apenas quando clicar fora
+      if (weightValue !== null) {
+        const entry = orderedEntries.find(e => e.id === entryId);
+        if (entry && !isWeightValid(entry, attempt, weightValue)) {
+          const errorMessage = getWeightValidationMessage(entry, attempt, weightValue);
+          alert(`❌ Peso inválido: ${errorMessage}`);
+          
+          // Reverter para o valor anterior se inválido
+          const previousWeight = getAttemptWeight(entry, attempt);
+          dispatch(updateEntry(entryId, { [weightField]: previousWeight }));
+          return;
+        }
+      }
+      
+      // VERIFICAÇÃO AUTOMÁTICA: Marcar como DNS se necessário
+      if (weightValue === null) {
+        const currentEntry = orderedEntries.find(e => e.id === entryId);
+        if (currentEntry && shouldMarkAsDNS(currentEntry, attempt)) {
+          const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
+          const statusArray = (currentEntry as any)[statusField] || [0, 0, 0];
+          const newStatusArray = [...statusArray];
+          newStatusArray[attempt - 1] = 3; // 3 = DNS (Did Not Start)
+          dispatch(updateEntry(entryId, { [statusField]: newStatusArray }));
+          console.log(`🔄 Tentativa ${attempt} marcada automaticamente como DNS para atleta ${entryId}`);
+        }
+      }
+      
+      // A reorganização da tabela acontece automaticamente via useMemo
+      // quando o estado mudar (após a validação)
     }
   };
 
@@ -308,6 +400,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         type="number"
                         value={getAttemptWeight(entry, 1) || ''}
                         onChange={(e) => updateAttemptWeight(entry.id, 1, e.target.value)}
+                        onBlur={(e) => handleWeightBlur(entry.id, 1, e.target.value)}
                         placeholder="Peso"
                         step="0.5"
                         min="0"
@@ -337,12 +430,14 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         type="number"
                         value={getAttemptWeight(entry, 2) || ''}
                         onChange={(e) => updateAttemptWeight(entry.id, 2, e.target.value)}
-                        placeholder="Peso"
+                        onBlur={(e) => handleWeightBlur(entry.id, 2, e.target.value)}
+                        placeholder={getAttemptWeight(entry, 1) ? `Mín: ${getAttemptWeight(entry, 1) + 0.5}kg` : 'Peso'}
                         step="0.5"
-                        min="0"
+                        min={getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
                         size="sm"
-                        className="weight-input"
+                        className={`weight-input ${shouldMarkAsDNS(entry, 2) ? 'dns-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 2)}
+                        data-min-weight={getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
                       />
                       <span className="ms-1">kg</span>
                     </div>
@@ -354,6 +449,11 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 2) === 0 && <span className="status-icon">⏳</span>}
                       </div>
                     </div>
+                    {shouldMarkAsDNS(entry, 2) && (
+                      <div className="dns-indicator">
+                        <small className="text-warning">⚠️ DNS (Desistência)</small>
+                      </div>
+                    )}
                     {renderBarLoad(entry, 2)}
                   </div>
                 </td>
@@ -366,23 +466,37 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         type="number"
                         value={getAttemptWeight(entry, 3) || ''}
                         onChange={(e) => updateAttemptWeight(entry.id, 3, e.target.value)}
-                        placeholder="Peso"
+                        onBlur={(e) => handleWeightBlur(entry.id, 3, e.target.value)}
+                        placeholder={(() => {
+                          const weight2 = getAttemptWeight(entry, 2);
+                          const weight1 = getAttemptWeight(entry, 1);
+                          if (weight2) return `Mín: ${weight2 + 0.5}kg`;
+                          if (weight1) return `Mín: ${weight1 + 0.5}kg`;
+                          return 'Peso';
+                        })()}
                         step="0.5"
-                        min="0"
+                        min={getAttemptWeight(entry, 2) ? getAttemptWeight(entry, 2) + 0.5 : 
+                             getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
                         size="sm"
-                        className="weight-input"
+                        className={`weight-input ${shouldMarkAsDNS(entry, 3) ? 'dns-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 3)}
+                        data-min-weight={getAttemptWeight(entry, 2) ? getAttemptWeight(entry, 2) + 0.5 : 
+                                       getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
                       />
                       <span className="ms-1">kg</span>
                     </div>
                     <div className="attempt-status-indicator">
                       <div className={`status-visual status-${getAttemptStatus(entry, 3)}`}>
                         {getAttemptStatus(entry, 3) === 1 && <span className="status-icon">✅</span>}
-                        {getAttemptStatus(entry, 3) === 2 && <span className="status-icon">❌</span>}
                         {getAttemptStatus(entry, 3) === 3 && <span className="status-icon">⏸️</span>}
                         {getAttemptStatus(entry, 3) === 0 && <span className="status-icon">⏳</span>}
                       </div>
                     </div>
+                    {shouldMarkAsDNS(entry, 3) && (
+                      <div className="dns-indicator">
+                        <small className="text-warning">⚠️ DNS (Desistência)</small>
+                      </div>
+                    )}
                     {renderBarLoad(entry, 3)}
                   </div>
                 </td>

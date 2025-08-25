@@ -221,6 +221,48 @@ const LiftingFooter: React.FC = () => {
     return statusArray[attempt - 1] === 1 || statusArray[attempt - 1] === 2;
   };
 
+  // NOVA FUNÇÃO: Verificar se o peso é válido (progressivo)
+  const isWeightValid = (entryId: number, attempt: number): boolean => {
+    if (attempt === 1) return true; // Primeira tentativa sempre válida
+    
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return false;
+    
+    const currentWeight = getCurrentAttemptWeight(entryId, attempt);
+    if (currentWeight <= 0) return false;
+    
+    // Verificar se é maior que a tentativa anterior
+    for (let i = attempt - 1; i >= 1; i--) {
+      const previousWeight = getCurrentAttemptWeight(entryId, i);
+      if (previousWeight > 0 && currentWeight <= previousWeight) {
+        return false; // Peso deve ser maior que o anterior
+      }
+    }
+    
+    return true;
+  };
+
+  // NOVA FUNÇÃO: Obter mensagem de erro para peso inválido
+  const getWeightValidationMessage = (entryId: number, attempt: number): string | null => {
+    if (attempt === 1) return null;
+    
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return null;
+    
+    const currentWeight = getCurrentAttemptWeight(entryId, attempt);
+    if (currentWeight <= 0) return 'Peso deve ser maior que zero';
+    
+    // Verificar se é maior que a tentativa anterior
+    for (let i = attempt - 1; i >= 1; i--) {
+      const previousWeight = getCurrentAttemptWeight(entryId, i);
+      if (previousWeight > 0 && currentWeight <= previousWeight) {
+        return `Peso deve ser maior que ${previousWeight}kg (${i}ª tentativa)`;
+      }
+    }
+    
+    return null;
+  };
+
   // Função para verificar se é possível marcar uma tentativa
   const canMarkAttempt = (entryId: number, attempt: number): boolean => {
     // Verificar se a tentativa tem peso definido
@@ -232,6 +274,12 @@ const LiftingFooter: React.FC = () => {
     // Verificar se a tentativa já foi marcada
     if (isAttemptAlreadyMarked(entryId, attempt)) {
       console.log('❌ Tentativa não pode ser marcada: já foi marcada');
+      return false;
+    }
+    
+    // NOVA VERIFICAÇÃO: Verificar se o peso é válido (progressivo)
+    if (!isWeightValid(entryId, attempt)) {
+      console.log('❌ Tentativa não pode ser marcada: peso não é progressivo');
       return false;
     }
     
@@ -298,7 +346,17 @@ const LiftingFooter: React.FC = () => {
     if (selectedEntryId && isAttemptActive) {
       // Verificar se a tentativa pode ser marcada
       if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
-        alert('Esta tentativa não pode ser marcada. Verifique se o peso está definido e se não foi marcada anteriormente.');
+        // Verificar qual é o problema específico
+        if (!isAttemptAlreadyDefined(selectedEntryId, selectedAttempt)) {
+          alert('❌ Esta tentativa não pode ser marcada: peso não definido');
+        } else if (isAttemptAlreadyMarked(selectedEntryId, selectedAttempt)) {
+          alert('❌ Esta tentativa não pode ser marcada: já foi marcada anteriormente');
+        } else if (!isWeightValid(selectedEntryId, selectedAttempt)) {
+          const errorMessage = getWeightValidationMessage(selectedEntryId, selectedAttempt);
+          alert(`❌ Esta tentativa não pode ser marcada: ${errorMessage}`);
+        } else {
+          alert('❌ Esta tentativa não pode ser marcada por motivo desconhecido');
+        }
         return;
       }
       
@@ -341,7 +399,17 @@ const LiftingFooter: React.FC = () => {
     if (selectedEntryId && isAttemptActive) {
       // Verificar se a tentativa pode ser marcada
       if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
-        alert('Esta tentativa não pode ser marcada. Verifique se o peso está definido e se não foi marcada anteriormente.');
+        // Verificar qual é o problema específico
+        if (!isAttemptAlreadyDefined(selectedEntryId, selectedAttempt)) {
+          alert('❌ Esta tentativa não pode ser marcada: peso não definido');
+        } else if (isAttemptAlreadyMarked(selectedEntryId, selectedAttempt)) {
+          alert('❌ Esta tentativa não pode ser marcada: já foi marcada anteriormente');
+        } else if (!isWeightValid(selectedEntryId, selectedAttempt)) {
+          const errorMessage = getWeightValidationMessage(selectedEntryId, selectedAttempt);
+          alert(`❌ Esta tentativa não pode ser marcada: ${errorMessage}`);
+        } else {
+          alert('❌ Esta tentativa não pode ser marcada por motivo desconhecido');
+        }
         return;
       }
       
