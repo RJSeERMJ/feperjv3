@@ -52,11 +52,26 @@ interface ResultsByCategory {
   results: CalculatedResult[];
 }
 
+// Função para obter nome de exibição do equipamento (definida fora do componente)
+const getEquipmentDisplayName = (equipment: string): string => {
+  switch (equipment) {
+    case 'Raw':
+    case 'CLASSICA':
+      return 'Clássica';
+    case 'Equipped':
+    case 'EQUIPADO':
+      return 'Equipado';
+    default:
+      return equipment || 'Clássica';
+  }
+};
+
 const Results: React.FC = () => {
   const { meet, registration } = useSelector((state: RootState) => state);
   const [selectedDay, setSelectedDay] = useState<number>(0); // 0 = todos os dias
   const [selectedDivision, setSelectedDivision] = useState<string>('all');
   const [selectedSex, setSelectedSex] = useState<'M' | 'F' | 'all'>('all');
+  const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -70,6 +85,8 @@ const Results: React.FC = () => {
         if (selectedDivision !== 'all' && entry.division !== selectedDivision) return false;
         // Filtrar por sexo se selecionado
         if (selectedSex !== 'all' && entry.sex !== selectedSex) return false;
+        // Filtrar por equipamento/modalidade se selecionado
+        if (selectedEquipment !== 'all' && entry.equipment !== selectedEquipment) return false;
         return true;
       })
       .map(entry => {
@@ -141,14 +158,15 @@ const Results: React.FC = () => {
         const bValue = b[sortBy];
         return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
       });
-  }, [registration.entries, selectedDay, selectedDivision, selectedSex, sortBy, sortOrder]);
+  }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, sortBy, sortOrder]);
 
   // Agrupar resultados por categoria
   const resultsByCategory = useMemo((): ResultsByCategory[] => {
     const grouped: { [key: string]: CalculatedResult[] } = {};
 
     calculatedResults.forEach(result => {
-      const category = `${result.entry.division} - ${result.entry.weightClass}`;
+      const equipmentName = getEquipmentDisplayName(result.entry.equipment || 'Raw');
+      const category = `${result.entry.division} - ${result.entry.weightClass} - ${equipmentName}`;
       if (!grouped[category]) {
         grouped[category] = [];
       }
@@ -186,6 +204,7 @@ const Results: React.FC = () => {
       'Equipe',
       'Divisão',
       'Categoria',
+      'Modalidade',
       'Peso Corporal',
       'Agachamento',
       'Supino',
@@ -200,6 +219,7 @@ const Results: React.FC = () => {
       result.entry.team,
       result.entry.division,
       result.entry.weightClass,
+      getEquipmentDisplayName(result.entry.equipment || 'Raw'),
       result.entry.bodyweightKg || '',
       result.squat,
       result.bench,
@@ -229,12 +249,12 @@ const Results: React.FC = () => {
 
 
 
-  return (
+    return (
     <Container fluid>
       <Row className="mb-4">
         <Col>
           <div className="d-flex align-items-center justify-content-between">
-            <div>
+      <div>
               <h2 className="mb-0">
                 <FaTrophy className="me-2 text-warning" />
                 Resultados da Competição
@@ -302,7 +322,7 @@ const Results: React.FC = () => {
             </Card.Header>
             <Card.Body>
               <Row>
-                <Col md={3}>
+                <Col md={2}>
                   <Form.Group>
                     <Form.Label>Dia</Form.Label>
                     <Form.Select 
@@ -316,7 +336,7 @@ const Results: React.FC = () => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={3}>
+                <Col md={2}>
                   <Form.Group>
                     <Form.Label>Divisão</Form.Label>
                     <Form.Select 
@@ -330,7 +350,7 @@ const Results: React.FC = () => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={3}>
+                <Col md={2}>
                   <Form.Group>
                     <Form.Label>Sexo</Form.Label>
                     <Form.Select 
@@ -343,7 +363,20 @@ const Results: React.FC = () => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={3}>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Modalidade</Form.Label>
+                    <Form.Select 
+                      value={selectedEquipment} 
+                      onChange={(e) => setSelectedEquipment(e.target.value)}
+                    >
+                      <option value="all">Todas</option>
+                      <option value="Raw">Clássica</option>
+                      <option value="Equipped">Equipado</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
                   <Form.Group>
                     <Form.Label>Ordenar por</Form.Label>
                     <Form.Select 
@@ -368,14 +401,14 @@ const Results: React.FC = () => {
                     >
                       <FaSortDown className="me-1" />
                       Decrescente
-                    </Button>
+              </Button>
                     <Button 
                       variant={sortOrder === 'asc' ? 'primary' : 'outline-primary'}
                       onClick={() => setSortOrder('asc')}
                     >
                       <FaSortUp className="me-1" />
                       Crescente
-                    </Button>
+              </Button>
                   </ButtonGroup>
                 </Col>
               </Row>
@@ -388,8 +421,8 @@ const Results: React.FC = () => {
       {resultsByCategory.map((category, categoryIndex) => (
         <Row key={categoryIndex} className="mb-4">
           <Col>
-            <Card>
-              <Card.Header>
+        <Card>
+          <Card.Header>
                 <h5 className="mb-0">
                   <FaTrophy className="me-2 text-warning" />
                   {category.category}
@@ -397,7 +430,7 @@ const Results: React.FC = () => {
                     {category.results.length} atletas
                   </Badge>
                 </h5>
-              </Card.Header>
+          </Card.Header>
               <Card.Body className="p-0">
                 <Table responsive striped hover className="mb-0">
                   <thead className="table-dark">
@@ -406,6 +439,7 @@ const Results: React.FC = () => {
                       <th>Atleta</th>
                       <th>Equipe</th>
                       <th>Peso</th>
+                      <th>Modalidade</th>
                       <th>Agachamento</th>
                       <th>Supino</th>
                       <th>Terra</th>
@@ -427,12 +461,17 @@ const Results: React.FC = () => {
                             <strong>{result.entry.name}</strong>
                             <br />
                             <small className="text-muted">
-                              {result.entry.division} - {result.entry.weightClass}
+                              {result.entry.division} - {result.entry.weightClass} - {getEquipmentDisplayName(result.entry.equipment || 'Raw')}
                             </small>
                           </div>
                         </td>
                         <td>{result.entry.team}</td>
                         <td>{result.entry.bodyweightKg || '-'}kg</td>
+                        <td>
+                          <Badge bg={result.entry.equipment === 'Equipped' ? 'primary' : 'success'}>
+                            {getEquipmentDisplayName(result.entry.equipment || 'Raw')}
+                          </Badge>
+                        </td>
                         <td>
                           <div className="d-flex align-items-center">
                             <span className="fw-bold">{result.squat}kg</span>
@@ -471,8 +510,8 @@ const Results: React.FC = () => {
                     ))}
                   </tbody>
                 </Table>
-              </Card.Body>
-            </Card>
+          </Card.Body>
+        </Card>
           </Col>
         </Row>
       ))}
