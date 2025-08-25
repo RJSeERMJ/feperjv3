@@ -5,7 +5,7 @@ export type Language = 'en' | 'pt';
 export type Formula = 'IPF GL Points' | 'IPF' | 'Wilks' | 'Dots' | 'Glossbrenner' | 'Schwartz' | 'NASA' | 'Reshel';
 
 export type Lift = 'S' | 'B' | 'D'; // Squat, Bench, Deadlift
-export type LiftStatus = 0 | 1 | 2 | 3; // 0: Pendente, 1: Good Lift, 2: No Lift, 3: DNS
+export type LiftStatus = 0 | 1 | 2 | 3; // 0: Pendente, 1: Good Lift, 2: No Lift, 3: No Attempt
 
 export type Flight = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
 

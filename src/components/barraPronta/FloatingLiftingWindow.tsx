@@ -81,42 +81,6 @@ const FloatingLiftingWindow: React.FC<FloatingLiftingWindowProps> = ({ isOpen, o
   const headerRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
 
-  // Detectar telas múltiplas
-  useEffect(() => {
-    const detectMultiScreen = () => {
-      // Verificar se há múltiplas telas
-      if (window.screen && window.screen.availWidth > window.innerWidth) {
-        setIsMultiScreen(true);
-        console.log('🎯 Múltiplas telas detectadas!');
-        console.log('📱 Tela principal:', {
-          width: window.screen.availWidth,
-          height: window.screen.availHeight
-        });
-        console.log('🖥️ Janela do navegador:', {
-          width: window.innerWidth,
-          height: window.innerHeight
-        });
-      } else {
-        setIsMultiScreen(false);
-        console.log('📱 Apenas uma tela detectada');
-      }
-    };
-
-    detectMultiScreen();
-    window.addEventListener('resize', detectMultiScreen);
-    
-    return () => {
-      window.removeEventListener('resize', detectMultiScreen);
-    };
-  }, []);
-
-  // Filtrar atletas pelo dia, plataforma e grupo atual
-  const entriesInFlight = entries.filter((entry: any) => 
-    entry.day === day && 
-    entry.platform === platform && 
-    entry.flight === flight
-  );
-
   // Salvar posição e tamanho da janela
   const saveWindowState = (newPosition: typeof position, newSize: typeof size) => {
     try {
@@ -127,6 +91,57 @@ const FloatingLiftingWindow: React.FC<FloatingLiftingWindowProps> = ({ isOpen, o
       console.warn('Erro ao salvar estado da janela:', e);
     }
   };
+
+  // Detectar telas múltiplas
+  const detectMultiScreen = () => {
+    if (window.screen.availWidth > 1920) {
+      setIsMultiScreen(true);
+      console.log('🖥️ Múltiplas telas detectadas');
+    } else {
+      setIsMultiScreen(false);
+    }
+  };
+
+  // Detectar telas múltiplas ao inicializar
+  useEffect(() => {
+    detectMultiScreen();
+    window.addEventListener('resize', detectMultiScreen);
+    
+    return () => {
+      window.removeEventListener('resize', detectMultiScreen);
+    };
+  }, []);
+
+  // Atualizar conteúdo do popup a cada 500ms
+  useEffect(() => {
+    if (!popupWindow || popupWindow.closed) return;
+
+    const interval = setInterval(() => {
+      if (popupWindow && !popupWindow.closed) {
+        popupWindow.document.body.innerHTML = `
+          <div style="font-family: Arial; padding: 20px;">
+            <h2>🏋️ Atualização em tempo real</h2>
+            <p><strong>Dia:</strong> ${day}</p>
+            <p><strong>Plataforma:</strong> ${platform}</p>
+            <p><strong>Grupo:</strong> ${flight}</p>
+            <p><strong>Movimento:</strong> ${lift}</p>
+            <p><strong>Tentativa:</strong> ${selectedAttempt}</p>
+            <p><strong>Atleta:</strong> ${selectedEntryId ? selectedEntryId : "Nenhum selecionado"}</p>
+            <p><em>Última atualização: ${new Date().toLocaleTimeString()}</em></p>
+          </div>
+        `;
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [popupWindow, day, platform, flight, lift, selectedAttempt, selectedEntryId]);
+
+  // Filtrar atletas pelo dia, plataforma e grupo atual
+  const entriesInFlight = entries.filter((entry: any) => 
+    entry.day === day && 
+    entry.platform === platform && 
+    entry.flight === flight
+  );
 
   // Função para abrir a janela como popup real (window.open)
   const openAsPopup = () => {
@@ -154,11 +169,10 @@ const FloatingLiftingWindow: React.FC<FloatingLiftingWindowProps> = ({ isOpen, o
 
       // Abrir a janela popup
       const newWindow = window.open(
-        '/lifting-popup', // URL da página popup
-        'liftingWindow',
+        "", // abrir janela vazia
+        "liftingWindow",
         popupFeatures
       );
-
       if (newWindow) {
         setPopupWindow(newWindow);
         setIsDetached(true);
@@ -466,7 +480,7 @@ const FloatingLiftingWindow: React.FC<FloatingLiftingWindowProps> = ({ isOpen, o
       <option key="0" value="0">Selecione um atleta</option>
     ];
     
-    entriesInFlight.forEach(entry => {
+    entriesInFlight.forEach((entry: any) => {
       options.push(
         <option key={entry.id} value={entry.id}>
           {entry.name} - {entry.weightClass}

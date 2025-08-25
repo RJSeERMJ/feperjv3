@@ -375,10 +375,10 @@ const LiftingFooter: React.FC = () => {
       return false;
     }
     
-    // Verificar se a tentativa já foi marcada
+    // NOVA LÓGICA: Permitir edição de tentativas já marcadas
     if (isAttemptAlreadyMarked(entryId, attempt)) {
-      console.log('❌ Tentativa não pode ser marcada: já foi marcada');
-      return false;
+      console.log('✅ Tentativa já marcada - permitindo edição');
+      return true; // Permitir edição
     }
     
     // NOVA VERIFICAÇÃO: Verificar se o peso é válido (progressivo)
@@ -402,12 +402,12 @@ const LiftingFooter: React.FC = () => {
     return isAttemptAlreadyMarked(entryId, attempt);
   };
 
-  // NOVA FUNÇÃO: Verificar se próxima tentativa deve abrir após DNS
-  const shouldOpenNextAttemptAfterDNS = (entryId: number, attempt: number): boolean => {
+  // NOVA FUNÇÃO: Verificar se próxima tentativa deve abrir após No Attempt
+  const shouldOpenNextAttemptAfterNoAttempt = (entryId: number, attempt: number): boolean => {
     if (attempt >= 3) return false; // Última tentativa
     
     const currentStatus = getAttemptStatus(entryId, attempt);
-    return currentStatus === 3; // DNS (Desistência)
+    return currentStatus === 3; // No Attempt
   };
 
   // NOVA FUNÇÃO: Timer para controle de tempo após marcar tentativa
@@ -446,6 +446,41 @@ const LiftingFooter: React.FC = () => {
       // Resetar alerta após mostrar
       setTimeout(() => setShowTimeExceededAlert(false), 100);
     }
+  };
+
+  // NOVA FUNÇÃO: Mostrar mensagens de erro para tentativas
+  const showAttemptErrorMessage = (entryId: number, attempt: number) => {
+    if (!isAttemptAlreadyDefined(entryId, attempt)) {
+      alert('❌ Esta tentativa não pode ser marcada: peso não definido');
+    } else if (!isWeightValid(entryId, attempt)) {
+      const errorMessage = getWeightValidationMessage(entryId, attempt);
+      alert(`❌ Esta tentativa não pode ser marcada: ${errorMessage}`);
+    } else {
+      alert('❌ Esta tentativa não pode ser marcada por motivo desconhecido');
+    }
+  };
+
+  // NOVA FUNÇÃO: Mostrar status atual da tentativa para edição
+  const showCurrentAttemptStatus = (entryId: number, attempt: number) => {
+    const currentStatus = getAttemptStatus(entryId, attempt);
+    let statusText = '';
+    
+    switch (currentStatus) {
+      case 1:
+        statusText = 'Good Lift';
+        break;
+      case 2:
+        statusText = 'No Lift';
+        break;
+      case 3:
+        statusText = 'No Attempt';
+        break;
+      default:
+        statusText = 'Pendente';
+    }
+    
+    console.log(`📝 Editando tentativa ${attempt} - Status atual: ${statusText}`);
+    return statusText;
   };
 
   // Handlers para os dropdowns
@@ -508,17 +543,8 @@ const LiftingFooter: React.FC = () => {
     if (selectedEntryId && isAttemptActive) {
       // Verificar se a tentativa pode ser marcada
       if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
-        // Verificar qual é o problema específico
-        if (!isAttemptAlreadyDefined(selectedEntryId, selectedAttempt)) {
-          alert('❌ Esta tentativa não pode ser marcada: peso não definido');
-        } else if (isAttemptAlreadyMarked(selectedEntryId, selectedAttempt)) {
-          alert('❌ Esta tentativa não pode ser marcada: já foi marcada anteriormente');
-        } else if (!isWeightValid(selectedEntryId, selectedAttempt)) {
-          const errorMessage = getWeightValidationMessage(selectedEntryId, selectedAttempt);
-          alert(`❌ Esta tentativa não pode ser marcada: ${errorMessage}`);
-        } else {
-          alert('❌ Esta tentativa não pode ser marcada por motivo desconhecido');
-        }
+        // Mostrar mensagem de erro específica
+        showAttemptErrorMessage(selectedEntryId, selectedAttempt);
         return;
       }
       
@@ -530,8 +556,11 @@ const LiftingFooter: React.FC = () => {
         return;
       }
 
-      // Marcar tentativa como válida usando a mesma lógica da tabela
-      console.log('✅ Marcando Good Lift para:', selectedEntryId, selectedAttempt, 'peso:', currentWeight);
+      // Verificar se é uma edição ou nova marcação
+      const isEditing = isAttemptAlreadyMarked(selectedEntryId, selectedAttempt);
+      const currentStatus = isEditing ? showCurrentAttemptStatus(selectedEntryId, selectedAttempt) : 'Nova';
+      
+      console.log(`✅ ${isEditing ? 'Editando' : 'Marcando'} Good Lift para:`, selectedEntryId, selectedAttempt, 'peso:', currentWeight, isEditing ? `(Status anterior: ${currentStatus})` : '');
       
       // Atualizar o status da tentativa
       const statusField = getStatusField();
@@ -543,7 +572,7 @@ const LiftingFooter: React.FC = () => {
           newStatusArray[selectedAttempt - 1] = 1; // Good Lift
           dispatch(updateEntry(selectedEntryId, { [statusField]: newStatusArray }));
           
-          console.log('✅ Status atualizado para Good Lift');
+          console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para Good Lift`);
           
           // INICIAR TIMER para esta tentativa
           startAttemptTimer(selectedEntryId, selectedAttempt);
@@ -564,17 +593,8 @@ const LiftingFooter: React.FC = () => {
     if (selectedEntryId && isAttemptActive) {
       // Verificar se a tentativa pode ser marcada
       if (!canMarkAttempt(selectedEntryId, selectedAttempt)) {
-        // Verificar qual é o problema específico
-        if (!isAttemptAlreadyDefined(selectedEntryId, selectedAttempt)) {
-          alert('❌ Esta tentativa não pode ser marcada: peso não definido');
-        } else if (isAttemptAlreadyMarked(selectedEntryId, selectedAttempt)) {
-          alert('❌ Esta tentativa não pode ser marcada: já foi marcada anteriormente');
-        } else if (!isWeightValid(selectedEntryId, selectedAttempt)) {
-          const errorMessage = getWeightValidationMessage(selectedEntryId, selectedAttempt);
-          alert(`❌ Esta tentativa não pode ser marcada: ${errorMessage}`);
-        } else {
-          alert('❌ Esta tentativa não pode ser marcada por motivo desconhecido');
-        }
+        // Mostrar mensagem de erro específica
+        showAttemptErrorMessage(selectedEntryId, selectedAttempt);
         return;
       }
       
@@ -586,8 +606,11 @@ const LiftingFooter: React.FC = () => {
         return;
       }
 
-      // Marcar tentativa como inválida usando a mesma lógica da tabela
-      console.log('✅ Marcando No Lift para:', selectedEntryId, selectedAttempt, 'peso:', currentWeight);
+      // Verificar se é uma edição ou nova marcação
+      const isEditing = isAttemptAlreadyMarked(selectedEntryId, selectedAttempt);
+      const currentStatus = isEditing ? showCurrentAttemptStatus(selectedEntryId, selectedAttempt) : 'Nova';
+      
+      console.log(`✅ ${isEditing ? 'Editando' : 'Marcando'} No Lift para:`, selectedEntryId, selectedAttempt, 'peso:', currentWeight, isEditing ? `(Status anterior: ${currentStatus})` : '');
       
       // Atualizar o status da tentativa
       const statusField = getStatusField();
@@ -599,7 +622,7 @@ const LiftingFooter: React.FC = () => {
           newStatusArray[selectedAttempt - 1] = 2; // No Lift
           dispatch(updateEntry(selectedEntryId, { [statusField]: newStatusArray }));
           
-          console.log('✅ Status atualizado para No Lift');
+          console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para No Lift`);
           
           // INICIAR TIMER para esta tentativa
           startAttemptTimer(selectedEntryId, selectedAttempt);

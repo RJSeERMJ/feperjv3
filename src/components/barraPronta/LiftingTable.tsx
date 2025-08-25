@@ -85,8 +85,8 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     // Verificar se a tentativa anterior foi marcada (válida ou inválida)
     const previousAttempt = statusArray[attempt - 2]; // attempt - 2 porque array é 0-indexed
     
-    // NOVA LÓGICA: Permitir próxima tentativa após DNS
-    if (previousAttempt === 3) { // DNS
+    // NOVA LÓGICA: Permitir próxima tentativa após No Attempt
+    if (previousAttempt === 3) { // No Attempt
       return true; // Próxima tentativa deve abrir para verificação
     }
     
@@ -184,18 +184,18 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     return previousWeight + 0.5;
   };
 
-  // NOVA FUNÇÃO: Verificar se uma tentativa deve ser marcada como DNS
-  const shouldMarkAsDNS = (entry: any, attempt: number): boolean => {
-    // Se é a primeira tentativa, não marcar como DNS
+  // NOVA FUNÇÃO: Verificar se uma tentativa deve ser marcada como No Attempt
+  const shouldMarkAsNoAttempt = (entry: any, attempt: number): boolean => {
+    // Se é a primeira tentativa, não marcar como No Attempt
     if (attempt === 1) return false;
     
     // Verificar se a tentativa anterior foi marcada
     const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
     const statusArray = entry[statusField] || [];
     
-    // Se a tentativa anterior foi DNS, a atual deve abrir para verificação
+    // Se a tentativa anterior foi No Attempt, a atual deve abrir para verificação
     const previousStatus = statusArray[attempt - 2]; // attempt - 2 porque array é 0-indexed
-    if (previousStatus === 3) { // DNS
+    if (previousStatus === 3) { // No Attempt
       return false; // Não marcar automaticamente, deixar usuário decidir
     }
     
@@ -204,22 +204,22 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
       const weightField = lift === 'S' ? `squat${attempt}` : lift === 'B' ? `bench${attempt}` : `deadlift${attempt}`;
       const currentWeight = entry[weightField];
       
-      // Se não há peso definido, marcar como DNS
+      // Se não há peso definido, marcar como No Attempt
       return !currentWeight || currentWeight <= 0;
     }
     
     return false;
   };
 
-  // NOVA FUNÇÃO: Verificar se próxima tentativa deve abrir após DNS
-  const shouldOpenNextAttemptAfterDNS = (entry: any, attempt: number): boolean => {
+  // NOVA FUNÇÃO: Verificar se próxima tentativa deve abrir após No Attempt
+  const shouldOpenNextAttemptAfterNoAttempt = (entry: any, attempt: number): boolean => {
     if (attempt >= 3) return false; // Última tentativa
     
     const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
     const statusArray = entry[statusField] || [];
     const currentStatus = statusArray[attempt - 1];
     
-    // Se a tentativa atual é DNS, próxima deve abrir
+    // Se a tentativa atual é No Attempt, próxima deve abrir
     return currentStatus === 3;
   };
 
@@ -312,13 +312,13 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
       // VERIFICAÇÃO AUTOMÁTICA: Marcar como DNS se necessário
       if (weightValue === null) {
         const currentEntry = orderedEntries.find(e => e.id === entryId);
-        if (currentEntry && shouldMarkAsDNS(currentEntry, attempt)) {
+        if (currentEntry && shouldMarkAsNoAttempt(currentEntry, attempt)) {
           const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
           const statusArray = (currentEntry as any)[statusField] || [0, 0, 0];
           const newStatusArray = [...statusArray];
-          newStatusArray[attempt - 1] = 3; // 3 = DNS (Did Not Start)
+          newStatusArray[attempt - 1] = 3; // 3 = No Attempt
           dispatch(updateEntry(entryId, { [statusField]: newStatusArray }));
-          console.log(`🔄 Tentativa ${attempt} marcada automaticamente como DNS para atleta ${entryId}`);
+          console.log(`🔄 Tentativa ${attempt} marcada automaticamente como No Attempt para atleta ${entryId}`);
         }
       }
       
@@ -624,7 +624,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         step="0.5"
                         min={getMinWeightForAttempt(entry, 2)}
                         size="sm"
-                        className={`weight-input ${shouldMarkAsDNS(entry, 2) ? 'dns-attempt' : ''}`}
+                        className={`weight-input ${shouldMarkAsNoAttempt(entry, 2) ? 'no-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 2)}
                         data-min-weight={getMinWeightForAttempt(entry, 2)}
                       />
@@ -638,9 +638,9 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 2) === 0 && <span className="status-icon">⏳</span>}
                       </div>
                     </div>
-                    {shouldMarkAsDNS(entry, 2) && (
-                      <div className="dns-indicator">
-                        <small className="text-warning">⚠️ DNS (Desistência)</small>
+                    {shouldMarkAsNoAttempt(entry, 2) && (
+                      <div className="no-attempt-indicator">
+                        <small className="text-warning">⚠️ No Attempt</small>
                       </div>
                     )}
                     {renderBarLoad(entry, 2)}
@@ -663,7 +663,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         step="0.5"
                         min={getMinWeightForAttempt(entry, 3)}
                         size="sm"
-                        className={`weight-input ${shouldMarkAsDNS(entry, 3) ? 'dns-attempt' : ''}`}
+                        className={`weight-input ${shouldMarkAsNoAttempt(entry, 3) ? 'no-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 3)}
                         data-min-weight={getMinWeightForAttempt(entry, 3)}
                       />
@@ -676,9 +676,9 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         {getAttemptStatus(entry, 3) === 0 && <span className="status-icon">⏳</span>}
                       </div>
                     </div>
-                    {shouldMarkAsDNS(entry, 3) && (
-                      <div className="dns-indicator">
-                        <small className="text-warning">⚠️ DNS (Desistência)</small>
+                    {shouldMarkAsNoAttempt(entry, 3) && (
+                      <div className="no-attempt-indicator">
+                        <small className="text-warning">⚠️ No Attempt</small>
                       </div>
                     )}
                     {renderBarLoad(entry, 3)}
