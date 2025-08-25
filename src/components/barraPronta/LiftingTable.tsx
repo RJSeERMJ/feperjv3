@@ -318,6 +318,41 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     }
   };
 
+  // Função para calcular o total parcial baseado no movimento atual
+  const getPartialTotal = (entry: any): number => {
+    let total = 0;
+    
+    // Agachamento (melhor tentativa)
+    if (entry.squat1 || entry.squat2 || entry.squat3) {
+      const squatAttempts = [entry.squat1, entry.squat2, entry.squat3].filter(w => w !== null && w > 0) as number[];
+      if (squatAttempts.length > 0) {
+        total += Math.max(...squatAttempts);
+      }
+    }
+    
+    // Supino (melhor tentativa) - incluir apenas se estamos no supino ou terra
+    if (lift === 'B' || lift === 'D') {
+      if (entry.bench1 || entry.bench2 || entry.bench3) {
+        const benchAttempts = [entry.bench1, entry.bench2, entry.bench3].filter(w => w !== null && w > 0) as number[];
+        if (benchAttempts.length > 0) {
+          total += Math.max(...benchAttempts);
+        }
+      }
+    }
+    
+    // Terra (melhor tentativa) - incluir apenas se estamos no terra
+    if (lift === 'D') {
+      if (entry.deadlift1 || entry.deadlift2 || entry.deadlift3) {
+        const deadliftAttempts = [entry.deadlift1, entry.deadlift2, entry.deadlift3].filter(w => w !== null && w > 0) as number[];
+        if (deadliftAttempts.length > 0) {
+          total += Math.max(...deadliftAttempts);
+        }
+      }
+    }
+    
+    return total;
+  };
+
   // Função para atualizar o peso de uma tentativa
   const updateAttemptWeight = (entryId: number, attempt: number, weight: string) => {
     const weightField = getWeightField(attempt);
@@ -543,6 +578,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
               <th className="text-center">1ª Tentativa</th>
               <th className="text-center">2ª Tentativa</th>
               <th className="text-center">3ª Tentativa</th>
+              <th className="text-center">Tot. Parc.</th>
             </tr>
           </thead>
           <tbody>
@@ -709,6 +745,15 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                       </div>
                     )}
 
+                  </div>
+                </td>
+
+                {/* Total Parcial */}
+                <td className="text-center partial-total-cell">
+                  <div className="partial-total-display">
+                    <span className="fw-bold text-primary fs-6">
+                      {getPartialTotal(entry)}kg
+                    </span>
                   </div>
                 </td>
 
