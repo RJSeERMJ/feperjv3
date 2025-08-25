@@ -16,9 +16,6 @@ import {
   FaTrophy, 
   FaMedal, 
   FaDownload, 
-  FaChartBar,
-  FaUsers,
-  FaWeightHanging,
   FaSortUp,
   FaSortDown
 } from 'react-icons/fa';
@@ -179,22 +176,7 @@ const Results: React.FC = () => {
     }));
   }, [calculatedResults]);
 
-  // Estatísticas gerais
-  const stats = useMemo(() => {
-    const totalAthletes = calculatedResults.length;
-    const totalWeight = calculatedResults.reduce((sum, r) => sum + r.total, 0);
-    const avgTotal = totalAthletes > 0 ? totalWeight / totalAthletes : 0;
-    const bestTotal = calculatedResults.length > 0 ? calculatedResults[0].total : 0;
-    const bestPoints = calculatedResults.length > 0 ? calculatedResults[0].points : 0;
 
-    return {
-      totalAthletes,
-      totalWeight,
-      avgTotal: Math.round(avgTotal * 10) / 10,
-      bestTotal,
-      bestPoints: Math.round(bestPoints * 10) / 10
-    };
-  }, [calculatedResults]);
 
   // Função para exportar resultados como CSV
   const exportToCSV = () => {
@@ -273,45 +255,7 @@ const Results: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Estatísticas Gerais */}
-      <Row className="mb-4">
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <FaUsers className="text-primary mb-2" size={24} />
-              <h4>{stats.totalAthletes}</h4>
-              <p className="text-muted mb-0">Atletas</p>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <FaWeightHanging className="text-success mb-2" size={24} />
-              <h4>{stats.bestTotal}kg</h4>
-              <p className="text-muted mb-0">Maior Total</p>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <FaChartBar className="text-info mb-2" size={24} />
-              <h4>{stats.bestPoints}</h4>
-              <p className="text-muted mb-0">Melhor Pontuação</p>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={3}>
-          <Card className="text-center">
-            <Card.Body>
-              <FaTrophy className="text-warning mb-2" size={24} />
-              <h4>{stats.avgTotal}kg</h4>
-              <p className="text-muted mb-0">Média Total</p>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+
 
       {/* Filtros */}
       <Row className="mb-4">
@@ -521,7 +465,7 @@ const Results: React.FC = () => {
         <Row>
           <Col>
             <Alert variant="info" className="text-center">
-              <FaChartBar size={48} className="mb-3" />
+              <FaTrophy size={48} className="mb-3" />
               <h4>Nenhum resultado encontrado</h4>
               <p>
                 Não há resultados para os filtros selecionados. 
