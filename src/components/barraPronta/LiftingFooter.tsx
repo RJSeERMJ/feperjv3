@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Button, Row, Col, Form } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { updateEntry } from '../../actions/barraProntaActions';
-import { Lift } from '../../types/barraProntaTypes';
+import { Lift, LiftStatus } from '../../types/barraProntaTypes';
 import { getLiftingOrder, getStableOrderByWeight } from '../../logic/liftingOrder';
 import './LiftingFooter.css';
 
@@ -46,6 +46,64 @@ const LiftingFooter: React.FC = () => {
     }
   };
 
+  // NOVA FUNÇÃO: Selecionar automaticamente o primeiro atleta da lista reorganizada
+  const lastOrderHash = useRef<string>('');
+  const isAutoSelecting = useRef<boolean>(false);
+  
+  const autoSelectFirstAthlete = () => {
+    // Evitar execução se já estiver selecionando automaticamente
+    if (isAutoSelecting.current) {
+      return;
+    }
+    
+    // Obter a ordem atual dos atletas baseada no peso da tentativa atual
+    const attemptsOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed);
+    
+    // Criar hash da ordem atual para detectar mudanças
+    const currentOrderHash = attemptsOrdered
+      .map(attempt => `${attempt.entryId}:${attempt.weight}`)
+      .join('|');
+    
+    // Só executar se a ordem realmente mudou
+    if (currentOrderHash !== lastOrderHash.current && attemptsOrdered.length > 0) {
+      const firstAthlete = attemptsOrdered[0];
+      
+      // Verificar se o primeiro atleta já está selecionado
+      if (selectedEntryId !== firstAthlete.entryId) {
+        console.log('🔄 Seleção automática: primeiro atleta da lista reorganizada:', firstAthlete.entryId);
+        
+        // Marcar que está selecionando automaticamente para evitar loops
+        isAutoSelecting.current = true;
+        
+        // Selecionar automaticamente o primeiro atleta
+        dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
+        dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
+        dispatch({ type: 'lifting/setAttemptActive', payload: true });
+        
+        console.log('✅ Atleta selecionado automaticamente:', firstAthlete.entryId, 'tentativa:', attemptOneIndexed);
+        
+        // Resetar flag após um delay para permitir que o estado se atualize
+        setTimeout(() => {
+          isAutoSelecting.current = false;
+        }, 100);
+      } else {
+        console.log('🔄 Primeiro atleta já está selecionado:', firstAthlete.entryId);
+      }
+      
+      // Atualizar hash da ordem
+      lastOrderHash.current = currentOrderHash;
+    } else if (attemptsOrdered.length === 0) {
+      console.log('🔄 Nenhum atleta com peso definido para tentativa:', attemptOneIndexed);
+      
+      // Se não há atletas com peso definido, desmarcar seleção
+      if (selectedEntryId) {
+        console.log('🔄 Desmarcando seleção - não há atletas disponíveis');
+        dispatch({ type: 'lifting/setSelectedEntryId', payload: null });
+        dispatch({ type: 'lifting/setAttemptActive', payload: false });
+      }
+    }
+  };
+
   // Monitorar mudanças no estado para sincronização automática
   useEffect(() => {
     console.log('🔄 LiftingFooter - Estado mudou, atualizando...', {
@@ -58,7 +116,10 @@ const LiftingFooter: React.FC = () => {
     
     // Sincronizar estado da tentativa
     syncAttemptState();
-  }, [day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive, entries, entriesInFlight, liftingOrder]);
+    
+    // NOVA FUNCIONALIDADE: Selecionar automaticamente o primeiro atleta
+    autoSelectFirstAthlete();
+  }, [day, platform, flight, lift, attemptOneIndexed, entries, entriesInFlight, liftingOrder]);
 
   // Função para obter o campo de status baseado no movimento atual
   const getStatusField = (): string => {
@@ -221,7 +282,18 @@ const LiftingFooter: React.FC = () => {
     return statusArray[attempt - 1] === 1 || statusArray[attempt - 1] === 2;
   };
 
-  // NOVA FUNÇÃO: Verificar se o peso é válido (progressivo)
+  // NOVA FUNÇÃO: Obter o status de uma tentativa
+  const getAttemptStatus = (entryId: number, attempt: number): LiftStatus => {
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return 0;
+    
+    const statusField = getStatusField();
+    const statusArray = (entry as any)[statusField] || [];
+    
+    return statusArray[attempt - 1] || 0;
+  };
+
+  // NOVA FUNÇÃO: Verificar se o peso é válido (inteligente - diferencia No Lift vs Good Lift)
   const isWeightValid = (entryId: number, attempt: number): boolean => {
     if (attempt === 1) return true; // Primeira tentativa sempre válida
     
@@ -231,18 +303,32 @@ const LiftingFooter: React.FC = () => {
     const currentWeight = getCurrentAttemptWeight(entryId, attempt);
     if (currentWeight <= 0) return false;
     
-    // Verificar se é maior que a tentativa anterior
-    for (let i = attempt - 1; i >= 1; i--) {
-      const previousWeight = getCurrentAttemptWeight(entryId, i);
-      if (previousWeight > 0 && currentWeight <= previousWeight) {
-        return false; // Peso deve ser maior que o anterior
-      }
+    // Verificar regras baseadas no status da tentativa anterior
+    const previousAttempt = attempt - 1;
+    const previousWeight = getCurrentAttemptWeight(entryId, previousAttempt);
+    const previousStatus = getAttemptStatus(entryId, previousAttempt);
+    
+    // Se não há peso anterior ou status anterior, usar regra padrão
+    if (previousWeight <= 0 || previousStatus === 0) {
+      return true;
     }
     
-    return true;
+    // REGRA INTELIGENTE:
+    // - Se tentativa anterior foi "No Lift" (inválida): permite mesmo peso OU maior
+    // - Se tentativa anterior foi "Good Lift" (válida): permite apenas peso maior
+    if (previousStatus === 2) { // No Lift (inválida)
+      // Permite mesmo peso ou maior
+      return currentWeight >= previousWeight;
+    } else if (previousStatus === 1) { // Good Lift (válida)
+      // Permite apenas peso maior
+      return currentWeight > previousWeight;
+    }
+    
+    // Para outros status (DNS, etc.), usar regra padrão
+    return currentWeight > previousWeight;
   };
 
-  // NOVA FUNÇÃO: Obter mensagem de erro para peso inválido
+  // NOVA FUNÇÃO: Obter mensagem de erro para peso inválido (inteligente)
   const getWeightValidationMessage = (entryId: number, attempt: number): string | null => {
     if (attempt === 1) return null;
     
@@ -252,11 +338,29 @@ const LiftingFooter: React.FC = () => {
     const currentWeight = getCurrentAttemptWeight(entryId, attempt);
     if (currentWeight <= 0) return 'Peso deve ser maior que zero';
     
-    // Verificar se é maior que a tentativa anterior
-    for (let i = attempt - 1; i >= 1; i--) {
-      const previousWeight = getCurrentAttemptWeight(entryId, i);
-      if (previousWeight > 0 && currentWeight <= previousWeight) {
-        return `Peso deve ser maior que ${previousWeight}kg (${i}ª tentativa)`;
+    // Verificar regras baseadas no status da tentativa anterior
+    const previousAttempt = attempt - 1;
+    const previousWeight = getCurrentAttemptWeight(entryId, previousAttempt);
+    const previousStatus = getAttemptStatus(entryId, previousAttempt);
+    
+    // Se não há peso anterior ou status anterior, não há erro
+    if (previousWeight <= 0 || previousStatus === 0) {
+      return null;
+    }
+    
+    // MENSAGENS ESPECÍFICAS BASEADAS NO STATUS ANTERIOR:
+    if (previousStatus === 2) { // No Lift (inválida)
+      if (currentWeight < previousWeight) {
+        return `Após No Lift, peso deve ser igual ou maior que ${previousWeight}kg (${previousAttempt}ª tentativa)`;
+      }
+    } else if (previousStatus === 1) { // Good Lift (válida)
+      if (currentWeight <= previousWeight) {
+        return `Após Good Lift, peso deve ser maior que ${previousWeight}kg (${previousAttempt}ª tentativa)`;
+      }
+    } else {
+      // Para outros status (DNS, etc.), usar regra padrão
+      if (currentWeight <= previousWeight) {
+        return `Peso deve ser maior que ${previousWeight}kg (${previousAttempt}ª tentativa)`;
       }
     }
     
@@ -284,6 +388,64 @@ const LiftingFooter: React.FC = () => {
     }
     
     return true;
+  };
+
+  // NOVA FUNÇÃO: Verificar se uma tentativa pode ser editada
+  const canEditAttempt = (entryId: number, attempt: number): boolean => {
+    const entry = entriesInFlight.find(e => e.id === entryId);
+    if (!entry) return false;
+    
+    // Sempre permitir edição da tentativa atual
+    if (attempt === attemptOneIndexed) return true;
+    
+    // Permitir edição de tentativas já marcadas (para correções)
+    return isAttemptAlreadyMarked(entryId, attempt);
+  };
+
+  // NOVA FUNÇÃO: Verificar se próxima tentativa deve abrir após DNS
+  const shouldOpenNextAttemptAfterDNS = (entryId: number, attempt: number): boolean => {
+    if (attempt >= 3) return false; // Última tentativa
+    
+    const currentStatus = getAttemptStatus(entryId, attempt);
+    return currentStatus === 3; // DNS (Desistência)
+  };
+
+  // NOVA FUNÇÃO: Timer para controle de tempo após marcar tentativa
+  const [attemptTimers, setAttemptTimers] = useState<Map<string, { startTime: number, isActive: boolean }>>(new Map());
+  const [showTimeExceededAlert, setShowTimeExceededAlert] = useState(false);
+
+  // Função para iniciar timer após marcar tentativa
+  const startAttemptTimer = (entryId: number, attempt: number) => {
+    const timerKey = `${entryId}-${attempt}`;
+    const startTime = Date.now();
+    
+    setAttemptTimers(prev => new Map(prev.set(timerKey, { startTime, isActive: true })));
+    
+    console.log('⏰ Timer iniciado para tentativa:', { entryId, attempt, startTime });
+  };
+
+  // Função para verificar se tempo foi excedido
+  const checkTimeExceeded = (entryId: number, attempt: number): boolean => {
+    const timerKey = `${entryId}-${attempt}`;
+    const timer = attemptTimers.get(timerKey);
+    
+    if (!timer || !timer.isActive) return false;
+    
+    const elapsedTime = Date.now() - timer.startTime;
+    const oneMinute = 60 * 1000; // 1 minuto em milissegundos
+    
+    return elapsedTime > oneMinute;
+  };
+
+  // Função para mostrar alerta de tempo excedido
+  const showTimeExceededAlertOnce = (entryId: number, attempt: number) => {
+    if (checkTimeExceeded(entryId, attempt) && !showTimeExceededAlert) {
+      setShowTimeExceededAlert(true);
+      alert('⚠️ ATENÇÃO: Tempo excedido! Esta tentativa foi marcada há mais de 1 minuto. Verifique se o peso foi inserido corretamente.');
+      
+      // Resetar alerta após mostrar
+      setTimeout(() => setShowTimeExceededAlert(false), 100);
+    }
   };
 
   // Handlers para os dropdowns
@@ -383,6 +545,9 @@ const LiftingFooter: React.FC = () => {
           
           console.log('✅ Status atualizado para Good Lift');
           
+          // INICIAR TIMER para esta tentativa
+          startAttemptTimer(selectedEntryId, selectedAttempt);
+          
           // Navegar automaticamente para o próximo - IMEDIATAMENTE
           navigateToNext();
         }
@@ -435,6 +600,9 @@ const LiftingFooter: React.FC = () => {
           dispatch(updateEntry(selectedEntryId, { [statusField]: newStatusArray }));
           
           console.log('✅ Status atualizado para No Lift');
+          
+          // INICIAR TIMER para esta tentativa
+          startAttemptTimer(selectedEntryId, selectedAttempt);
           
           // Navegar automaticamente para o próximo - IMEDIATAMENTE
           navigateToNext();

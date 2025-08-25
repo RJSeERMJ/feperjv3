@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Table, Button, Badge, Form, Modal, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
@@ -37,6 +37,8 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
       currentEntryId, attemptOneIndexed
     });
   }, [lift, selectedEntryId, selectedAttempt, isAttemptActive, orderedEntries, currentEntryId, attemptOneIndexed]);
+
+
 
   const [showAttemptModal, setShowAttemptModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
@@ -82,42 +84,104 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     
     // Verificar se a tentativa anterior foi marcada (válida ou inválida)
     const previousAttempt = statusArray[attempt - 2]; // attempt - 2 porque array é 0-indexed
+    
+    // NOVA LÓGICA: Permitir próxima tentativa após DNS
+    if (previousAttempt === 3) { // DNS
+      return true; // Próxima tentativa deve abrir para verificação
+    }
+    
     return previousAttempt === 1 || previousAttempt === 2; // 1 = Good Lift, 2 = No Lift
   };
 
-  // NOVA FUNÇÃO: Verificar se o peso é válido (progressivo)
+  // NOVA FUNÇÃO: Verificar se o peso é válido (inteligente - diferencia No Lift vs Good Lift)
   const isWeightValid = (entry: any, attempt: number, newWeight: number): boolean => {
     if (attempt === 1) return true; // Primeira tentativa sempre válida
     
     // Verificar se o peso é maior que zero
     if (newWeight <= 0) return false;
     
-    // Verificar se é maior que a tentativa anterior
-    for (let i = attempt - 1; i >= 1; i--) {
-      const previousWeight = getAttemptWeight(entry, i);
-      if (previousWeight > 0 && newWeight <= previousWeight) {
-        return false; // Peso deve ser maior que o anterior
-      }
+    // Verificar regras baseadas no status da tentativa anterior
+    const previousAttempt = attempt - 1;
+    const previousWeight = getAttemptWeight(entry, previousAttempt);
+    const previousStatus = getAttemptStatus(entry, previousAttempt);
+    
+    // Se não há peso anterior ou status anterior, usar regra padrão
+    if (previousWeight <= 0 || previousStatus === 0) {
+      return true;
     }
     
-    return true;
+    // REGRA INTELIGENTE:
+    // - Se tentativa anterior foi "No Lift" (inválida): permite mesmo peso OU maior
+    // - Se tentativa anterior foi "Good Lift" (válida): permite apenas peso maior
+    if (previousStatus === 2) { // No Lift (inválida)
+      // Permite mesmo peso ou maior
+      return newWeight >= previousWeight;
+    } else if (previousStatus === 1) { // Good Lift (válida)
+      // Permite apenas peso maior
+      return newWeight > previousWeight;
+    }
+    
+    // Para outros status (DNS, etc.), usar regra padrão
+    return newWeight > previousWeight;
   };
 
-  // NOVA FUNÇÃO: Obter mensagem de erro para peso inválido
+  // NOVA FUNÇÃO: Obter mensagem de erro para peso inválido (inteligente)
   const getWeightValidationMessage = (entry: any, attempt: number, newWeight: number): string | null => {
     if (attempt === 1) return null;
     
     if (newWeight <= 0) return 'Peso deve ser maior que zero';
     
-    // Verificar se é maior que a tentativa anterior
-    for (let i = attempt - 1; i >= 1; i--) {
-      const previousWeight = getAttemptWeight(entry, i);
-      if (previousWeight > 0 && newWeight <= previousWeight) {
-        return `Peso deve ser maior que ${previousWeight}kg (${i}ª tentativa)`;
+    // Verificar regras baseadas no status da tentativa anterior
+    const previousAttempt = attempt - 1;
+    const previousWeight = getAttemptWeight(entry, previousAttempt);
+    const previousStatus = getAttemptStatus(entry, previousAttempt);
+    
+    // Se não há peso anterior ou status anterior, não há erro
+    if (previousWeight <= 0 || previousStatus === 0) {
+      return null;
+    }
+    
+    // MENSAGENS ESPECÍFICAS BASEADAS NO STATUS ANTERIOR:
+    if (previousStatus === 2) { // No Lift (inválida)
+      if (newWeight < previousWeight) {
+        return `Após No Lift, peso deve ser igual ou maior que ${previousWeight}kg (${previousAttempt}ª tentativa)`;
+      }
+    } else if (previousStatus === 1) { // Good Lift (válida)
+      if (newWeight <= previousWeight) {
+        return `Após Good Lift, peso deve ser maior que ${previousWeight}kg (${previousAttempt}ª tentativa)`;
+      }
+    } else {
+      // Para outros status (DNS, etc.), usar regra padrão
+      if (newWeight <= previousWeight) {
+        return `Peso deve ser maior que ${previousWeight}kg (${previousAttempt}ª tentativa)`;
       }
     }
     
     return null;
+  };
+
+  // NOVA FUNÇÃO: Calcular peso mínimo baseado na nova lógica inteligente
+  const getMinWeightForAttempt = (entry: any, attempt: number): number => {
+    if (attempt === 1) return 0; // Primeira tentativa não tem restrição
+    
+    const previousAttempt = attempt - 1;
+    const previousWeight = getAttemptWeight(entry, previousAttempt);
+    const previousStatus = getAttemptStatus(entry, previousAttempt);
+    
+    // Se não há peso anterior, não há restrição
+    if (previousWeight <= 0) return 0;
+    
+    // REGRA INTELIGENTE:
+    // - Se tentativa anterior foi "No Lift" (inválida): permite mesmo peso
+    // - Se tentativa anterior foi "Good Lift" (válida): deve ser maior
+    if (previousStatus === 2) { // No Lift (inválida)
+      return previousWeight; // Permite mesmo peso
+    } else if (previousStatus === 1) { // Good Lift (válida)
+      return previousWeight + 0.5; // Deve ser maior
+    }
+    
+    // Para outros status (DNS, etc.), usar regra padrão
+    return previousWeight + 0.5;
   };
 
   // NOVA FUNÇÃO: Verificar se uma tentativa deve ser marcada como DNS
@@ -127,15 +191,36 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     
     // Verificar se a tentativa anterior foi marcada
     const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
-    const statusArray = entry[statusField] || [0, 0, 0];
-    const previousAttempt = statusArray[attempt - 2];
+    const statusArray = entry[statusField] || [];
     
-    // Se a tentativa anterior foi marcada (Good/No Lift) e a atual não tem peso, marcar como DNS
-    if ((previousAttempt === 1 || previousAttempt === 2) && !getAttemptWeight(entry, attempt)) {
-      return true;
+    // Se a tentativa anterior foi DNS, a atual deve abrir para verificação
+    const previousStatus = statusArray[attempt - 2]; // attempt - 2 porque array é 0-indexed
+    if (previousStatus === 3) { // DNS
+      return false; // Não marcar automaticamente, deixar usuário decidir
+    }
+    
+    // Se a tentativa anterior foi marcada (válida ou inválida), verificar se atual está vazia
+    if (previousStatus === 1 || previousStatus === 2) { // Good Lift ou No Lift
+      const weightField = lift === 'S' ? `squat${attempt}` : lift === 'B' ? `bench${attempt}` : `deadlift${attempt}`;
+      const currentWeight = entry[weightField];
+      
+      // Se não há peso definido, marcar como DNS
+      return !currentWeight || currentWeight <= 0;
     }
     
     return false;
+  };
+
+  // NOVA FUNÇÃO: Verificar se próxima tentativa deve abrir após DNS
+  const shouldOpenNextAttemptAfterDNS = (entry: any, attempt: number): boolean => {
+    if (attempt >= 3) return false; // Última tentativa
+    
+    const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
+    const statusArray = entry[statusField] || [];
+    const currentStatus = statusArray[attempt - 1];
+    
+    // Se a tentativa atual é DNS, próxima deve abrir
+    return currentStatus === 3;
   };
 
   // Função para obter a classe CSS baseada na disponibilidade da tentativa
@@ -203,6 +288,12 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     
     if (weightField) {
       const weightValue = weight === '' ? null : parseFloat(weight);
+      
+      // VERIFICAÇÃO DE TEMPO EXCEDIDO: Bloquear inserção se tempo foi excedido
+      if (weightValue !== null && checkTimeExceeded(entryId, attempt)) {
+        showTimeExceededAlertOnce(entryId, attempt);
+        return; // Bloquear inserção de peso após tempo excedido
+      }
       
       // VALIDAÇÃO: Verificar se o peso é válido apenas quando clicar fora
       if (weightValue !== null) {
@@ -283,6 +374,50 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     return reorderedEntries;
   }, [orderedEntries, lift, attemptOneIndexed]); // Dependências que causam reorganização
 
+  // NOVO useEffect: Detectar mudanças na ordem dos atletas e selecionar automaticamente
+  const lastOrderHash = useRef<string>('');
+  const isAutoSelecting = useRef<boolean>(false);
+  
+  useEffect(() => {
+    // Evitar execução se já estiver selecionando automaticamente
+    if (isAutoSelecting.current) {
+      return;
+    }
+    
+    // Criar hash da ordem atual para detectar mudanças
+    const currentOrderHash = orderedEntriesByWeight
+      .map(entry => `${entry.id}:${getAttemptWeight(entry, attemptOneIndexed)}`)
+      .join('|');
+    
+    // Só executar se a ordem realmente mudou
+    if (currentOrderHash !== lastOrderHash.current && orderedEntriesByWeight.length > 0) {
+      const firstAthlete = orderedEntriesByWeight[0];
+      
+      // Verificar se o primeiro atleta da lista reorganizada está selecionado
+      if (selectedEntryId !== firstAthlete.id) {
+        console.log('🔄 LiftingTable - Ordem mudou, selecionando primeiro atleta:', firstAthlete.id);
+        
+        // Marcar que está selecionando automaticamente para evitar loops
+        isAutoSelecting.current = true;
+        
+        // Disparar ação para selecionar o primeiro atleta
+        dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.id });
+        dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
+        dispatch({ type: 'lifting/setAttemptActive', payload: true });
+        
+        console.log('✅ LiftingTable - Primeiro atleta selecionado automaticamente:', firstAthlete.id);
+        
+        // Resetar flag após um delay para permitir que o estado se atualize
+        setTimeout(() => {
+          isAutoSelecting.current = false;
+        }, 100);
+      }
+      
+      // Atualizar hash da ordem
+      lastOrderHash.current = currentOrderHash;
+    }
+  }, [orderedEntriesByWeight, selectedEntryId, attemptOneIndexed, dispatch]);
+
   // Função para renderizar carregamento da barra para uma tentativa
   const renderBarLoad = (entry: any, attempt: number) => {
     const weight = getAttemptWeight(entry, attempt);
@@ -332,6 +467,57 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
         </div>
       </div>
     );
+  };
+
+  // NOVA FUNÇÃO: Timer para controle de tempo após marcar tentativa
+  const [attemptTimers, setAttemptTimers] = useState<Map<string, { startTime: number, isActive: boolean }>>(new Map());
+  const [showTimeExceededAlert, setShowTimeExceededAlert] = useState(false);
+
+  // Função para iniciar timer após marcar tentativa
+  const startAttemptTimer = (entryId: number, attempt: number) => {
+    const timerKey = `${entryId}-${attempt}`;
+    const startTime = Date.now();
+    
+    setAttemptTimers(prev => new Map(prev.set(timerKey, { startTime, isActive: true })));
+    
+    console.log('⏰ Timer iniciado para tentativa:', { entryId, attempt, startTime });
+  };
+
+  // Função para verificar se tempo foi excedido
+  const checkTimeExceeded = (entryId: number, attempt: number): boolean => {
+    const timerKey = `${entryId}-${attempt}`;
+    const timer = attemptTimers.get(timerKey);
+    
+    if (!timer || !timer.isActive) return false;
+    
+    const elapsedTime = Date.now() - timer.startTime;
+    const oneMinute = 60 * 1000; // 1 minuto em milissegundos
+    
+    return elapsedTime > oneMinute;
+  };
+
+  // Função para mostrar alerta de tempo excedido
+  const showTimeExceededAlertOnce = (entryId: number, attempt: number) => {
+    if (checkTimeExceeded(entryId, attempt) && !showTimeExceededAlert) {
+      setShowTimeExceededAlert(true);
+      alert('⚠️ ATENÇÃO: Tempo excedido! Esta tentativa foi marcada há mais de 1 minuto. Verifique se o peso foi inserido corretamente.');
+      
+      // Resetar alerta após mostrar
+      setTimeout(() => setShowTimeExceededAlert(false), 100);
+    }
+  };
+
+  // Função para verificar se uma tentativa pode ser editada
+  const canEditAttempt = (entry: any, attempt: number): boolean => {
+    // Sempre permitir edição da tentativa atual
+    if (attempt === attemptOneIndexed) return true;
+    
+    // Permitir edição de tentativas já marcadas (para correções)
+    const statusField = lift === 'S' ? 'squatStatus' : lift === 'B' ? 'benchStatus' : 'deadliftStatus';
+    const statusArray = entry[statusField] || [];
+    const currentStatus = statusArray[attempt - 1];
+    
+    return currentStatus === 1 || currentStatus === 2; // Good Lift ou No Lift
   };
 
   return (
@@ -431,13 +617,16 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         value={getAttemptWeight(entry, 2) || ''}
                         onChange={(e) => updateAttemptWeight(entry.id, 2, e.target.value)}
                         onBlur={(e) => handleWeightBlur(entry.id, 2, e.target.value)}
-                        placeholder={getAttemptWeight(entry, 1) ? `Mín: ${getAttemptWeight(entry, 1) + 0.5}kg` : 'Peso'}
+                        placeholder={(() => {
+                          const minWeight = getMinWeightForAttempt(entry, 2);
+                          return minWeight > 0 ? `Mín: ${minWeight}kg` : 'Peso';
+                        })()}
                         step="0.5"
-                        min={getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
+                        min={getMinWeightForAttempt(entry, 2)}
                         size="sm"
                         className={`weight-input ${shouldMarkAsDNS(entry, 2) ? 'dns-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 2)}
-                        data-min-weight={getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
+                        data-min-weight={getMinWeightForAttempt(entry, 2)}
                       />
                       <span className="ms-1">kg</span>
                     </div>
@@ -468,20 +657,15 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         onChange={(e) => updateAttemptWeight(entry.id, 3, e.target.value)}
                         onBlur={(e) => handleWeightBlur(entry.id, 3, e.target.value)}
                         placeholder={(() => {
-                          const weight2 = getAttemptWeight(entry, 2);
-                          const weight1 = getAttemptWeight(entry, 1);
-                          if (weight2) return `Mín: ${weight2 + 0.5}kg`;
-                          if (weight1) return `Mín: ${weight1 + 0.5}kg`;
-                          return 'Peso';
+                          const minWeight = getMinWeightForAttempt(entry, 3);
+                          return minWeight > 0 ? `Mín: ${minWeight}kg` : 'Peso';
                         })()}
                         step="0.5"
-                        min={getAttemptWeight(entry, 2) ? getAttemptWeight(entry, 2) + 0.5 : 
-                             getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
+                        min={getMinWeightForAttempt(entry, 3)}
                         size="sm"
                         className={`weight-input ${shouldMarkAsDNS(entry, 3) ? 'dns-attempt' : ''}`}
                         disabled={!isAttemptAvailable(entry, 3)}
-                        data-min-weight={getAttemptWeight(entry, 2) ? getAttemptWeight(entry, 2) + 0.5 : 
-                                       getAttemptWeight(entry, 1) ? getAttemptWeight(entry, 1) + 0.5 : 0}
+                        data-min-weight={getMinWeightForAttempt(entry, 3)}
                       />
                       <span className="ms-1">kg</span>
                     </div>

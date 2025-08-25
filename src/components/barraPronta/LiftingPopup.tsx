@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Button, Row, Col, Form } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
@@ -41,6 +41,57 @@ const LiftingPopup: React.FC = () => {
       filteredEntries: entriesInFlight.length
     });
   }, [day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive, entries, entriesInFlight]);
+
+  // NOVO useEffect: Detectar mudanças na ordem dos atletas e selecionar automaticamente
+  const lastOrderHash = useRef<string>('');
+  const isAutoSelecting = useRef<boolean>(false);
+  
+  useEffect(() => {
+    // Evitar execução se já estiver selecionando automaticamente
+    if (isAutoSelecting.current) {
+      return;
+    }
+    
+    // Se a ordem dos atletas mudou, selecionar automaticamente o primeiro
+    if (entriesInFlight.length > 0) {
+      // Obter a ordem dos atletas baseada no peso da tentativa atual
+      const { getStableOrderByWeight } = require('../../logic/liftingOrder');
+      const attemptsOrdered = getStableOrderByWeight(entriesInFlight, lift, attemptOneIndexed);
+      
+      // Criar hash da ordem atual para detectar mudanças
+      const currentOrderHash = attemptsOrdered
+        .map((attempt: any) => `${attempt.entryId}:${attempt.weight}`)
+        .join('|');
+      
+      // Só executar se a ordem realmente mudou
+      if (currentOrderHash !== lastOrderHash.current && attemptsOrdered.length > 0) {
+        const firstAthlete = attemptsOrdered[0];
+        
+        // Verificar se o primeiro atleta da lista reorganizada está selecionado
+        if (selectedEntryId !== firstAthlete.entryId) {
+          console.log('🔄 LiftingPopup - Ordem mudou, selecionando primeiro atleta:', firstAthlete.entryId);
+          
+          // Marcar que está selecionando automaticamente para evitar loops
+          isAutoSelecting.current = true;
+          
+          // Selecionar automaticamente o primeiro atleta
+          dispatch({ type: 'lifting/setSelectedEntryId', payload: firstAthlete.entryId });
+          dispatch({ type: 'lifting/setSelectedAttempt', payload: attemptOneIndexed });
+          dispatch({ type: 'lifting/setAttemptActive', payload: true });
+          
+          console.log('✅ LiftingPopup - Primeiro atleta selecionado automaticamente:', firstAthlete.entryId);
+          
+          // Resetar flag após um delay para permitir que o estado se atualize
+          setTimeout(() => {
+            isAutoSelecting.current = false;
+          }, 100);
+        }
+        
+        // Atualizar hash da ordem
+        lastOrderHash.current = currentOrderHash;
+      }
+    }
+  }, [entriesInFlight, lift, attemptOneIndexed, selectedEntryId, dispatch]);
 
   // Detectar mudanças no tamanho da janela
   useEffect(() => {
