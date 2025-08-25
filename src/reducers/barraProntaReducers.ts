@@ -150,6 +150,20 @@ const registrationReducer = (state: RegistrationState = initialState.registratio
       
       newEntries[entryIndex] = entry;
       
+      // Debug: mostrar o que foi salvo
+      console.log(`🔄 MARK_ATTEMPT - Atleta ${entry.name}:`, {
+        entryId: action.entryId,
+        lift: action.lift,
+        attempt: action.attempt,
+        status: action.status,
+        weight: action.weight,
+        finalWeight,
+        weightField,
+        statusField,
+        statusArray,
+        statusText: action.status === 1 ? 'Good Lift' : action.status === 2 ? 'No Lift' : action.status === 3 ? 'No Attempt' : 'Desconhecido'
+      });
+      
       return {
         ...state,
         entries: newEntries

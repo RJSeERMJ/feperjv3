@@ -1,5 +1,5 @@
 // Sistema de pontuação IPF GL Points para Barra Pronta
-// Baseado na implementação do OpenLifter
+// Baseado na implementação oficial da IPF para Good Lift Points
 // Fórmula oficial da IPF para Good Lift Points
 
 export type Sex = 'M' | 'F' | 'Mx';
@@ -20,7 +20,7 @@ type BySex = {
   F: ByEquipment;
 };
 
-// Parâmetros oficiais da IPF para GL Points
+// Parâmetros oficiais da IPF para GL Points (2024)
 const PARAMETERS: BySex = {
   M: {
     Sleeves: {
@@ -138,4 +138,104 @@ export const calculateIPFGLPointsBench = (
   equipment: Equipment
 ): number => {
   return calculateIPFGLPoints(benchKg, bodyweightKg, sex, equipment, 'B');
+};
+
+/**
+ * Calcula os IPF GL Points para o agachamento
+ * @param squatKg - Peso do agachamento em kg
+ * @param bodyweightKg - Peso corporal em kg
+ * @param sex - Sexo do atleta (M/F)
+ * @param equipment - Equipamento usado
+ * @returns Pontuação IPF GL para o agachamento
+ */
+export const calculateIPFGLPointsSquat = (
+  squatKg: number,
+  bodyweightKg: number,
+  sex: Sex,
+  equipment: Equipment
+): number => {
+  return calculateIPFGLPoints(squatKg, bodyweightKg, sex, equipment, 'SBD');
+};
+
+/**
+ * Calcula os IPF GL Points para o terra
+ * @param deadliftKg - Peso do terra em kg
+ * @param bodyweightKg - Peso corporal em kg
+ * @param sex - Sexo do atleta (M/F)
+ * @param equipment - Equipamento usado
+ * @returns Pontuação IPF GL para o terra
+ */
+export const calculateIPFGLPointsDeadlift = (
+  deadliftKg: number,
+  bodyweightKg: number,
+  sex: Sex,
+  equipment: Equipment
+): number => {
+  return calculateIPFGLPoints(deadliftKg, bodyweightKg, sex, equipment, 'SBD');
+};
+
+/**
+ * Normaliza o equipamento para o formato aceito pela fórmula
+ * @param equipment - Equipamento original
+ * @returns Equipamento normalizado
+ */
+export const normalizeEquipment = (equipment: string): Equipment => {
+  switch (equipment.toLowerCase()) {
+    case 'raw':
+    case 'bare':
+    case 'wraps':
+      return 'Sleeves';
+    case 'equipped':
+    case 'single-ply':
+    case 'multi-ply':
+    case 'unlimited':
+      return 'Single-ply';
+    default:
+      return 'Sleeves'; // Padrão
+  }
+};
+
+/**
+ * Normaliza o sexo para o formato aceito pela fórmula
+ * @param sex - Sexo original
+ * @returns Sexo normalizado
+ */
+export const normalizeSex = (sex: string): Sex => {
+  switch (sex.toUpperCase()) {
+    case 'M':
+    case 'MALE':
+      return 'M';
+    case 'F':
+    case 'FEMALE':
+      return 'F';
+    case 'MX':
+    case 'MIXED':
+      return 'Mx';
+    default:
+      return 'M'; // Padrão
+  }
+};
+
+/**
+ * Valida se os parâmetros são válidos para o cálculo
+ * @param totalKg - Total em kg
+ * @param bodyweightKg - Peso corporal em kg
+ * @param sex - Sexo
+ * @param equipment - Equipamento
+ * @returns true se válido, false caso contrário
+ */
+export const validateParameters = (
+  totalKg: number,
+  bodyweightKg: number,
+  sex: Sex,
+  equipment: Equipment
+): boolean => {
+  return (
+    totalKg > 0 &&
+    bodyweightKg >= 40 &&
+    (sex === 'M' || sex === 'F' || sex === 'Mx') &&
+    (equipment === 'Sleeves' || equipment === 'Single-ply' || 
+     equipment === 'Bare' || equipment === 'Wraps' || 
+     equipment === 'Multi-ply' || equipment === 'Unlimited')
+  );
 };

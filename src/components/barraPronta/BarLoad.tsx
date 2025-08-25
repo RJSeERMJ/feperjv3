@@ -27,7 +27,7 @@ const BarLoad: React.FC<BarLoadProps> = ({ weightKg, rackInfo }) => {
       case 'D':
         return meet.deadliftBarAndCollarsWeightKg;
       default:
-        return 20;
+        return 25
     }
   };
 
