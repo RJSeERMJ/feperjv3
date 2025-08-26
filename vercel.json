@@ -16,20 +16,16 @@
       "dest": "/static/$1"
     },
     {
-      "src": "/favicon.ico",
-      "dest": "/favicon.ico"
+      "src": "/favicon.png",
+      "dest": "/favicon.png"
+    },
+    {
+      "src": "/feperj-logo.png",
+      "dest": "/feperj-logo.png"
     },
     {
       "src": "/manifest.json",
       "dest": "/manifest.json"
-    },
-    {
-      "src": "/logo192.png",
-      "dest": "/logo192.png"
-    },
-    {
-      "src": "/logo512.png",
-      "dest": "/logo512.png"
     },
     {
       "src": "/(.*)",
