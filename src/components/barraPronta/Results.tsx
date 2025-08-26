@@ -23,7 +23,8 @@ import {
   FaSortDown,
   FaFileCsv,
   FaFilePdf,
-  FaTable
+  FaTable,
+  FaUsers
 } from 'react-icons/fa';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
@@ -126,7 +127,7 @@ const Results: React.FC = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'detailed'>('complete');
+  const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'detailed' | 'teams'>('complete');
 
   // Função para verificar se deve aplicar overflow automático
   const shouldAutoOverflow = () => {
@@ -482,6 +483,268 @@ const Results: React.FC = () => {
       case 3: return <FaMedal className="text-danger" />;
       default: return null;
     }
+  };
+
+  // Função para calcular pontos de equipe baseado na posição
+  const getTeamPoints = (position: number): number => {
+    if (position === 1) return 12;
+    if (position === 2) return 9;
+    if (position === 3) return 8;
+    if (position === 4) return 7;
+    if (position === 5) return 6;
+    if (position === 6) return 5;
+    if (position === 7) return 4;
+    if (position === 8) return 3;
+    if (position === 9) return 2;
+    return 1; // 10º em diante
+  };
+
+    // Função para calcular ranking das equipes por modalidade
+  const calculateTeamRanking = (equipment: 'Raw' | 'Equipped') => {
+    // Filtrar apenas atletas da categoria OPEN e modalidade específica
+    const openResults = calculatedResults.filter(result => {
+      const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
+      const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
+      const isEquipped = result.entry.equipment === 'Equipped' || result.entry.equipment === 'EQUIPADO';
+      
+      if (equipment === 'Raw') {
+        return ageCategory === 'OP' && isClassic;
+      } else {
+        return ageCategory === 'OP' && isEquipped;
+      }
+    });
+
+    // Agrupar por equipe
+    const teamsMap = new Map<string, {
+      name: string;
+      athletes: Array<{
+        name: string;
+        position: number;
+        teamPoints: number;
+        ipfPoints: number;
+        weightClass: string;
+        sex: string;
+        equipment: string;
+      }>;
+      totalPoints: number;
+      firstPlaces: number;
+      secondPlaces: number;
+      thirdPlaces: number;
+      totalIPFPoints: number;
+    }>();
+
+    // Para cada categoria de peso, calcular posições
+    resultsByCategory.forEach(category => {
+      // Filtrar apenas atletas OPEN desta categoria
+      const openAthletes = category.results.filter(result => {
+        const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
+        return ageCategory === 'OP';
+      });
+
+      // Ordenar por total (posição na categoria)
+      openAthletes.sort((a, b) => b.total - a.total);
+
+      // Atribuir posições e pontos
+      openAthletes.forEach((result, index) => {
+        const teamName = result.entry.team || 'Sem Equipe';
+        const position = index + 1;
+        const teamPoints = getTeamPoints(position);
+
+        if (!teamsMap.has(teamName)) {
+          teamsMap.set(teamName, {
+            name: teamName,
+            athletes: [],
+            totalPoints: 0,
+            firstPlaces: 0,
+            secondPlaces: 0,
+            thirdPlaces: 0,
+            totalIPFPoints: 0
+          });
+        }
+
+        const team = teamsMap.get(teamName)!;
+        team.athletes.push({
+          name: result.entry.name,
+          position,
+          teamPoints,
+          ipfPoints: result.points,
+          weightClass: result.entry.weightClass || '0',
+          sex: result.entry.sex || 'M',
+          equipment: result.entry.equipment || 'Raw'
+        });
+      });
+    });
+
+    // Calcular totais das equipes
+    teamsMap.forEach(team => {
+      // Ordenar atletas por pontos de equipe (decrescente)
+      team.athletes.sort((a, b) => b.teamPoints - a.teamPoints);
+      
+      // Pegar apenas os 5 melhores
+      const top5 = team.athletes.slice(0, 5);
+      
+      team.totalPoints = top5.reduce((sum, athlete) => sum + athlete.teamPoints, 0);
+      team.firstPlaces = top5.filter(a => a.teamPoints === 12).length;
+      team.secondPlaces = top5.filter(a => a.teamPoints === 9).length;
+      team.thirdPlaces = top5.filter(a => a.teamPoints === 8).length;
+      team.totalIPFPoints = top5.reduce((sum, athlete) => sum + athlete.ipfPoints, 0);
+    });
+
+    // Converter para array e ordenar
+    const teamsArray = Array.from(teamsMap.values());
+    
+    // Ordenar por critérios de desempate
+    teamsArray.sort((a, b) => {
+      // 1. Total de pontos
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      
+      // 2. Mais 1ºs lugares
+      if (b.firstPlaces !== a.firstPlaces) {
+        return b.firstPlaces - a.firstPlaces;
+      }
+      
+      // 3. Mais 2ºs lugares
+      if (b.secondPlaces !== a.secondPlaces) {
+        return b.secondPlaces - a.secondPlaces;
+      }
+      
+      // 4. Mais 3ºs lugares
+      if (b.thirdPlaces !== a.thirdPlaces) {
+        return b.thirdPlaces - a.thirdPlaces;
+      }
+      
+      // 5. Maior somatório de pontos IPF
+      return b.totalIPFPoints - a.totalIPFPoints;
+    });
+
+    return teamsArray;
+  };
+
+  // Componente para a aba de melhores equipes
+  const TeamResults = () => {
+    const classicTeamRanking = calculateTeamRanking('Raw');
+    const equippedTeamRanking = calculateTeamRanking('Equipped');
+    
+    return (
+      <div>
+        <Row className="mb-4">
+          <Col>
+            <Card className="bg-light">
+              <Card.Body className="text-center">
+                <h4 className="text-primary mb-3">
+                  <FaTrophy className="me-2" />
+                  Ranking das Equipes - Categoria OPEN
+                </h4>
+                <p className="text-muted">
+                  Pontuação: 1º=12, 2º=9, 3º=8, 4º=7, 5º=6, 6º=5, 7º=4, 8º=3, 9º=2, 10º+=1
+                </p>
+                <p className="text-muted">
+                  Contam apenas os 5 melhores atletas de cada equipe por modalidade
+                </p>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row>
+          {/* Equipes Clássicas */}
+          <Col md={6}>
+            <Card className="border-success">
+              <Card.Header className="bg-success text-white">
+                <h5 className="mb-0">
+                  <FaTrophy className="me-2" />
+                  Equipes Clássicas
+                </h5>
+              </Card.Header>
+              <Card.Body>
+                <div className="table-responsive">
+                  <table className="table table-striped table-hover">
+                    <thead className="table-success">
+                      <tr>
+                        <th>Pos</th>
+                        <th>Equipe</th>
+                        <th>Total</th>
+                        <th>1ºs</th>
+                        <th>2ºs</th>
+                        <th>3ºs</th>
+                        <th>IPF GL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classicTeamRanking.map((team, index) => (
+                        <tr key={team.name}>
+                          <td className="text-center">
+                            <div className="d-flex align-items-center justify-content-center">
+                              {getMedalIcon(index + 1)}
+                              <span className="ms-1 fw-bold">{index + 1}</span>
+                            </div>
+                          </td>
+                          <td className="fw-bold">{team.name}</td>
+                          <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
+                          <td className="text-center">{team.firstPlaces}</td>
+                          <td className="text-center">{team.secondPlaces}</td>
+                          <td className="text-center">{team.thirdPlaces}</td>
+                          <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          {/* Equipes Equipadas */}
+          <Col md={6}>
+            <Card className="border-primary">
+              <Card.Header className="bg-primary text-white">
+                <h5 className="mb-0">
+                  <FaTrophy className="me-2" />
+                  Equipes Equipadas
+                </h5>
+              </Card.Header>
+              <Card.Body>
+                <div className="table-responsive">
+                  <table className="table table-striped table-hover">
+                    <thead className="table-primary">
+                      <tr>
+                        <th>Pos</th>
+                        <th>Equipe</th>
+                        <th>Total</th>
+                        <th>1ºs</th>
+                        <th>2ºs</th>
+                        <th>3ºs</th>
+                        <th>IPF GL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {equippedTeamRanking.map((team, index) => (
+                        <tr key={team.name}>
+                          <td className="text-center">
+                            <div className="d-flex align-items-center justify-content-center">
+                              {getMedalIcon(index + 1)}
+                              <span className="ms-1 fw-bold">{index + 1}</span>
+                            </div>
+                          </td>
+                          <td className="fw-bold">{team.name}</td>
+                          <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
+                          <td className="text-center">{team.firstPlaces}</td>
+                          <td className="text-center">{team.secondPlaces}</td>
+                          <td className="text-center">{team.thirdPlaces}</td>
+                          <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </div>
+    );
   };
 
   // Componente para a aba de melhores atletas
@@ -1102,7 +1365,17 @@ const AttemptDisplay: React.FC<{
               className="fw-bold"
             >
               <FaMedal className="me-2" />
-              Melhores Atletas
+              Melhor Atleta
+            </Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link 
+              active={activeTab === 'teams'}
+              onClick={() => setActiveTab('teams')}
+              className="fw-bold"
+            >
+              <FaUsers className="me-2" />
+              Melhor Equipe
             </Nav.Link>
             </Nav.Item>
           </Nav>
@@ -1330,6 +1603,10 @@ const AttemptDisplay: React.FC<{
 
       {activeTab === 'simplified' && (
         <SimplifiedResults />
+      )}
+
+      {activeTab === 'teams' && (
+        <TeamResults />
       )}
 
       {/* Mensagem quando não há resultados */}
