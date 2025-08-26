@@ -356,3 +356,414 @@
 .tooltip.bs-tooltip-right .arrow::before {
   border-right-color: #343a40;
 }
+
+/* Estilos para tentativas detalhadas */
+.attempts-container {
+  min-width: 180px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Subcabeçalho da tabela para tentativas */
+.attempts-subheader {
+  background-color: #495057 !important;
+  color: white !important;
+  font-size: 0.7rem !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  padding: 0.3rem 0.5rem !important;
+  border: none !important;
+}
+
+.attempts-subheader div {
+  font-size: 0.65rem;
+  opacity: 0.9;
+}
+
+.attempts-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  min-height: 35px;
+  background-color: #f8f9fa;
+}
+
+.attempts-list {
+  display: flex;
+  gap: 0.3rem;
+  flex: 1;
+  align-items: center;
+}
+
+.attempt-item {
+  display: inline-block;
+  padding: 0.15rem 0.3rem;
+  border-radius: 2px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.attempt-item.good-lift {
+  background-color: rgba(40, 167, 69, 0.15);
+  border-color: rgba(40, 167, 69, 0.4);
+  color: #155724;
+}
+
+.attempt-item.no-lift {
+  background-color: rgba(220, 53, 69, 0.15);
+  border-color: rgba(220, 53, 69, 0.4);
+  color: #721c24;
+}
+
+.attempt-item.no-attempt {
+  background-color: rgba(108, 117, 125, 0.15);
+  border-color: rgba(108, 117, 125, 0.4);
+  color: #6c757d;
+}
+
+.attempt-status {
+  font-weight: bold;
+  margin-left: 0.1rem;
+}
+
+.best-attempt {
+  text-align: center;
+  min-width: 45px;
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid #dee2e6;
+}
+
+.best-value {
+  font-weight: bold;
+  color: #007bff;
+  font-size: 0.75rem;
+}
+
+.position-attempt {
+  text-align: center;
+  min-width: 35px;
+  margin-left: 0.3rem;
+  padding-left: 0.3rem;
+  border-left: 1px solid #dee2e6;
+}
+
+.position-value {
+  font-weight: bold;
+  color: #6c757d;
+  font-size: 0.7rem;
+}
+
+/* Legenda para tentativas */
+.attempts-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.3rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+  font-size: 0.65rem;
+  color: #6c757d;
+  gap: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid;
+}
+
+.legend-color.green {
+  background-color: rgba(40, 167, 69, 0.15);
+  border-color: rgba(40, 167, 69, 0.4);
+}
+
+.legend-color.red {
+  background-color: rgba(220, 53, 69, 0.15);
+  border-color: rgba(220, 53, 69, 0.4);
+}
+
+.legend-color.gray {
+  background-color: rgba(108, 117, 125, 0.15);
+  border-color: rgba(108, 117, 125, 0.4);
+}
+
+/* Responsividade para tentativas */
+@media (max-width: 768px) {
+  .attempts-container {
+    min-width: 160px;
+  }
+  
+  .attempts-subheader {
+    font-size: 0.65rem !important;
+    padding: 0.25rem 0.4rem !important;
+  }
+  
+  .attempts-subheader div {
+    font-size: 0.6rem;
+  }
+  
+  .attempts-content {
+    padding: 0.3rem 0.4rem;
+    min-height: 32px;
+  }
+  
+  .attempts-list {
+    gap: 0.25rem;
+  }
+  
+  .attempt-item {
+    padding: 0.12rem 0.25rem;
+    font-size: 0.65rem;
+  }
+  
+  .best-value {
+    font-size: 0.7rem;
+  }
+  
+  .position-value {
+    font-size: 0.65rem;
+  }
+  
+  .attempts-legend {
+    font-size: 0.6rem;
+    gap: 0.4rem;
+  }
+  
+  .legend-color {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+@media (max-width: 576px) {
+  .attempts-container {
+    min-width: 140px;
+  }
+  
+  .attempts-subheader {
+    font-size: 0.6rem !important;
+    padding: 0.2rem 0.3rem !important;
+  }
+  
+  .attempts-subheader div {
+    font-size: 0.55rem;
+  }
+  
+  .attempts-content {
+    padding: 0.25rem 0.3rem;
+    min-height: 28px;
+  }
+  
+  .attempts-list {
+    gap: 0.2rem;
+  }
+  
+  .attempt-item {
+    padding: 0.1rem 0.2rem;
+    font-size: 0.6rem;
+  }
+  
+  .best-value {
+    font-size: 0.65rem;
+  }
+  
+  .position-value {
+    font-size: 0.6rem;
+  }
+  
+  .attempts-legend {
+    font-size: 0.55rem;
+    gap: 0.3rem;
+    padding: 0.25rem;
+  }
+  
+  .legend-color {
+    width: 8px;
+    height: 8px;
+  }
+}
+
+/* Estilos para a tabela de resultados completos */
+.complete-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 0.85rem;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Cabeçalho da tabela completa */
+.complete-results-table thead {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  text-align: center;
+}
+
+.complete-results-table thead th {
+  padding: 12px 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-right: 1px solid rgba(255,255,255,0.2);
+  white-space: nowrap;
+}
+
+.complete-results-table thead th:last-child {
+  border-right: none;
+}
+
+/* Linhas do corpo */
+.complete-results-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background 0.2s ease;
+}
+
+.complete-results-table tbody tr:hover {
+  background: rgba(102,126,234,0.05);
+}
+
+/* Células */
+.complete-results-table td {
+  padding: 8px 6px;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 0.8rem;
+  color: #343a40;
+  border-right: 1px solid #e9ecef;
+}
+
+.complete-results-table td:last-child {
+  border-right: none;
+}
+
+/* Primeira coluna (posição) */
+.complete-results-table td:first-child {
+  font-weight: bold;
+  background: #f8f9fa;
+  min-width: 50px;
+}
+
+/* Coluna de atleta */
+.complete-results-table .athlete {
+  text-align: left;
+  font-weight: 600;
+  color: #212529;
+  min-width: 120px;
+}
+
+/* Coluna equipe */
+.complete-results-table .team {
+  text-align: left;
+  min-width: 100px;
+  font-style: italic;
+}
+
+/* Coluna total e índice GL */
+.complete-results-table .total, 
+.complete-results-table .indice {
+  font-weight: bold;
+  color: #007bff;
+  background: #e3f2fd;
+}
+
+/* Estilos para tentativas */
+.complete-results-table .attempt {
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 6px;
+  border-radius: 4px;
+  min-width: 40px;
+  display: inline-block;
+}
+
+/* Tentativa válida - Verde */
+.complete-results-table .attempt.valid {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+/* Tentativa inválida - Vermelho */
+.complete-results-table .attempt.invalid {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* Sem tentativa - Cinza */
+.complete-results-table .attempt.empty {
+  background-color: #e2e3e5;
+  color: #6c757d;
+  border: 1px solid #d6d8db;
+}
+
+/* Responsividade para tabela completa */
+@media (max-width: 1200px) {
+  .complete-results-table {
+    font-size: 0.75rem;
+  }
+  
+  .complete-results-table thead th {
+    padding: 8px 4px;
+    font-size: 0.7rem;
+  }
+  
+  .complete-results-table td {
+    padding: 6px 4px;
+    font-size: 0.7rem;
+  }
+  
+  .complete-results-table .attempt {
+    font-size: 0.65rem;
+    padding: 3px 4px;
+    min-width: 35px;
+  }
+}
+
+@media (max-width: 768px) {
+  .complete-results-table {
+    font-size: 0.7rem;
+  }
+  
+  .complete-results-table thead th {
+    padding: 6px 3px;
+    font-size: 0.65rem;
+  }
+  
+  .complete-results-table td {
+    padding: 4px 3px;
+    font-size: 0.65rem;
+  }
+  
+  .complete-results-table .attempt {
+    font-size: 0.6rem;
+    padding: 2px 3px;
+    min-width: 30px;
+  }
+  
+  .complete-results-table .athlete {
+    min-width: 100px;
+  }
+  
+  .complete-results-table .team {
+    min-width: 80px;
+  }
+}
+
+
