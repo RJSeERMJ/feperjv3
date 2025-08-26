@@ -213,7 +213,7 @@ const WeighIns: React.FC = () => {
         </Card.Header>
         <Card.Body>
           <Row>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group>
                 <Form.Label>Sexo</Form.Label>
                 <Form.Select
@@ -221,12 +221,12 @@ const WeighIns: React.FC = () => {
                   onChange={(e) => setFilterSex(e.target.value as 'all' | 'M' | 'F')}
                 >
                   <option value="all">Todos</option>
-                  <option value="M">Masculino</option>
-                  <option value="F">Feminino</option>
+                  <option value="M">M</option>
+                  <option value="F">F</option>
                 </Form.Select>
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group>
                  <Form.Label>Dia</Form.Label>
                  <Form.Select
@@ -246,7 +246,7 @@ const WeighIns: React.FC = () => {
                  )}
                </Form.Group>
              </Col>
-             <Col md={3}>
+             <Col md={2}>
                <Form.Group>
                  <Form.Label>Grupo</Form.Label>
                  <Form.Select
@@ -260,7 +260,7 @@ const WeighIns: React.FC = () => {
                  </Form.Select>
                </Form.Group>
              </Col>
-                         <Col md={3}>
+                         <Col md={2}>
                <Form.Group>
                  <Form.Label>Plataforma</Form.Label>
                 <Form.Select
@@ -280,7 +280,7 @@ const WeighIns: React.FC = () => {
                 )}
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={2}>
               <Form.Group>
                 <Form.Label>Status da Pesagem</Form.Label>
                 <Form.Select

@@ -33,7 +33,8 @@ const Registration: React.FC = () => {
     team: '',
     country: 'Brasil',
     state: 'RJ',
-    notes: ''
+    notes: '',
+    tipoAtleta: 'NORMAL' as 'NORMAL' | 'CONVIDADO'
   });
 
   // Função para obter o nome da divisão de peso
@@ -82,6 +83,7 @@ const Registration: React.FC = () => {
       country: formData.country,
       state: formData.state,
       notes: formData.notes,
+      tipoAtleta: formData.tipoAtleta,
       // Campos de tentativas
       squat1: null, squat2: null, squat3: null,
       bench1: null, bench2: null, bench3: null,
@@ -122,7 +124,8 @@ const Registration: React.FC = () => {
       team: entry.team,
       country: entry.country || 'Brasil',
       state: entry.state || '',
-      notes: entry.notes || ''
+      notes: entry.notes || '',
+      tipoAtleta: entry.tipoAtleta || 'NORMAL'
     });
     setShowModal(true);
   };
@@ -146,7 +149,8 @@ const Registration: React.FC = () => {
       team: '',
       country: 'Brasil',
       state: 'RJ',
-      notes: ''
+      notes: '',
+      tipoAtleta: 'NORMAL'
     });
   };
 
@@ -248,6 +252,7 @@ const Registration: React.FC = () => {
                   <th>Categoria de Peso</th>
                   <th>Modalidade</th>
                   <th>Equipe</th>
+                  <th>Tipo de Atleta</th>
                   <th>Ações</th>
                 </tr>
               </thead>
@@ -282,6 +287,11 @@ const Registration: React.FC = () => {
                       </Badge>
                     </td>
                     <td>{entry.team || '-'}</td>
+                    <td>
+                      <Badge bg={entry.tipoAtleta === 'CONVIDADO' ? 'info' : 'secondary'}>
+                        {entry.tipoAtleta === 'CONVIDADO' ? 'Convidado' : 'Normal'}
+                      </Badge>
+                    </td>
                     <td>
                       <Button
                         variant="outline-primary"
@@ -421,6 +431,25 @@ const Registration: React.FC = () => {
           <Row>
             <Col md={4}>
               <Form.Group className="mb-3">
+                <Form.Label>Tipo de Atleta</Form.Label>
+                <Form.Select
+                  name="tipoAtleta"
+                  value={formData.tipoAtleta}
+                  onChange={handleInputChange}
+                >
+                  <option value="NORMAL">Normal</option>
+                  <option value="CONVIDADO">Convidado</option>
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  {formData.tipoAtleta === 'CONVIDADO' ? 
+                    'Atletas convidados não têm restrições de idade/peso' : 
+                    'Atletas normais seguem as regras de categoria'
+                  }
+                </Form.Text>
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Group className="mb-3">
                 <Form.Label>País</Form.Label>
                 <Form.Control
                   type="text"
@@ -441,7 +470,10 @@ const Registration: React.FC = () => {
                 />
               </Form.Group>
             </Col>
-            <Col md={4}>
+          </Row>
+
+          <Row>
+            <Col md={12}>
               <Form.Group className="mb-3">
                 <Form.Label>Observações</Form.Label>
                 <Form.Control

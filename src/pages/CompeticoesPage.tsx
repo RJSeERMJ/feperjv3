@@ -2035,13 +2035,8 @@ const CompeticoesPage: React.FC = () => {
                {selectedCompeticao?.valorDobra && (
                  <span> | <strong>Valor da Dobra:</strong> R$ {selectedCompeticao.valorDobra.toFixed(2)}</span>
                )}
-               {selectedCompeticao?.modalidade === 'CLASSICA_EQUIPADO' && (
-                 <span>
-                   <br />
-                   <strong>🏆 Modalidade:</strong> Esta competição permite inscrição em Clássica e Equipado. 
-                   O mesmo atleta pode se inscrever duas vezes (uma em cada modalidade).
-                 </span>
-               )}
+               <br />
+               <strong>🎯 Categoria Convidado:</strong> Durante a categorização, você pode selecionar "Convidado" para atletas especiais sem restrições de idade/peso.
              </Alert>
 
              {atletasDisponiveis.length === 0 ? (

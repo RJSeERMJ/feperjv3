@@ -177,6 +177,12 @@ export const CATEGORIAS_IDADE: CategoriaIdade[] = [
     nome: 'Master IV',
     idadeMaxima: 999,
     descricao: 'De 1 de Janeiro do calendário anual em que completar 70 anos em diante'
+  },
+  {
+    id: 'convidado',
+    nome: 'Convidado',
+    idadeMaxima: 999,
+    descricao: 'Atleta convidado - sem restrições de idade/peso'
   }
 ];
 
@@ -221,6 +227,8 @@ export const validarIdadeParaCategoria = (idade: number, categoriaIdade: Categor
       return idade >= 60 && idade <= 69;
     case 'master4':
       return idade >= 70;
+    case 'convidado':
+      return true; // Convidados não têm restrições de idade/peso
     default:
       return false;
   }
@@ -262,6 +270,11 @@ export const validarDobraCategoria = (
   categoriaIdade1: CategoriaIdade,
   categoriaIdade2: CategoriaIdade
 ): boolean => {
+  // Convidados podem dobrar com qualquer categoria
+  if (categoriaIdade1.id === 'convidado' || categoriaIdade2.id === 'convidado') {
+    return true;
+  }
+  
   // Sub-júnior nunca pode dobrar
   if (categoriaIdade1.id === 'subjunior' || categoriaIdade2.id === 'subjunior') {
     return false;
@@ -293,6 +306,11 @@ export const validarDobraCategoria = (
 
 // Função para obter opções válidas de dobra
 export const obterOpcoesDobraValidas = (categoriaIdade: CategoriaIdade): CategoriaIdade[] => {
+  // Convidados podem dobrar com qualquer categoria
+  if (categoriaIdade.id === 'convidado') {
+    return CATEGORIAS_IDADE.filter(cat => cat.id !== 'convidado'); // Pode dobrar com todas exceto ele mesmo
+  }
+  
   // Sub-júnior nunca pode dobrar
   if (categoriaIdade.id === 'subjunior') {
     return [];

@@ -68,6 +68,7 @@ export interface Entry {
   country?: string;
   state?: string;
   notes?: string;
+  tipoAtleta?: 'NORMAL' | 'CONVIDADO';
   bodyweightKg?: number | null;
   lotNumber?: number | null;
   
