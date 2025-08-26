@@ -96,6 +96,18 @@ const WeighIns: React.FC = () => {
   const totalCount = registration.entries.length;
   const lotNumbersAssigned = registration.entries.filter(entry => entry.lotNumber !== null).length;
 
+  // Função para verificar se deve aplicar overflow automático
+  const shouldAutoOverflow = useCallback(() => {
+    // Verificar se há apenas 1 dia configurado
+    const singleDay = meet.lengthDays === 1;
+    
+    // Verificar se há apenas 1 plataforma em todos os dias
+    const singlePlatform = meet.platformsOnDays && meet.platformsOnDays.length > 0 && 
+                          meet.platformsOnDays.every(platforms => platforms === 1);
+    
+    return { singleDay, singlePlatform };
+  }, [meet.lengthDays, meet.platformsOnDays]);
+
   // Função para preencher automaticamente dia, plataforma e movimentos
   const autoFillDayAndPlatform = useCallback(() => {
     registration.entries.forEach(entry => {
@@ -220,12 +232,18 @@ const WeighIns: React.FC = () => {
                  <Form.Select
                    value={filterDay}
                    onChange={(e) => setFilterDay(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                   disabled={shouldAutoOverflow().singleDay}
                  >
                    <option value="all">Todos</option>
                    {Array.from({ length: meet.lengthDays }, (_, i) => (
                      <option key={i + 1} value={i + 1}>Dia {i + 1}</option>
                    ))}
                  </Form.Select>
+                 {shouldAutoOverflow().singleDay && (
+                   <Form.Text className="text-muted">
+                     Auto: Apenas 1 dia configurado
+                   </Form.Text>
+                 )}
                </Form.Group>
              </Col>
              <Col md={3}>
@@ -248,12 +266,18 @@ const WeighIns: React.FC = () => {
                 <Form.Select
                    value={filterPlatform}
                    onChange={(e) => setFilterPlatform(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+                   disabled={shouldAutoOverflow().singlePlatform}
                 >
                   <option value="all">Todas</option>
                    {Array.from({ length: meet.platformsOnDays[0] || 1 }, (_, i) => (
                      <option key={i + 1} value={i + 1}>Plataforma {i + 1}</option>
                   ))}
                 </Form.Select>
+                {shouldAutoOverflow().singlePlatform && (
+                  <Form.Text className="text-muted">
+                    Auto: Apenas 1 plataforma configurada
+                  </Form.Text>
+                )}
               </Form.Group>
             </Col>
             <Col md={3}>
@@ -300,6 +324,20 @@ const WeighIns: React.FC = () => {
             <small className="text-muted">
               Clique nas células para editar diretamente. Números de lote são únicos e sequenciais.
             </small>
+            {(shouldAutoOverflow().singleDay || shouldAutoOverflow().singlePlatform) && (
+              <div className="mt-2">
+                <small className="text-info">
+                  <strong>Overflow Automático Ativo:</strong>
+                  {shouldAutoOverflow().singleDay && <span className="ms-2">• Dia: Auto-preenchido (1 dia configurado)</span>}
+                  {shouldAutoOverflow().singlePlatform && <span className="ms-2">• Plataforma: Auto-preenchida (1 plataforma configurada)</span>}
+                </small>
+              </div>
+            )}
+            <div className="mt-2">
+              <small className="text-muted">
+                <strong>Configurações Atuais:</strong> {meet.lengthDays} dia(s), {meet.platformsOnDays.join(', ')} plataforma(s) por dia
+              </small>
+            </div>
           </Card.Header>
           <Card.Body>
             <div className="table-responsive" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
@@ -311,9 +349,19 @@ const WeighIns: React.FC = () => {
                   <th>Categoria</th>
                   <th>Peso Corporal</th>
                   <th>Número do Lote</th>
-                     <th>Dia</th>
+                     <th>
+                       Dia
+                       {shouldAutoOverflow().singleDay && (
+                         <Badge bg="success" className="ms-1" style={{ fontSize: '0.6em' }}>AUTO</Badge>
+                       )}
+                     </th>
                      <th>Grupo</th>
-                     <th>Plataforma</th>
+                     <th>
+                       Plataforma
+                       {shouldAutoOverflow().singlePlatform && (
+                         <Badge bg="success" className="ms-1" style={{ fontSize: '0.6em' }}>AUTO</Badge>
+                       )}
+                     </th>
                      <th>Movimentos</th>
                      <th>Alt Agacho</th>
                      <th>A/S Supino</th>
@@ -387,8 +435,10 @@ const WeighIns: React.FC = () => {
 
                          {/* Dia */}
                          <td>
-                           {meet.lengthDays === 1 ? (
-                             <Badge bg="success">1</Badge>
+                           {shouldAutoOverflow().singleDay ? (
+                             <Badge bg="success" title="Auto-preenchido: Apenas 1 dia configurado">
+                               {entry.day || 1}
+                             </Badge>
                            ) : (
                              <Form.Select
                                size="sm"
@@ -435,8 +485,12 @@ const WeighIns: React.FC = () => {
                              const currentDay = entry.day || 1;
                              const platformsForDay = meet.platformsOnDays[currentDay - 1] || 1;
                              
-                             if (platformsForDay === 1) {
-                               return <Badge bg="success">1</Badge>;
+                             if (shouldAutoOverflow().singlePlatform || platformsForDay === 1) {
+                               return (
+                                 <Badge bg="success" title="Auto-preenchido: Apenas 1 plataforma configurada">
+                                   {entry.platform || 1}
+                                 </Badge>
+                               );
                              } else {
                                return (
                                  <Form.Select
@@ -704,8 +758,8 @@ const WeighIns: React.FC = () => {
          <ul className="mb-0">
            <li><strong>Peso Corporal:</strong> Digite o peso diretamente no campo. O sistema valida se está dentro da categoria do atleta.</li>
                        <li><strong>Número do Lote:</strong> Clique no botão "Atribuir Números de Lote" para gerar automaticamente números únicos de 1 a N atletas.</li>
-                      <li><strong>Dia:</strong> Preenchido automaticamente se a competição tiver apenas 1 dia. Caso contrário, selecione manualmente.</li>
-           <li><strong>Plataforma:</strong> Preenchida automaticamente se houver apenas 1 plataforma. Caso contrário, selecione manualmente.</li>
+                      <li><strong>Dia:</strong> {shouldAutoOverflow().singleDay ? 'Auto-preenchido (1 dia configurado)' : 'Selecione manualmente o dia da competição'}.</li>
+           <li><strong>Plataforma:</strong> {shouldAutoOverflow().singlePlatform ? 'Auto-preenchida (1 plataforma configurada)' : 'Selecione manualmente a plataforma'}.</li>
            <li><strong>Movimentos:</strong> Preenchido automaticamente se apenas 1 movimento estiver permitido na competição. Caso contrário, configure manualmente (A=Agachamento, S=Supino, T=Terra).</li>
             <li><strong>Alturas:</strong> Configure livremente a altura da barra no agachamento e supino (aceita números, letras e combinações).</li>
            <li><strong>Primeiras Tentativas:</strong> Defina os pesos iniciais para cada movimento (Agachamento, Supino, Terra).</li>

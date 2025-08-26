@@ -72,6 +72,18 @@ const Results: React.FC = () => {
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+  // Função para verificar se deve aplicar overflow automático
+  const shouldAutoOverflow = () => {
+    // Verificar se há apenas 1 dia configurado
+    const singleDay = meet.lengthDays === 1;
+    
+    // Verificar se há apenas 1 plataforma em todos os dias
+    const singlePlatform = meet.platformsOnDays && meet.platformsOnDays.length > 0 && 
+                          meet.platformsOnDays.every(platforms => platforms === 1);
+    
+    return { singleDay, singlePlatform };
+  };
+
   // Calcular resultados para cada atleta
   const calculatedResults = useMemo((): CalculatedResult[] => {
     return registration.entries
@@ -244,6 +256,11 @@ const Results: React.FC = () => {
               <p className="text-muted mb-0">
                 {meet.name} - {meet.city} - {meet.date}
               </p>
+              {(shouldAutoOverflow().singleDay || shouldAutoOverflow().singlePlatform) && (
+                <small className="text-info">
+                  <strong>Configuração:</strong> {meet.lengthDays} dia(s), {meet.platformsOnDays.join(', ')} plataforma(s) por dia
+                </small>
+              )}
             </div>
             <ButtonGroup>
               <Button variant="outline-primary" onClick={exportToCSV}>
@@ -272,12 +289,18 @@ const Results: React.FC = () => {
                     <Form.Select 
                       value={selectedDay} 
                       onChange={(e) => setSelectedDay(Number(e.target.value))}
+                      disabled={shouldAutoOverflow().singleDay}
                     >
                       <option value={0}>Todos os dias</option>
                       {Array.from({ length: meet.lengthDays }, (_, i) => (
                         <option key={i + 1} value={i + 1}>Dia {i + 1}</option>
                       ))}
                     </Form.Select>
+                    {shouldAutoOverflow().singleDay && (
+                      <Form.Text className="text-muted">
+                        Auto: Apenas 1 dia configurado
+                      </Form.Text>
+                    )}
                   </Form.Group>
                 </Col>
                 <Col md={2}>

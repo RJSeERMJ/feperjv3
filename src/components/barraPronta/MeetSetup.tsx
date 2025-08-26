@@ -73,11 +73,16 @@ const MeetSetup: React.FC = () => {
   const handleInputChange = (e: any) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+    const finalValue = type === 'checkbox' ? checked : value;
     
+    // Atualizar estado local
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: finalValue
     }));
+    
+    // Salvar automaticamente no Redux
+    dispatch(updateMeet({ [name]: finalValue }));
   };
 
   const handleBarWeightChange = (lift: 'S' | 'B' | 'D', weight: number) => {
@@ -308,7 +313,12 @@ const MeetSetup: React.FC = () => {
                     <Form.Select
                       name="inKg"
                       value={formData.inKg ? 'true' : 'false'}
-                      onChange={(e) => setFormData(prev => ({ ...prev, inKg: e.target.value === 'true' }))}
+                      onChange={(e) => handleInputChange({
+                        target: {
+                          name: 'inKg',
+                          value: e.target.value === 'true'
+                        }
+                      } as any)}
                     >
                       <option value="true">Quilogramas (kg)</option>
                       <option value="false">Libras (lbs)</option>
