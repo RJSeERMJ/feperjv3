@@ -1,4 +1,5 @@
 .bar-load-container {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8,28 +9,29 @@
   border-radius: 8px;
   border: 1px solid #dee2e6;
   min-height: 80px;
+  position: relative;
 }
 
 .bar {
-  width: 8px;
-  height: 60px;
+  width: 15px;
+  height: 15px;
   background: #495057;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .bar-left {
-  margin-right: 4px;
+  margin-right: 0px;
 }
 
 .bar-right {
-  margin-left: 4px;
+  margin-left: 0px;
 }
 
 .collar {
-  width: 12px;
-  height: 50px;
+  width: 15px;
+  height: 40px;
   background: #6c757d;
-  border-radius: 6px;
+  border-radius: 4px;
   border: 2px solid #495057;
 }
 
@@ -87,67 +89,70 @@
 
 .rack-info {
   position: absolute;
-  top: -25px;
+  margin-left: 90px;
+  top: 100px;
   left: 50%;
   transform: translateX(-50%);
   background: #007bff;
   color: white;
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 20px;
   font-weight: 500;
   white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 6px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Estilos específicos para diferentes pesos de anilhas */
 .plate-25 {
-  min-width: 50px;
-  height: 60px;
+  min-width: 15px;
+  height: 100px;
 }
 
 .plate-20 {
-  min-width: 45px;
-  height: 55px;
+  min-width: 15px;
+  height: 100px;
 }
 
 .plate-15 {
-  min-width: 42px;
-  height: 52px;
+  min-width: 15px;
+  height: 90px;
 }
 
 .plate-10 {
-  min-width: 38px;
-  height: 48px;
+  min-width: 15px;
+  height: 80px;
 }
 
 .plate-5 {
-  min-width: 35px;
-  height: 45px;
+  min-width: 15px;
+  height: 70px;
 }
 
 .plate-2\.5 {
-  min-width: 32px;
-  height: 42px;
+  min-width: 15px;
+  height: 60px;
 }
 
 .plate-1\.25 {
-  min-width: 30px;
-  height: 40px;
+  min-width: 15px;
+  height: 50px;
 }
 
 .plate-1 {
-  min-width: 28px;
-  height: 38px;
+  min-width: 15px;
+  height: 40px;
 }
 
 .plate-0\.5 {
-  min-width: 26px;
-  height: 36px;
+  min-width: 15px;
+  height: 27px;
 }
 
 .plate-0\.25 {
-  min-width: 24px;
-  height: 34px;
+  min-width: 15px;
+  height: 20px;
 }
 
 /* Responsividade */

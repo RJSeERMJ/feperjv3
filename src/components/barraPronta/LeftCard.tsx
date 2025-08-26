@@ -119,7 +119,14 @@ const LeftCard: React.FC<LeftCardProps> = ({
                   <div className="bar-area">
                     <BarLoad 
                       weightKg={getCurrentWeight()}
-                      rackInfo=""
+                      rackInfo={(() => {
+                        if (lift === 'S' && currentEntry.squatHeight) {
+                          return currentEntry.squatHeight;
+                        } else if (lift === 'B' && currentEntry.benchHeight) {
+                          return currentEntry.benchHeight;
+                        }
+                        return "";
+                      })()}
                     />
                   </div>
                 </div>
@@ -179,7 +186,14 @@ const LeftCard: React.FC<LeftCardProps> = ({
                     <div className="bar-area">
                       <BarLoad 
                         weightKg={nextWeight}
-                        rackInfo=""
+                        rackInfo={(() => {
+                          if (lift === 'S' && nextEntry.squatHeight) {
+                            return nextEntry.squatHeight;
+                          } else if (lift === 'B' && nextEntry.benchHeight) {
+                            return nextEntry.benchHeight;
+                          }
+                          return "";
+                        })()}
                       />
                     </div>
                   </div>
