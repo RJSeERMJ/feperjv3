@@ -96,6 +96,64 @@ const WeighIns: React.FC = () => {
   const totalCount = registration.entries.length;
   const lotNumbersAssigned = registration.entries.filter(entry => entry.lotNumber !== null).length;
 
+  // Função para determinar campos bloqueados baseado nos movimentos selecionados
+  const getBlockedFields = (movements: string) => {
+    const movementList = movements.split(', ').filter(m => m.trim() !== '');
+    const blockedFields = {
+      squatHeight: false,    // Altura do Agachamento
+      benchHeight: false,    // Altura/Ajuste do Supino
+      squat1: false,         // 1ª Tentativa Agachamento
+      bench1: false,         // 1ª Tentativa Supino
+      deadlift1: false       // 1ª Tentativa Terra
+    };
+
+    // Se não há movimentos selecionados, nenhum campo está bloqueado
+    if (movementList.length === 0) {
+      return blockedFields;
+    }
+
+    // Se selecionou apenas A (Agachamento)
+    if (movementList.length === 1 && movementList.includes('A')) {
+      blockedFields.benchHeight = true;  // A/S Supino
+      blockedFields.bench1 = true;       // 1ª Supino
+      blockedFields.deadlift1 = true;    // 1ª Terra
+    }
+
+    // Se selecionou apenas S (Supino)
+    if (movementList.length === 1 && movementList.includes('S')) {
+      blockedFields.squatHeight = true;  // Alt Agacho
+      blockedFields.squat1 = true;       // 1ª Agacho
+      blockedFields.deadlift1 = true;    // 1ª Terra
+    }
+
+    // Se selecionou apenas T (Terra)
+    if (movementList.length === 1 && movementList.includes('T')) {
+      blockedFields.squatHeight = true;  // Alt Agacho
+      blockedFields.benchHeight = true;  // A/S Supino
+      blockedFields.squat1 = true;       // 1ª Agacho
+      blockedFields.bench1 = true;       // 1ª Supino
+    }
+
+    // Se selecionou A e S (Agachamento + Supino)
+    if (movementList.length === 2 && movementList.includes('A') && movementList.includes('S')) {
+      blockedFields.deadlift1 = true;    // 1ª Terra
+    }
+
+    // Se selecionou A e T (Agachamento + Terra)
+    if (movementList.length === 2 && movementList.includes('A') && movementList.includes('T')) {
+      blockedFields.benchHeight = true;  // A/S Supino
+      blockedFields.bench1 = true;       // 1ª Supino
+    }
+
+    // Se selecionou S e T (Supino + Terra)
+    if (movementList.length === 2 && movementList.includes('S') && movementList.includes('T')) {
+      blockedFields.squatHeight = true;  // Alt Agacho
+      blockedFields.squat1 = true;       // 1ª Agacho
+    }
+
+    return blockedFields;
+  };
+
   // Função para verificar se deve aplicar overflow automático
   const shouldAutoOverflow = useCallback(() => {
     // Verificar se há apenas 1 dia configurado
@@ -628,105 +686,140 @@ const WeighIns: React.FC = () => {
 
                                                                           {/* Altura do Agachamento */}
                          <td>
-                           <div className="d-flex align-items-center">
-                             <Form.Control
-                               type="text"
-                               value={entry.squatHeight || ''}
-                               onChange={(e) => {
-                                 const value = e.target.value;
-                                 // Aceita qualquer combinação de números e letras
-                                 if (value === '' || /^[A-Za-z0-9\s]+$/.test(value)) {
-                                   dispatch(updateEntry(entry.id, { squatHeight: value === '' ? null : value }));
-                                 }
-                               }}
-                               placeholder="Ex: 12 A, ABC, 123, A1B2"
-                               maxLength={20}
-                               size="sm"
-                             />
-                           </div>
+                           {(() => {
+                             const blockedFields = getBlockedFields(entry.movements || '');
+                             return (
+                               <div className="d-flex align-items-center">
+                                 <Form.Control
+                                   type="text"
+                                   value={entry.squatHeight || ''}
+                                   onChange={(e) => {
+                                     const value = e.target.value;
+                                     // Aceita qualquer combinação de números e letras
+                                     if (value === '' || /^[A-Za-z0-9\s]+$/.test(value)) {
+                                       dispatch(updateEntry(entry.id, { squatHeight: value === '' ? null : value }));
+                                     }
+                                   }}
+                                   placeholder="Ex: 12 A, ABC, 123, A1B2"
+                                   maxLength={20}
+                                   size="sm"
+                                   disabled={blockedFields.squatHeight}
+                                   className={blockedFields.squatHeight ? 'bg-light text-muted' : ''}
+                                 />
+                               </div>
+                             );
+                           })()}
                          </td>
 
                                                                           {/* Altura/Ajuste do Supino */}
                          <td>
-                           <div className="d-flex align-items-center">
-                             <Form.Control
-                               type="text"
-                               value={entry.benchHeight || ''}
-                               onChange={(e) => {
-                                 const value = e.target.value;
-                                 // Aceita qualquer combinação de números e letras
-                                 if (value === '' || /^[A-Za-z0-9\s]+$/.test(value)) {
-                                   dispatch(updateEntry(entry.id, { benchHeight: value === '' ? null : value }));
-                                 }
-                               }}
-                               placeholder="Ex: 12 A, ABC, 123, A1B2"
-                               maxLength={20}
-                               size="sm"
-                             />
-                           </div>
+                           {(() => {
+                             const blockedFields = getBlockedFields(entry.movements || '');
+                             return (
+                               <div className="d-flex align-items-center">
+                                 <Form.Control
+                                   type="text"
+                                   value={entry.benchHeight || ''}
+                                   onChange={(e) => {
+                                     const value = e.target.value;
+                                     // Aceita qualquer combinação de números e letras
+                                     if (value === '' || /^[A-Za-z0-9\s]+$/.test(value)) {
+                                       dispatch(updateEntry(entry.id, { benchHeight: value === '' ? null : value }));
+                                     }
+                                   }}
+                                   placeholder="Ex: 12 A, ABC, 123, A1B2"
+                                   maxLength={20}
+                                   size="sm"
+                                   disabled={blockedFields.benchHeight}
+                                   className={blockedFields.benchHeight ? 'bg-light text-muted' : ''}
+                                 />
+                               </div>
+                             );
+                           })()}
                          </td>
 
                                                                           {/* 1ª Tentativa Agachamento */}
                          <td>
-                           <div className="d-flex align-items-center">
-                             <Form.Control
-                               type="number"
-                               value={entry.squat1 || ''}
-                               onChange={(e) => {
-                                 const value = e.target.value;
-                                 if (value === '' || !isNaN(parseFloat(value))) {
-                                   dispatch(updateEntry(entry.id, { squat1: value === '' ? null : parseFloat(value) }));
-                                 }
-                               }}
-                               placeholder="Peso"
-                               step="0.5"
-                               min="0"
-                               size="sm"
-                             />
-                             <span className="ms-1">kg</span>
-                           </div>
+                           {(() => {
+                             const blockedFields = getBlockedFields(entry.movements || '');
+                             return (
+                               <div className="d-flex align-items-center">
+                                 <Form.Control
+                                   type="number"
+                                   value={entry.squat1 || ''}
+                                   onChange={(e) => {
+                                     const value = e.target.value;
+                                     if (value === '' || !isNaN(parseFloat(value))) {
+                                       dispatch(updateEntry(entry.id, { squat1: value === '' ? null : parseFloat(value) }));
+                                     }
+                                   }}
+                                   placeholder="Peso"
+                                   step="0.5"
+                                   min="0"
+                                   size="sm"
+                                   disabled={blockedFields.squat1}
+                                   className={blockedFields.squat1 ? 'bg-light text-muted' : ''}
+                                 />
+                                 <span className="ms-1">kg</span>
+                               </div>
+                             );
+                           })()}
                          </td>
 
                         {/* 1ª Tentativa Supino */}
                         <td>
-                          <div className="d-flex align-items-center">
-                            <Form.Control
-                              type="number"
-                              value={entry.bench1 || ''}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === '' || !isNaN(parseFloat(value))) {
-                                  dispatch(updateEntry(entry.id, { bench1: value === '' ? null : parseFloat(value) }));
-                                }
-                              }}
-                              placeholder="Peso"
-                              step="0.5"
-                              min="0"
-                              size="sm"
-                            />
-                            <span className="ms-1">kg</span>
-                          </div>
+                          {(() => {
+                            const blockedFields = getBlockedFields(entry.movements || '');
+                            return (
+                              <div className="d-flex align-items-center">
+                                <Form.Control
+                                  type="number"
+                                  value={entry.bench1 || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === '' || !isNaN(parseFloat(value))) {
+                                      dispatch(updateEntry(entry.id, { bench1: value === '' ? null : parseFloat(value) }));
+                                    }
+                                  }}
+                                  placeholder="Peso"
+                                  step="0.5"
+                                  min="0"
+                                  size="sm"
+                                  disabled={blockedFields.bench1}
+                                  className={blockedFields.bench1 ? 'bg-light text-muted' : ''}
+                                />
+                                <span className="ms-1">kg</span>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* 1ª Tentativa Terra */}
                         <td>
-                          <div className="d-flex align-items-center">
-                            <Form.Control
-                              type="number"
-                              value={entry.deadlift1 || ''}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === '' || !isNaN(parseFloat(value))) {
-                                  dispatch(updateEntry(entry.id, { deadlift1: value === '' ? null : parseFloat(value) }));
-                                }
-                              }}
-                              placeholder="Peso"
-                              step="0.5"
-                              min="0"
-                              size="sm"
-                            />
-                            <span className="ms-1">kg</span>
-                          </div>
+                          {(() => {
+                            const blockedFields = getBlockedFields(entry.movements || '');
+                            return (
+                              <div className="d-flex align-items-center">
+                                <Form.Control
+                                  type="number"
+                                  value={entry.deadlift1 || ''}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === '' || !isNaN(parseFloat(value))) {
+                                      dispatch(updateEntry(entry.id, { deadlift1: value === '' ? null : parseFloat(value) }));
+                                    }
+                                  }}
+                                  placeholder="Peso"
+                                  step="0.5"
+                                  min="0"
+                                  size="sm"
+                                  disabled={blockedFields.deadlift1}
+                                  className={blockedFields.deadlift1 ? 'bg-light text-muted' : ''}
+                                />
+                                <span className="ms-1">kg</span>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Status */}
