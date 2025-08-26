@@ -286,79 +286,153 @@ const Results: React.FC = () => {
     csvContent += `"${meet.name || 'Resultados da Competição'}"\n`;
     csvContent += `"${meet.city} - ${meet.date}"\n\n`;
     
-    // Exportar cada categoria separadamente
-    resultsByCategory.forEach((category, categoryIndex) => {
-      csvContent += `"${category.category}"\n`;
-      
-      // Cabeçalhos da tabela detalhada (mesma estrutura da visualização)
-      const headers = [
-        'POS',
-        'Atleta',
-        'UF',
-        'Equipe',
-        'Nascimento',
-        'Peso',
-        'A1',
-        'A2',
-        'A3',
-        'Melhor',
-        'Pos',
-        'S1',
-        'S2',
-        'S3',
-        'Melhor',
-        'Pos',
-        'T1',
-        'T2',
-        'T3',
-        'Melhor',
-        'Pos',
-        'Total',
-        'Indice GL'
-      ];
-      
-      csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
-      
-      // Dados dos atletas
-      category.results.forEach((result, index) => {
-        const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
-        const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
+    // Exportar baseado na aba ativa
+    if (activeTab === 'complete' || activeTab === 'detailed') {
+      // Exportar cada categoria separadamente (Resultados Completos/Detalhados)
+      resultsByCategory.forEach((category, categoryIndex) => {
+        csvContent += `"${category.category}"\n`;
         
-        const row = [
-          index + 1, // POS
-          result.entry.name,
-          result.entry.state || '-',
-          result.entry.team || '-',
-          result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-',
-          result.entry.bodyweightKg || '-',
-          result.squatAttempts[0] || '-',
-          result.squatAttempts[1] || '-',
-          result.squatAttempts[2] || '-',
-          result.squat,
-          result.positions.squat,
-          result.benchAttempts[0] || '-',
-          result.benchAttempts[1] || '-',
-          result.benchAttempts[2] || '-',
-          result.bench,
-          result.positions.bench,
-          result.deadliftAttempts[0] || '-',
-          result.deadliftAttempts[1] || '-',
-          result.deadliftAttempts[2] || '-',
-          result.deadlift,
-          result.positions.deadlift,
-          result.total,
-          result.points.toFixed(2)
+        // Cabeçalhos da tabela detalhada (mesma estrutura da visualização)
+        const headers = [
+          'POS',
+          'Atleta',
+          'UF',
+          'Equipe',
+          'Nascimento',
+          'Peso',
+          'A1',
+          'A2',
+          'A3',
+          'Melhor',
+          'Pos',
+          'S1',
+          'S2',
+          'S3',
+          'Melhor',
+          'Pos',
+          'T1',
+          'T2',
+          'T3',
+          'Melhor',
+          'Pos',
+          'Total',
+          'Indice GL'
         ];
         
-        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+        csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
+        
+        // Dados dos atletas
+        category.results.forEach((result, index) => {
+          const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
+          const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
+          
+          const row = [
+            index + 1, // POS
+            result.entry.name,
+            result.entry.state || '-',
+            result.entry.team || '-',
+            result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-',
+            result.entry.bodyweightKg || '-',
+            result.squatAttempts[0] || '-',
+            result.squatAttempts[1] || '-',
+            result.squatAttempts[2] || '-',
+            result.squat,
+            result.positions.squat,
+            result.benchAttempts[0] || '-',
+            result.benchAttempts[1] || '-',
+            result.benchAttempts[2] || '-',
+            result.bench,
+            result.positions.bench,
+            result.deadliftAttempts[0] || '-',
+            result.deadliftAttempts[1] || '-',
+            result.deadliftAttempts[2] || '-',
+            result.deadlift,
+            result.positions.deadlift,
+            result.total,
+            result.points.toFixed(2)
+          ];
+          
+          csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+        });
+        
+        // Espaço entre categorias
+        csvContent += '\n';
+      });
+    } else if (activeTab === 'simplified') {
+      // Exportar Melhores Atletas
+      csvContent += `"Melhores Atletas da Competição"\n\n`;
+      
+      // Masculino Clássico
+      const maleClassicResults = calculatedResults
+        .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+        .sort((a, b) => b.points - a.points);
+      
+      csvContent += `"Masculino Clássico"\n`;
+      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
+      maleClassicResults.forEach((result, index) => {
+        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Clássica","${result.total}","${result.points.toFixed(2)}"\n`;
+      });
+      csvContent += '\n';
+      
+      // Masculino Equipado
+      const maleEquippedResults = calculatedResults
+        .filter(result => result.entry.sex === 'M' && result.entry.equipment === 'Equipped')
+        .sort((a, b) => b.points - a.points);
+      
+      csvContent += `"Masculino Equipado"\n`;
+      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
+      maleEquippedResults.forEach((result, index) => {
+        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Equipado","${result.total}","${result.points.toFixed(2)}"\n`;
+      });
+      csvContent += '\n';
+      
+      // Feminino Clássico
+      const femaleClassicResults = calculatedResults
+        .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+        .sort((a, b) => b.points - a.points);
+      
+      csvContent += `"Feminino Clássico"\n`;
+      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
+      femaleClassicResults.forEach((result, index) => {
+        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Clássica","${result.total}","${result.points.toFixed(2)}"\n`;
+      });
+      csvContent += '\n';
+      
+      // Feminino Equipado
+      const femaleEquippedResults = calculatedResults
+        .filter(result => result.entry.sex === 'F' && result.entry.equipment === 'Equipped')
+        .sort((a, b) => b.points - a.points);
+      
+      csvContent += `"Feminino Equipado"\n`;
+      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
+      femaleEquippedResults.forEach((result, index) => {
+        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Equipado","${result.total}","${result.points.toFixed(2)}"\n`;
       });
       
-      // Espaço entre categorias
+    } else if (activeTab === 'teams') {
+      // Exportar Melhores Equipes
+      csvContent += `"Ranking das Equipes - Categoria OPEN"\n\n`;
+      
+      // Equipes Clássicas
+      const classicTeamRanking = calculateTeamRanking('Raw');
+      csvContent += `"Equipes Clássicas"\n`;
+      csvContent += `"Pos","Equipe","Total Pontos","1ºs Lugares","2ºs Lugares","3ºs Lugares","Total IPF GL"\n`;
+      classicTeamRanking.forEach((team, index) => {
+        csvContent += `"${index + 1}","${team.name}","${team.totalPoints}","${team.firstPlaces}","${team.secondPlaces}","${team.thirdPlaces}","${team.totalIPFPoints.toFixed(2)}"\n`;
+      });
       csvContent += '\n';
-    });
+      
+      // Equipes Equipadas
+      const equippedTeamRanking = calculateTeamRanking('Equipped');
+      csvContent += `"Equipes Equipadas"\n`;
+      csvContent += `"Pos","Equipe","Total Pontos","1ºs Lugares","2ºs Lugares","3ºs Lugares","Total IPF GL"\n`;
+      equippedTeamRanking.forEach((team, index) => {
+        csvContent += `"${index + 1}","${team.name}","${team.totalPoints}","${team.firstPlaces}","${team.secondPlaces}","${team.thirdPlaces}","${team.totalIPFPoints.toFixed(2)}"\n`;
+      });
+    }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const fileName = `${meet.name || 'Resultados'}_${new Date().toISOString().split('T')[0]}.csv`;
+    const fileName = `${meet.name || 'Resultados'}_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
     saveAs(blob, fileName);
   };
 
@@ -375,104 +449,294 @@ const Results: React.FC = () => {
     
     let yPosition = 40;
     
-    // Exportar cada categoria separadamente
-    resultsByCategory.forEach((category, categoryIndex) => {
-      // Título da categoria
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(category.category, 14, yPosition);
-      
-      yPosition += 12;
-      
-      // Cabeçalhos da tabela detalhada (mesma estrutura da visualização)
-      const headers1 = [
-        'POS',
-        'Atleta',
-        'UF',
-        'Equipe',
-        'Nasc.',
-        'Peso',
-        'A1',
-        'A2',
-        'A3',
-        'Melhor',
-        'Pos',
-        'S1',
-        'S2',
-        'S3',
-        'Melhor',
-        'Pos',
-        'T1',
-        'T2',
-        'T3',
-        'Melhor',
-        'Pos',
-        'Total',
-        'Indice GL'
-      ];
-      
-      // Dados dos atletas
-      const tableData = category.results.map((result, index) => {
-        const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
-        const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
+    // Exportar baseado na aba ativa
+    if (activeTab === 'complete' || activeTab === 'detailed') {
+      // Exportar cada categoria separadamente (Resultados Completos/Detalhados)
+      resultsByCategory.forEach((category, categoryIndex) => {
+        // Título da categoria
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(category.category, 14, yPosition);
         
-        return [
-          index + 1, // POS
-          result.entry.name,
-          result.entry.state || '-',
-          result.entry.team || '-',
-          result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-',
-          result.entry.bodyweightKg || '-',
-          result.squatAttempts[0] || '-',
-          result.squatAttempts[1] || '-',
-          result.squatAttempts[2] || '-',
-          result.squat,
-          result.positions.squat,
-          result.benchAttempts[0] || '-',
-          result.benchAttempts[1] || '-',
-          result.benchAttempts[2] || '-',
-          result.bench,
-          result.positions.bench,
-          result.deadliftAttempts[0] || '-',
-          result.deadliftAttempts[1] || '-',
-          result.deadliftAttempts[2] || '-',
-          result.deadlift,
-          result.positions.deadlift,
-          result.total,
-          result.points.toFixed(2)
+        yPosition += 12;
+        
+        // Cabeçalhos da tabela detalhada (mesma estrutura da visualização)
+        const headers1 = [
+          'POS',
+          'Atleta',
+          'UF',
+          'Equipe',
+          'Nasc.',
+          'Peso',
+          'A1',
+          'A2',
+          'A3',
+          'Melhor',
+          'Pos',
+          'S1',
+          'S2',
+          'S3',
+          'Melhor',
+          'Pos',
+          'T1',
+          'T2',
+          'T3',
+          'Melhor',
+          'Pos',
+          'Total',
+          'Indice GL'
         ];
-      });
-      
-      autoTable(doc, {
-        head: [headers1],
-        body: tableData,
-        startY: yPosition,
-        margin: { top: 10 },
-        styles: {
-          fontSize: 6,
-          cellPadding: 1
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontStyle: 'bold'
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245]
+        
+        // Dados dos atletas
+        const tableData = category.results.map((result, index) => {
+          const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
+          const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
+          
+          return [
+            index + 1, // POS
+            result.entry.name,
+            result.entry.state || '-',
+            result.entry.team || '-',
+            result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-',
+            result.entry.bodyweightKg || '-',
+            result.squatAttempts[0] || '-',
+            result.squatAttempts[1] || '-',
+            result.squatAttempts[2] || '-',
+            result.squat,
+            result.positions.squat,
+            result.benchAttempts[0] || '-',
+            result.benchAttempts[1] || '-',
+            result.benchAttempts[2] || '-',
+            result.bench,
+            result.positions.bench,
+            result.deadliftAttempts[0] || '-',
+            result.deadliftAttempts[1] || '-',
+            result.deadliftAttempts[2] || '-',
+            result.deadlift,
+            result.positions.deadlift,
+            result.total,
+            result.points.toFixed(2)
+          ];
+        });
+        
+        autoTable(doc, {
+          head: [headers1],
+          body: tableData,
+          startY: yPosition,
+          margin: { top: 10 },
+          styles: {
+            fontSize: 6,
+            cellPadding: 1
+          },
+          headStyles: {
+            fillColor: [41, 128, 185],
+            textColor: 255,
+            fontStyle: 'bold'
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245]
+          }
+        });
+        
+        // Atualizar posição Y para próxima categoria
+        yPosition = (doc as any).lastAutoTable.finalY + 20;
+        
+        // Adicionar nova página se necessário
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
         }
       });
+    } else if (activeTab === 'simplified') {
+      // Exportar Melhores Atletas
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Melhores Atletas da Competição', 14, yPosition);
+      yPosition += 15;
       
-      // Atualizar posição Y para próxima categoria
+      // Masculino Clássico
+      const maleClassicResults = calculatedResults
+        .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+        .sort((a, b) => b.points - a.points);
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Masculino Clássico', 14, yPosition);
+      yPosition += 10;
+      
+      const maleClassicHeaders = ['Pos', 'Atleta', 'Equipe', 'Modalidade', 'Total', 'Pontos IPF GL'];
+      const maleClassicData = maleClassicResults.map((result, index) => [
+        index + 1,
+        result.entry.name,
+        result.entry.team || '-',
+        'Clássica',
+        result.total,
+        result.points.toFixed(2)
+      ]);
+      
+      autoTable(doc, {
+        head: [maleClassicHeaders],
+        body: maleClassicData,
+        startY: yPosition,
+        margin: { top: 10 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [40, 167, 69], textColor: 255, fontStyle: 'bold' }
+      });
+      
       yPosition = (doc as any).lastAutoTable.finalY + 20;
       
-      // Adicionar nova página se necessário
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-    });
+      // Masculino Equipado
+      const maleEquippedResults = calculatedResults
+        .filter(result => result.entry.sex === 'M' && result.entry.equipment === 'Equipped')
+        .sort((a, b) => b.points - a.points);
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Masculino Equipado', 14, yPosition);
+      yPosition += 10;
+      
+      const maleEquippedData = maleEquippedResults.map((result, index) => [
+        index + 1,
+        result.entry.name,
+        result.entry.team || '-',
+        'Equipado',
+        result.total,
+        result.points.toFixed(2)
+      ]);
+      
+      autoTable(doc, {
+        head: [maleClassicHeaders],
+        body: maleEquippedData,
+        startY: yPosition,
+        margin: { top: 10 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [13, 110, 253], textColor: 255, fontStyle: 'bold' }
+      });
+      
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+      
+      // Feminino Clássico
+      const femaleClassicResults = calculatedResults
+        .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+        .sort((a, b) => b.points - a.points);
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Feminino Clássico', 14, yPosition);
+      yPosition += 10;
+      
+      const femaleClassicData = femaleClassicResults.map((result, index) => [
+        index + 1,
+        result.entry.name,
+        result.entry.team || '-',
+        'Clássica',
+        result.total,
+        result.points.toFixed(2)
+      ]);
+      
+      autoTable(doc, {
+        head: [maleClassicHeaders],
+        body: femaleClassicData,
+        startY: yPosition,
+        margin: { top: 10 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [40, 167, 69], textColor: 255, fontStyle: 'bold' }
+      });
+      
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+      
+      // Feminino Equipado
+      const femaleEquippedResults = calculatedResults
+        .filter(result => result.entry.sex === 'F' && result.entry.equipment === 'Equipped')
+        .sort((a, b) => b.points - a.points);
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Feminino Equipado', 14, yPosition);
+      yPosition += 10;
+      
+      const femaleEquippedData = femaleEquippedResults.map((result, index) => [
+        index + 1,
+        result.entry.name,
+        result.entry.team || '-',
+        'Equipado',
+        result.total,
+        result.points.toFixed(2)
+      ]);
+      
+      autoTable(doc, {
+        head: [maleClassicHeaders],
+        body: femaleEquippedData,
+        startY: yPosition,
+        margin: { top: 10 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [220, 53, 69], textColor: 255, fontStyle: 'bold' }
+      });
+      
+    } else if (activeTab === 'teams') {
+      // Exportar Melhores Equipes
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Ranking das Equipes - Categoria OPEN', 14, yPosition);
+      yPosition += 15;
+      
+      // Equipes Clássicas
+      const classicTeamRanking = calculateTeamRanking('Raw');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Equipes Clássicas', 14, yPosition);
+      yPosition += 10;
+      
+      const teamHeaders = ['Pos', 'Equipe', 'Total Pontos', '1ºs Lugares', '2ºs Lugares', '3ºs Lugares', 'Total IPF GL'];
+      const classicTeamData = classicTeamRanking.map((team, index) => [
+        index + 1,
+        team.name,
+        team.totalPoints,
+        team.firstPlaces,
+        team.secondPlaces,
+        team.thirdPlaces,
+        team.totalIPFPoints.toFixed(2)
+      ]);
+      
+      autoTable(doc, {
+        head: [teamHeaders],
+        body: classicTeamData,
+        startY: yPosition,
+        margin: { top: 10 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [40, 167, 69], textColor: 255, fontStyle: 'bold' }
+      });
+      
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+      
+      // Equipes Equipadas
+      const equippedTeamRanking = calculateTeamRanking('Equipped');
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Equipes Equipadas', 14, yPosition);
+      yPosition += 10;
+      
+      const equippedTeamData = equippedTeamRanking.map((team, index) => [
+        index + 1,
+        team.name,
+        team.totalPoints,
+        team.firstPlaces,
+        team.secondPlaces,
+        team.thirdPlaces,
+        team.totalIPFPoints.toFixed(2)
+      ]);
+      
+      autoTable(doc, {
+        head: [teamHeaders],
+        body: equippedTeamData,
+        startY: yPosition,
+        margin: { top: 10 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [13, 110, 253], textColor: 255, fontStyle: 'bold' }
+      });
+    }
     
-    doc.save(`${meet.name || 'Resultados'}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`${meet.name || 'Resultados'}_${activeTab}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   // Função para obter ícone de medalha
