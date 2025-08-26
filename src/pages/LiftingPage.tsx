@@ -134,29 +134,7 @@ const LiftingPage: React.FC = () => {
   return (
     <div className="lifting-page">
       <div className="lifting-container">
-        {/* Cabeçalho com controles */}
-        {/* Cabeçalho com botão para tela flutuante */}
-        <div className="lifting-header-section">
-          <div className="header-content">
-            <div className="header-title">
-              <h2>🏋️ Sessão de Levantamentos</h2>
-              <p className="text-muted mb-0">
-                Dia {day} • Plataforma {platform} • Grupo {flight} • {lift === 'S' ? 'Agachamento' : lift === 'B' ? 'Supino' : 'Levantamento Terra'}
-              </p>
-            </div>
-            <div className="header-actions">
-              <button 
-                className="btn btn-outline-primary btn-lg me-2"
-                onClick={openPopupDirectly}
-              >
-                <span className="me-2">🪟</span>
-                Tela Flutuante
-              </button>
-              
 
-            </div>
-          </div>
-        </div>
 
         <div className="lifting-content">
           {/* Mensagem se não há atletas para a combinação selecionada */}
@@ -191,6 +169,7 @@ const LiftingPage: React.FC = () => {
                   orderedEntries={liftingOrder.orderedEntries}
                   currentEntryId={liftingOrder.currentEntryId}
                   attemptOneIndexed={attemptOneIndexed}
+                  onOpenPopup={openPopupDirectly}
                 />
               </div>
             </>

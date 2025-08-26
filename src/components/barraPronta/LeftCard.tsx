@@ -84,9 +84,6 @@ const LeftCard: React.FC<LeftCardProps> = ({
       {/* Card do Atleta Atual */}
       {currentEntry && (
         <Card className="current-athlete-card mb-3">
-          <Card.Header className="current-athlete-header">
-            <h5 className="mb-0">🏋️ Atleta Atual</h5>
-          </Card.Header>
           <Card.Body>
             <div className="athlete-info">
               <h6 className="athlete-name">{currentEntry.name}</h6>
@@ -103,13 +100,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
               </div>
             </div>
             
-            <div className="lift-info mt-3">
-              <h6 className="lift-title">{getLiftName()} - {attemptOneIndexed}ª Tentativa</h6>
-              <div className="weight-display">
-                <span className="weight-value">{getCurrentWeight()} kg</span>
-                <span className="weight-label">Peso da Tentativa</span>
-              </div>
-            </div>
+
 
             {/* Visualização da Carga da Barra */}
             {getCurrentWeight() > 0 && (
