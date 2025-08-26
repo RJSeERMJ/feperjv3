@@ -17,9 +17,13 @@ import {
   FaMedal, 
   FaDownload, 
   FaSortUp,
-  FaSortDown
+  FaSortDown,
+  FaFileCsv,
+  FaFilePdf
 } from 'react-icons/fa';
 import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { RootState } from '../../store/barraProntaStore';
 import { Entry } from '../../types/barraProntaTypes';
 import { calculateIPFGLPointsTotal } from '../../logic/ipfGLPoints';
@@ -192,43 +196,147 @@ const Results: React.FC = () => {
 
   // Função para exportar resultados como CSV
   const exportToCSV = () => {
-    const headers = [
-      'Posição',
-      'Nome',
-      'Equipe',
-      'Divisão',
-      'Categoria',
-      'Modalidade',
-      'Peso Corporal',
-      'Agachamento',
-      'Supino',
-      'Terra',
-      'Total',
-      'Pontos IPF GL'
-    ];
-
-    const csvData = calculatedResults.map((result, index) => [
-      index + 1,
-      result.entry.name,
-      result.entry.team,
-      result.entry.division,
-      result.entry.weightClass,
-      getEquipmentDisplayName(result.entry.equipment || 'Raw'),
-      result.entry.bodyweightKg || '',
-      result.squat,
-      result.bench,
-      result.deadlift,
-      result.total,
-      result.points.toFixed(2)
-    ]);
-
-    const csvContent = [headers, ...csvData]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
+    let csvContent = '';
+    
+    // Cabeçalho do arquivo
+    csvContent += `"${meet.name || 'Resultados da Competição'}"\n`;
+    csvContent += `"${meet.city} - ${meet.date}"\n\n`;
+    
+    // Exportar cada categoria separadamente
+    resultsByCategory.forEach((category, categoryIndex) => {
+      csvContent += `"${category.category}"\n`;
+      csvContent += `"${category.results.length} atletas"\n\n`;
+      
+      // Cabeçalhos da tabela
+      const headers = [
+        'Posição',
+        'Nome',
+        'Equipe',
+        'Peso Corporal',
+        'Modalidade',
+        'Agachamento',
+        'Supino',
+        'Terra',
+        'Total',
+        'Pontos IPF GL'
+      ];
+      
+      csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
+      
+      // Dados dos atletas
+      category.results.forEach((result, index) => {
+        const row = [
+          index + 1,
+          result.entry.name,
+          result.entry.team,
+          result.entry.bodyweightKg || '-',
+          getEquipmentDisplayName(result.entry.equipment || 'Raw'),
+          result.squat,
+          result.bench,
+          result.deadlift,
+          result.total,
+          result.points.toFixed(2)
+        ];
+        
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
+      
+      // Espaço entre categorias
+      csvContent += '\n';
+    });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const fileName = `${meet.name || 'Resultados'}_${new Date().toISOString().split('T')[0]}.csv`;
     saveAs(blob, fileName);
+  };
+
+  // Função para exportar resultados como PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    // Título do documento
+    doc.setFontSize(20);
+    doc.text(meet.name || 'Resultados da Competição', 14, 20);
+    
+    doc.setFontSize(12);
+    doc.text(`${meet.city} - ${meet.date}`, 14, 30);
+    
+    let yPosition = 40;
+    
+    // Exportar cada categoria separadamente
+    resultsByCategory.forEach((category, categoryIndex) => {
+      // Título da categoria
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(category.category, 14, yPosition);
+      
+      yPosition += 10;
+      
+      // Número de atletas
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${category.results.length} atletas`, 14, yPosition);
+      
+      yPosition += 15;
+      
+      // Cabeçalhos da tabela
+      const headers = [
+        'Pos',
+        'Nome',
+        'Equipe',
+        'Peso',
+        'Modalidade',
+        'Agach.',
+        'Supino',
+        'Terra',
+        'Total',
+        'Pontos'
+      ];
+      
+      // Dados dos atletas
+      const tableData = category.results.map((result, index) => [
+        index + 1,
+        result.entry.name,
+        result.entry.team,
+        result.entry.bodyweightKg || '-',
+        getEquipmentDisplayName(result.entry.equipment || 'Raw'),
+        result.squat,
+        result.bench,
+        result.deadlift,
+        result.total,
+        result.points.toFixed(2)
+      ]);
+      
+      autoTable(doc, {
+        head: [headers],
+        body: tableData,
+        startY: yPosition,
+        margin: { top: 10 },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        }
+      });
+      
+      // Atualizar posição Y para próxima categoria
+      yPosition = (doc as any).lastAutoTable.finalY + 20;
+      
+      // Adicionar nova página se necessário
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+    });
+    
+    doc.save(`${meet.name || 'Resultados'}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   // Função para obter ícone de medalha
@@ -264,8 +372,12 @@ const Results: React.FC = () => {
             </div>
             <ButtonGroup>
               <Button variant="outline-primary" onClick={exportToCSV}>
-                <FaDownload className="me-2" />
+                <FaFileCsv className="me-2" />
                 Exportar CSV
+              </Button>
+              <Button variant="outline-primary" onClick={exportToPDF}>
+                <FaFilePdf className="me-2" />
+                Exportar PDF
               </Button>
             </ButtonGroup>
           </div>
