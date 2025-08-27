@@ -239,17 +239,96 @@ const Results: React.FC = () => {
       });
   }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, sortBy, sortOrder]);
 
+  // Função para obter nome da categoria de movimentos
+  const getMovementCategoryName = (movements: string) => {
+    const movement = movements.trim();
+    
+    // Modalidades únicas
+    switch (movement) {
+      case 'AST': return 'Powerlifting (AST)';
+      case 'AS': return 'Agachamento + Supino (AS)';
+      case 'A': return 'Só Agachamento (A)';
+      case 'S': return 'Só Supino (S)';
+      case 'T': return 'Só Terra (T)';
+      default: return movement;
+    }
+  };
+
+  // Função para obter todas as modalidades únicas da competição
+  const getUniqueMovementCategories = () => {
+    const categoriesSet = new Set<string>();
+    
+    calculatedResults.forEach(result => {
+      if (!result.entry.movements) return;
+      
+      // Se não há vírgula, é uma modalidade única
+      if (!result.entry.movements.includes(',')) {
+        categoriesSet.add(result.entry.movements.trim());
+      } else {
+        // Se há vírgula, separar em modalidades individuais
+        const movements = result.entry.movements.split(', ').filter(m => m.trim() !== '');
+        movements.forEach(movement => {
+          categoriesSet.add(movement.trim());
+        });
+      }
+    });
+    
+    return Array.from(categoriesSet).sort();
+  };
+
+  // Função para calcular total baseado na modalidade da categoria
+  const calculateTotalForCategory = (result: CalculatedResult, categoryName: string) => {
+    if (categoryName.includes('Powerlifting (AST)')) {
+      return result.squat + result.bench + result.deadlift;
+    } else if (categoryName.includes('Só Agachamento (A)')) {
+      return result.squat;
+    } else if (categoryName.includes('Só Supino (S)')) {
+      return result.bench;
+    } else if (categoryName.includes('Só Terra (T)')) {
+      return result.deadlift;
+    } else if (categoryName.includes('Agachamento + Supino (AS)')) {
+      return result.squat + result.bench;
+    } else if (categoryName.includes('Supino + Terra (ST)')) {
+      return result.bench + result.deadlift;
+    } else if (categoryName.includes('Agachamento + Terra (AT)')) {
+      return result.squat + result.deadlift;
+    } else {
+      return result.squat + result.bench + result.deadlift;
+    }
+  };
+
   // Agrupar resultados por categoria
   const resultsByCategory = useMemo((): ResultsByCategory[] => {
     const grouped: { [key: string]: CalculatedResult[] } = {};
+    const uniqueCategories = getUniqueMovementCategories();
 
-    calculatedResults.forEach(result => {
-      const equipmentName = getEquipmentDisplayName(result.entry.equipment || 'Raw');
-      const category = `${result.entry.division} - ${result.entry.weightClass} - ${equipmentName}`;
-      if (!grouped[category]) {
-        grouped[category] = [];
-      }
-      grouped[category].push(result);
+    // Para cada categoria única, criar grupos por divisão, peso e equipamento
+    uniqueCategories.forEach(movementCategory => {
+      calculatedResults.forEach(result => {
+        // Verificar se o atleta compete nesta modalidade específica
+        let competesInThisCategory = false;
+        
+        if (!result.entry.movements?.includes(',')) {
+          // Modalidade única
+          competesInThisCategory = result.entry.movements?.trim() === movementCategory;
+        } else {
+          // Modalidades separadas
+          const movements = result.entry.movements?.split(', ').filter(m => m.trim() !== '') || [];
+          competesInThisCategory = movements.includes(movementCategory);
+        }
+        
+        if (!competesInThisCategory) return;
+        
+        const equipmentName = getEquipmentDisplayName(result.entry.equipment || 'Raw');
+        const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
+        const categoryName = getMovementCategoryName(movementCategory);
+        const category = `${result.entry.division} - ${result.entry.weightClass} - ${equipmentName} - ${categoryName}`;
+        
+        if (!grouped[category]) {
+          grouped[category] = [];
+        }
+        grouped[category].push(result);
+      });
     });
 
     // Calcular posições dentro de cada categoria
@@ -292,66 +371,15 @@ const Results: React.FC = () => {
       resultsByCategory.forEach((category, categoryIndex) => {
         csvContent += `"${category.category}"\n`;
         
-        // Cabeçalhos da tabela detalhada (mesma estrutura da visualização)
-        const headers = [
-          'POS',
-          'Atleta',
-          'UF',
-          'Equipe',
-          'Nascimento',
-          'Peso',
-          'A1',
-          'A2',
-          'A3',
-          'Melhor',
-          'Pos',
-          'S1',
-          'S2',
-          'S3',
-          'Melhor',
-          'Pos',
-          'T1',
-          'T2',
-          'T3',
-          'Melhor',
-          'Pos',
-          'Total',
-          'Indice GL'
-        ];
+        // Usar cabeçalhos dinâmicos baseados nos movimentos do primeiro atleta da categoria
+        const firstAthleteMovements = category.results[0]?.entry.movements || '';
+        const headers = getDynamicHeaders(firstAthleteMovements);
         
         csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
         
         // Dados dos atletas
         category.results.forEach((result, index) => {
-          const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
-          const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
-          
-          const row = [
-            index + 1, // POS
-            result.entry.name,
-            result.entry.state || '-',
-            result.entry.team || '-',
-            result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-',
-            result.entry.bodyweightKg || '-',
-            result.squatAttempts[0] || '-',
-            result.squatAttempts[1] || '-',
-            result.squatAttempts[2] || '-',
-            result.squat,
-            result.positions.squat,
-            result.benchAttempts[0] || '-',
-            result.benchAttempts[1] || '-',
-            result.benchAttempts[2] || '-',
-            result.bench,
-            result.positions.bench,
-            result.deadliftAttempts[0] || '-',
-            result.deadliftAttempts[1] || '-',
-            result.deadliftAttempts[2] || '-',
-            result.deadlift,
-            result.positions.deadlift,
-            result.total,
-            result.points.toFixed(2)
-          ];
-          
+          const row = getDynamicRowData(result, index);
           csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
         });
         
@@ -460,63 +488,13 @@ const Results: React.FC = () => {
         
         yPosition += 12;
         
-        // Cabeçalhos da tabela detalhada (mesma estrutura da visualização)
-        const headers1 = [
-          'POS',
-          'Atleta',
-          'UF',
-          'Equipe',
-          'Nasc.',
-          'Peso',
-          'A1',
-          'A2',
-          'A3',
-          'Melhor',
-          'Pos',
-          'S1',
-          'S2',
-          'S3',
-          'Melhor',
-          'Pos',
-          'T1',
-          'T2',
-          'T3',
-          'Melhor',
-          'Pos',
-          'Total',
-          'Indice GL'
-        ];
+        // Usar cabeçalhos dinâmicos baseados nos movimentos do primeiro atleta da categoria
+        const firstAthleteMovements = category.results[0]?.entry.movements || '';
+        const headers1 = getDynamicHeaders(firstAthleteMovements);
         
         // Dados dos atletas
         const tableData = category.results.map((result, index) => {
-          const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
-          const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
-          
-          return [
-            index + 1, // POS
-            result.entry.name,
-            result.entry.state || '-',
-            result.entry.team || '-',
-            result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-',
-            result.entry.bodyweightKg || '-',
-            result.squatAttempts[0] || '-',
-            result.squatAttempts[1] || '-',
-            result.squatAttempts[2] || '-',
-            result.squat,
-            result.positions.squat,
-            result.benchAttempts[0] || '-',
-            result.benchAttempts[1] || '-',
-            result.benchAttempts[2] || '-',
-            result.bench,
-            result.positions.bench,
-            result.deadliftAttempts[0] || '-',
-            result.deadliftAttempts[1] || '-',
-            result.deadliftAttempts[2] || '-',
-            result.deadlift,
-            result.positions.deadlift,
-            result.total,
-            result.points.toFixed(2)
-          ];
+          return getDynamicRowData(result, index);
         });
         
         autoTable(doc, {
@@ -747,6 +725,118 @@ const Results: React.FC = () => {
       case 3: return <FaMedal className="text-danger" />;
       default: return null;
     }
+  };
+
+  // Função para obter movimentos configurados do atleta
+  const getAthleteMovements = (movements: string) => {
+    console.log('Movimentos originais:', movements);
+    
+    // Dividir por vírgula e espaço para separar modalidades
+    let movementList = movements.split(', ').filter(m => m.trim() !== '');
+    
+    // Se não há vírgulas, é uma modalidade única (AST, AS, A, S, T)
+    if (movementList.length === 1 && !movements.includes(',')) {
+      const combinedMovement = movements.trim();
+      
+      // Modalidades únicas
+      if (combinedMovement === 'AST') {
+        // Powerlifting: todos os movimentos
+        return { hasSquat: true, hasBench: true, hasDeadlift: true };
+      } else if (combinedMovement === 'AS') {
+        // Agachamento + Supino: apenas A e S
+        return { hasSquat: true, hasBench: true, hasDeadlift: false };
+      } else if (combinedMovement === 'A') {
+        // Só Agachamento
+        return { hasSquat: true, hasBench: false, hasDeadlift: false };
+      } else if (combinedMovement === 'S') {
+        // Só Supino
+        return { hasSquat: false, hasBench: true, hasDeadlift: false };
+      } else if (combinedMovement === 'T') {
+        // Só Terra
+        return { hasSquat: false, hasBench: false, hasDeadlift: true };
+      }
+    }
+    
+    // Se há vírgulas, são modalidades separadas (ex: "A, S" = duas modalidades)
+    // Para cada modalidade individual, verificar se contém os movimentos
+    let hasSquat = false;
+    let hasBench = false;
+    let hasDeadlift = false;
+    
+    movementList.forEach(movement => {
+      if (movement === 'A') hasSquat = true;
+      if (movement === 'S') hasBench = true;
+      if (movement === 'T') hasDeadlift = true;
+    });
+    
+    const result = { hasSquat, hasBench, hasDeadlift };
+    console.log('Resultado da detecção:', result);
+    return result;
+  };
+
+  // Função para gerar cabeçalhos dinâmicos baseados nos movimentos
+  const getDynamicHeaders = (movements: string) => {
+    const { hasSquat, hasBench, hasDeadlift } = getAthleteMovements(movements);
+    
+    const headers = ['POS', 'Atleta', 'UF', 'Equipe', 'Nascimento', 'Peso'];
+    
+    if (hasSquat) {
+      headers.push('A1', 'A2', 'A3', 'Melhor', 'Pos');
+    }
+    if (hasBench) {
+      headers.push('S1', 'S2', 'S3', 'Melhor', 'Pos');
+    }
+    if (hasDeadlift) {
+      headers.push('T1', 'T2', 'T3', 'Melhor', 'Pos');
+    }
+    
+    headers.push('Total', 'Indice GL');
+    return headers;
+  };
+
+  // Função para gerar dados dinâmicos baseados nos movimentos
+  const getDynamicRowData = (result: CalculatedResult, index: number) => {
+    const { hasSquat, hasBench, hasDeadlift } = getAthleteMovements(result.entry.movements || '');
+    
+    const rowData = [
+      index + 1, // POS
+      result.entry.name,
+      result.entry.state || '-',
+      result.entry.team || '-',
+      result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-',
+      result.entry.bodyweightKg || '-'
+    ];
+    
+    if (hasSquat) {
+      rowData.push(
+        result.squatAttempts[0] || '-',
+        result.squatAttempts[1] || '-',
+        result.squatAttempts[2] || '-',
+        result.squat,
+        result.positions.squat
+      );
+    }
+    if (hasBench) {
+      rowData.push(
+        result.benchAttempts[0] || '-',
+        result.benchAttempts[1] || '-',
+        result.benchAttempts[2] || '-',
+        result.bench,
+        result.positions.bench
+      );
+    }
+    if (hasDeadlift) {
+      rowData.push(
+        result.deadliftAttempts[0] || '-',
+        result.deadliftAttempts[1] || '-',
+        result.deadliftAttempts[2] || '-',
+        result.deadlift,
+        result.positions.deadlift
+      );
+    }
+    
+    rowData.push(result.total, result.points.toFixed(2));
+    return rowData;
   };
 
   // Função para calcular pontos de equipe baseado na posição
@@ -1438,19 +1528,74 @@ const AttemptDisplay: React.FC<{
 };
 
     // Componente para tabela de resultados completos
-  const DetailedResultsTable: React.FC<{ results: CalculatedResult[] }> = ({ results }) => {
+  const DetailedResultsTable: React.FC<{ results: CalculatedResult[], categoryName?: string }> = ({ results, categoryName }) => {
+    // Determinar quais movimentos mostrar baseado no primeiro atleta (assumindo mesma categoria)
+    const firstAthleteMovements = getAthleteMovements(results[0]?.entry.movements || '');
+    const { hasSquat, hasBench, hasDeadlift } = firstAthleteMovements;
+    
+    // Debug: verificar movimentos do primeiro atleta
+    console.log('Movimentos do primeiro atleta:', results[0]?.entry.movements);
+    console.log('Movimentos detectados:', { hasSquat, hasBench, hasDeadlift });
+    
+    // Calcular colspans dinâmicos
+    const baseColSpan = 6; // POS, Atleta, UF, Equipe, Nascimento, Peso
+    const squatColSpan = hasSquat ? 5 : 0;
+    const benchColSpan = hasBench ? 5 : 0;
+    const deadliftColSpan = hasDeadlift ? 5 : 0;
+    const resultColSpan = 2; // Total, Indice GL
+    
+    // Obter nome da categoria de movimentos
+    const movementCategory = categoryName || getMovementCategoryName(results[0]?.entry.movements || '');
+    
+    // Função para calcular o total correto baseado na modalidade
+    const calculateTotalForModalidade = (result: CalculatedResult) => {
+      // Se é Powerlifting (AST), soma todos os movimentos
+      if (movementCategory.includes('Powerlifting (AST)')) {
+        return result.squat + result.bench + result.deadlift;
+      }
+      
+      // Se é só Agachamento, retorna apenas o agachamento
+      if (movementCategory.includes('Só Agachamento (A)')) {
+        return result.squat;
+      }
+      
+      // Se é só Supino, retorna apenas o supino
+      if (movementCategory.includes('Só Supino (S)')) {
+        return result.bench;
+      }
+      
+      // Se é só Terra, retorna apenas o terra
+      if (movementCategory.includes('Só Terra (T)')) {
+        return result.deadlift;
+      }
+      
+      // Se é AS, soma agachamento + supino
+      if (movementCategory.includes('Agachamento + Supino (AS)')) {
+        return result.squat + result.bench;
+      }
+      
+      // Se é ST, soma supino + terra
+      if (movementCategory.includes('Supino + Terra (ST)')) {
+        return result.bench + result.deadlift;
+      }
+      
+      // Se é AT, soma agachamento + terra
+      if (movementCategory.includes('Agachamento + Terra (AT)')) {
+        return result.squat + result.deadlift;
+      }
+      
+      // Padrão: soma todos
+      return result.squat + result.bench + result.deadlift;
+    };
+    
     return (
       <div className="overflow-auto">
         <table className="complete-results-table">
           <thead>
             <tr>
-              <th colSpan={6}>
-                Até {results[0]?.entry.weightClass} kg - {getAgeCategory(results[0]?.entry.birthDate || '', results[0]?.entry.sex)} - {getEquipmentDisplayName(results[0]?.entry.equipment || 'Raw')}
+              <th colSpan={baseColSpan + squatColSpan + benchColSpan + deadliftColSpan + resultColSpan}>
+                {results[0]?.entry.weightClass} kg - {getAgeCategory(results[0]?.entry.birthDate || '', results[0]?.entry.sex)} - {getEquipmentDisplayName(results[0]?.entry.equipment || 'Raw')} - {movementCategory}
               </th>
-              <th colSpan={5}>Agachamento</th>
-              <th colSpan={5}>Supino</th>
-              <th colSpan={5}>Levantamento Terra</th>
-              <th colSpan={2}>Resultado</th>
             </tr>
             <tr>
               <th>POS</th>
@@ -1459,21 +1604,33 @@ const AttemptDisplay: React.FC<{
               <th>Equipe</th>
               <th>Nascimento</th>
               <th>Peso</th>
-              <th>A1</th>
-              <th>A2</th>
-              <th>A3</th>
-              <th>Melhor</th>
-              <th>Pos</th>
-              <th>S1</th>
-              <th>S2</th>
-              <th>S3</th>
-              <th>Melhor</th>
-              <th>Pos</th>
-              <th>T1</th>
-              <th>T2</th>
-              <th>T3</th>
-              <th>Melhor</th>
-              <th>Pos</th>
+              {hasSquat && (
+                <>
+                  <th>A1</th>
+                  <th>A2</th>
+                  <th>A3</th>
+                  <th>Melhor</th>
+                  <th>Pos</th>
+                </>
+              )}
+              {hasBench && (
+                <>
+                  <th>S1</th>
+                  <th>S2</th>
+                  <th>S3</th>
+                  <th>Melhor</th>
+                  <th>Pos</th>
+                </>
+              )}
+              {hasDeadlift && (
+                <>
+                  <th>T1</th>
+                  <th>T2</th>
+                  <th>T3</th>
+                  <th>Melhor</th>
+                  <th>Pos</th>
+                </>
+              )}
               <th>Total</th>
               <th>Indice GL</th>
             </tr>
@@ -1497,64 +1654,76 @@ const AttemptDisplay: React.FC<{
                   <td className="text-center">{result.entry.bodyweightKg || '-'}</td>
                   
                   {/* Agachamento */}
-                  <td>
-                    <span className={`attempt ${result.squatAttempts[0] && result.squatStatus[0] === 1 ? 'valid' : result.squatAttempts[0] && result.squatStatus[0] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.squatAttempts[0] || '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`attempt ${result.squatAttempts[1] && result.squatStatus[1] === 1 ? 'valid' : result.squatAttempts[1] && result.squatStatus[1] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.squatAttempts[1] || '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`attempt ${result.squatAttempts[2] && result.squatStatus[2] === 1 ? 'valid' : result.squatAttempts[2] && result.squatStatus[2] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.squatAttempts[2] || '-'}
-                    </span>
-                  </td>
-                  <td className="fw-bold text-success">{result.squat}</td>
-                  <td>{result.positions.squat}</td>
+                  {hasSquat && (
+                    <>
+                      <td>
+                        <span className={`attempt ${result.squatAttempts[0] && result.squatStatus[0] === 1 ? 'valid' : result.squatAttempts[0] && result.squatStatus[0] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.squatAttempts[0] || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`attempt ${result.squatAttempts[1] && result.squatStatus[1] === 1 ? 'valid' : result.squatAttempts[1] && result.squatStatus[1] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.squatAttempts[1] || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`attempt ${result.squatAttempts[2] && result.squatStatus[2] === 1 ? 'valid' : result.squatAttempts[2] && result.squatStatus[2] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.squatAttempts[2] || '-'}
+                        </span>
+                      </td>
+                      <td className="fw-bold text-success">{result.squat}</td>
+                      <td>{result.positions.squat}</td>
+                    </>
+                  )}
                   
                   {/* Supino */}
-                  <td>
-                    <span className={`attempt ${result.benchAttempts[0] && result.benchStatus[0] === 1 ? 'valid' : result.benchAttempts[0] && result.benchStatus[0] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.benchAttempts[0] || '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`attempt ${result.benchAttempts[1] && result.benchStatus[1] === 1 ? 'valid' : result.benchAttempts[1] && result.benchStatus[1] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.benchAttempts[1] || '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`attempt ${result.benchAttempts[2] && result.benchStatus[2] === 1 ? 'valid' : result.benchAttempts[2] && result.benchStatus[2] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.benchAttempts[2] || '-'}
-                    </span>
-                  </td>
-                  <td className="fw-bold text-success">{result.bench}</td>
-                  <td>{result.positions.bench}</td>
+                  {hasBench && (
+                    <>
+                      <td>
+                        <span className={`attempt ${result.benchAttempts[0] && result.benchStatus[0] === 1 ? 'valid' : result.benchAttempts[0] && result.benchStatus[0] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.benchAttempts[0] || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`attempt ${result.benchAttempts[1] && result.benchStatus[1] === 1 ? 'valid' : result.benchAttempts[1] && result.benchStatus[1] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.benchAttempts[1] || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`attempt ${result.benchAttempts[2] && result.benchStatus[2] === 1 ? 'valid' : result.benchAttempts[2] && result.benchStatus[2] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.benchAttempts[2] || '-'}
+                        </span>
+                      </td>
+                      <td className="fw-bold text-success">{result.bench}</td>
+                      <td>{result.positions.bench}</td>
+                    </>
+                  )}
                   
                   {/* Levantamento Terra */}
-                  <td>
-                    <span className={`attempt ${result.deadliftAttempts[0] && result.deadliftStatus[0] === 1 ? 'valid' : result.deadliftAttempts[0] && result.deadliftStatus[0] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.deadliftAttempts[0] || '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`attempt ${result.deadliftAttempts[1] && result.deadliftStatus[1] === 1 ? 'valid' : result.deadliftAttempts[1] && result.deadliftStatus[1] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.deadliftAttempts[1] || '-'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`attempt ${result.deadliftAttempts[2] && result.deadliftStatus[2] === 1 ? 'valid' : result.deadliftAttempts[2] && result.deadliftStatus[2] === 2 ? 'invalid' : 'empty'}`}>
-                      {result.deadliftAttempts[2] || '-'}
-                    </span>
-                  </td>
-                  <td className="fw-bold text-success">{result.deadlift}</td>
-                  <td>{result.positions.deadlift}</td>
+                  {hasDeadlift && (
+                    <>
+                      <td>
+                        <span className={`attempt ${result.deadliftAttempts[0] && result.deadliftStatus[0] === 1 ? 'valid' : result.deadliftAttempts[0] && result.deadliftStatus[0] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.deadliftAttempts[0] || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`attempt ${result.deadliftAttempts[1] && result.deadliftStatus[1] === 1 ? 'valid' : result.deadliftAttempts[1] && result.deadliftStatus[1] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.deadliftAttempts[1] || '-'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`attempt ${result.deadliftAttempts[2] && result.deadliftStatus[2] === 1 ? 'valid' : result.deadliftAttempts[2] && result.deadliftStatus[2] === 2 ? 'invalid' : 'empty'}`}>
+                          {result.deadliftAttempts[2] || '-'}
+                        </span>
+                      </td>
+                      <td className="fw-bold text-success">{result.deadlift}</td>
+                      <td>{result.positions.deadlift}</td>
+                    </>
+                  )}
                   
                   {/* Total */}
-                  <td className="total">{result.total}</td>
+                  <td className="total">{calculateTotalForModalidade(result)}</td>
                   <td className="indice">{result.points.toFixed(2)}</td>
                 </tr>
             ))}
@@ -1789,9 +1958,31 @@ const AttemptDisplay: React.FC<{
                           <th>Equipe</th>
                           <th>Peso</th>
                           <th>Modalidade</th>
-                          <th>Agachamento</th>
-                          <th>Supino</th>
-                          <th>Terra</th>
+                          {(() => {
+                            // Determinar quais movimentos mostrar baseado na modalidade da categoria
+                            const modalidade = category.category.split(' - ').pop() || '';
+                            
+                            if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
+                              return <th>Melhor A</th>;
+                            }
+                            return null;
+                          })()}
+                          {(() => {
+                            const modalidade = category.category.split(' - ').pop() || '';
+                            
+                            if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
+                              return <th>Melhor S</th>;
+                            }
+                            return null;
+                          })()}
+                          {(() => {
+                            const modalidade = category.category.split(' - ').pop() || '';
+                            
+                            if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
+                              return <th>Melhor T</th>;
+                            }
+                            return null;
+                          })()}
                           <th>Total</th>
                           <th>Pontos IPF GL</th>
                         </tr>
@@ -1817,18 +2008,46 @@ const AttemptDisplay: React.FC<{
                                 {getEquipmentDisplayName(result.entry.equipment || 'Raw')}
                               </Badge>
                             </td>
-                            <td>
-                              <span className="fw-bold">{result.squat}kg</span>
-                            </td>
-                            <td>
-                              <span className="fw-bold">{result.bench}kg</span>
-                            </td>
-                            <td>
-                              <span className="fw-bold">{result.deadlift}kg</span>
-                            </td>
+                            {(() => {
+                              // Determinar quais movimentos mostrar baseado na modalidade da categoria
+                              const modalidade = category.category.split(' - ').pop() || '';
+                              
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
+                                return (
+                                  <td>
+                                    <span className="fw-bold">{result.squat}kg</span>
+                                  </td>
+                                );
+                              }
+                              return null;
+                            })()}
+                            {(() => {
+                              const modalidade = category.category.split(' - ').pop() || '';
+                              
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
+                                return (
+                                  <td>
+                                    <span className="fw-bold">{result.bench}kg</span>
+                                  </td>
+                                );
+                              }
+                              return null;
+                            })()}
+                            {(() => {
+                              const modalidade = category.category.split(' - ').pop() || '';
+                              
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
+                                return (
+                                  <td>
+                                    <span className="fw-bold">{result.deadlift}kg</span>
+                                  </td>
+                                );
+                              }
+                              return null;
+                            })()}
                             <td>
                               <span className="fw-bold text-primary fs-5">
-                                {result.total}kg
+                                {calculateTotalForCategory(result, category.category)}kg
                               </span>
                             </td>
                             <td>
@@ -1856,7 +2075,7 @@ const AttemptDisplay: React.FC<{
               <Col>
                 <Card>
                   <Card.Body className="p-0">
-                    <DetailedResultsTable results={category.results} />
+                    <DetailedResultsTable results={category.results} categoryName={category.category.split(' - ').pop()} />
                   </Card.Body>
                 </Card>
               </Col>
