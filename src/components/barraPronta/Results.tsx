@@ -853,21 +853,8 @@ const Results: React.FC = () => {
     return 1; // 10º em diante
   };
 
-    // Função para calcular ranking das equipes por modalidade
-  const calculateTeamRanking = (equipment: 'Raw' | 'Equipped') => {
-    // Filtrar apenas atletas da categoria OPEN e modalidade específica
-    const openResults = calculatedResults.filter(result => {
-      const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
-      const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
-      const isEquipped = result.entry.equipment === 'Equipped' || result.entry.equipment === 'EQUIPADO';
-      
-      if (equipment === 'Raw') {
-        return ageCategory === 'OP' && isClassic;
-      } else {
-        return ageCategory === 'OP' && isEquipped;
-      }
-    });
-
+    // Função para calcular ranking das equipes por modalidade e tipo de competição
+  const calculateTeamRanking = (equipment: 'Raw' | 'Equipped', competitionType?: string) => {
     // Agrupar por equipe
     const teamsMap = new Map<string, {
       name: string;
@@ -879,6 +866,7 @@ const Results: React.FC = () => {
         weightClass: string;
         sex: string;
         equipment: string;
+        movements: string;
       }>;
       totalPoints: number;
       firstPlaces: number;
@@ -889,10 +877,19 @@ const Results: React.FC = () => {
 
     // Para cada categoria de peso, calcular posições
     resultsByCategory.forEach(category => {
-      // Filtrar apenas atletas OPEN desta categoria
+      // Filtrar apenas atletas OPEN desta categoria e tipo de competição
       const openAthletes = category.results.filter(result => {
         const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
-        return ageCategory === 'OP';
+        const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
+        const isEquipped = result.entry.equipment === 'Equipped' || result.entry.equipment === 'EQUIPADO';
+        
+        // Verificar se o atleta participa do tipo de competição especificado
+        const hasCompetitionType = !competitionType || 
+          (result.entry.movements && result.entry.movements.includes(competitionType));
+        
+        const hasCorrectEquipment = equipment === 'Raw' ? isClassic : isEquipped;
+        
+        return ageCategory === 'OP' && hasCorrectEquipment && hasCompetitionType;
       });
 
       // Ordenar por total (posição na categoria)
@@ -924,7 +921,8 @@ const Results: React.FC = () => {
           ipfPoints: result.points,
           weightClass: result.entry.weightClass || '0',
           sex: result.entry.sex || 'M',
-          equipment: result.entry.equipment || 'Raw'
+          equipment: result.entry.equipment || 'Raw',
+          movements: result.entry.movements || ''
         });
       });
     });
@@ -978,8 +976,16 @@ const Results: React.FC = () => {
 
   // Componente para a aba de melhores equipes
   const TeamResults = () => {
-    const classicTeamRanking = calculateTeamRanking('Raw');
-    const equippedTeamRanking = calculateTeamRanking('Equipped');
+    // Obter tipos de competição únicos dos atletas
+    const competitionTypes = new Set<string>();
+    calculatedResults.forEach(result => {
+      if (result.entry.movements) {
+        const types = result.entry.movements.split(', ').filter(t => t.trim());
+        types.forEach(type => competitionTypes.add(type));
+      }
+    });
+    
+    const competitionTypesArray = Array.from(competitionTypes).sort();
     
     return (
       <div>
@@ -995,104 +1001,283 @@ const Results: React.FC = () => {
                   Pontuação: 1º=12, 2º=9, 3º=8, 4º=7, 5º=6, 6º=5, 7º=4, 8º=3, 9º=2, 10º+=1
                 </p>
                 <p className="text-muted">
-                  Contam apenas os 5 melhores atletas de cada equipe por modalidade
+                  Contam apenas os 5 melhores atletas de cada equipe por modalidade e tipo de competição
                 </p>
+                <p className="text-warning">
+                  <strong>Regra:</strong> Ranking de equipes só é válido com 3 ou mais equipes por modalidade
+                </p>
+                {competitionTypesArray.length > 0 && (
+                  <p className="text-info">
+                    <strong>Tipos de competição encontrados:</strong> {competitionTypesArray.join(', ')}
+                  </p>
+                )}
               </Card.Body>
             </Card>
           </Col>
         </Row>
 
-        <Row>
-          {/* Equipes Clássicas */}
-          <Col md={6}>
-            <Card className="border-success">
-              <Card.Header className="bg-success text-white">
-                <h5 className="mb-0">
-                  <FaTrophy className="me-2" />
-                  Equipes Clássicas
-                </h5>
-              </Card.Header>
-              <Card.Body>
-                <div className="table-responsive">
-                  <table className="table table-striped table-hover">
-                    <thead className="table-success">
-                      <tr>
-                        <th>Pos</th>
-                        <th>Equipe</th>
-                        <th>Total</th>
-                        <th>1ºs</th>
-                        <th>2ºs</th>
-                        <th>3ºs</th>
-                        <th>IPF GL</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {classicTeamRanking.map((team, index) => (
-                        <tr key={team.name}>
-                          <td className="text-center">
-                            <div className="d-flex align-items-center justify-content-center">
-                              {getMedalIcon(index + 1)}
-                              <span className="ms-1 fw-bold">{index + 1}</span>
-                            </div>
-                          </td>
-                          <td className="fw-bold">{team.name}</td>
-                          <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
-                          <td className="text-center">{team.firstPlaces}</td>
-                          <td className="text-center">{team.secondPlaces}</td>
-                          <td className="text-center">{team.thirdPlaces}</td>
-                          <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
+        {/* Rankings por tipo de competição */}
+        {competitionTypesArray.map(competitionType => {
+          const classicTeams = calculateTeamRanking('Raw', competitionType);
+          const equippedTeams = calculateTeamRanking('Equipped', competitionType);
+          
+          return (
+            <Row key={competitionType} className="mb-4">
+              <Col>
+                <Card className="border-info">
+                  <Card.Header className="bg-info text-white">
+                    <h5 className="mb-0">
+                      <FaTrophy className="me-2" />
+                      Ranking Equipes - Tipo {competitionType}
+                    </h5>
+                  </Card.Header>
+                  <Card.Body>
+                    <Row>
+                      {/* Equipes Clássicas */}
+                      <Col md={6}>
+                        <Card className="border-success">
+                          <Card.Header className="bg-success text-white">
+                            <h6 className="mb-0">
+                              <FaTrophy className="me-2" />
+                              Equipes Clássicas - {competitionType}
+                            </h6>
+                          </Card.Header>
+                          <Card.Body>
+                            {classicTeams.length >= 3 ? (
+                              <div className="table-responsive">
+                                <table className="table table-striped table-hover">
+                                  <thead className="table-success">
+                                    <tr>
+                                      <th>Pos</th>
+                                      <th>Equipe</th>
+                                      <th>Total</th>
+                                      <th>1ºs</th>
+                                      <th>2ºs</th>
+                                      <th>3ºs</th>
+                                      <th>IPF GL</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {classicTeams.map((team, index) => (
+                                      <tr key={`${competitionType}-classic-${team.name}`}>
+                                        <td className="text-center">
+                                          <div className="d-flex align-items-center justify-content-center">
+                                            {getMedalIcon(index + 1)}
+                                            <span className="ms-1 fw-bold">{index + 1}</span>
+                                          </div>
+                                        </td>
+                                        <td className="fw-bold">{team.name}</td>
+                                        <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
+                                        <td className="text-center">{team.firstPlaces}</td>
+                                        <td className="text-center">{team.secondPlaces}</td>
+                                        <td className="text-center">{team.thirdPlaces}</td>
+                                        <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <Alert variant="warning" className="mb-0">
+                                <FaTrophy className="me-2" />
+                                <strong>Ranking não válido:</strong> Apenas {classicTeams.length} equipe(s) encontrada(s). 
+                                São necessárias pelo menos 3 equipes para validar o ranking.
+                              </Alert>
+                            )}
+                          </Card.Body>
+                        </Card>
+                      </Col>
 
-          {/* Equipes Equipadas */}
-          <Col md={6}>
-            <Card className="border-primary">
-              <Card.Header className="bg-primary text-white">
+                      {/* Equipes Equipadas */}
+                      <Col md={6}>
+                        <Card className="border-primary">
+                          <Card.Header className="bg-primary text-white">
+                            <h6 className="mb-0">
+                              <FaTrophy className="me-2" />
+                              Equipes Equipadas - {competitionType}
+                            </h6>
+                          </Card.Header>
+                          <Card.Body>
+                            {equippedTeams.length >= 3 ? (
+                              <div className="table-responsive">
+                                <table className="table table-striped table-hover">
+                                  <thead className="table-primary">
+                                    <tr>
+                                      <th>Pos</th>
+                                      <th>Equipe</th>
+                                      <th>Total</th>
+                                      <th>1ºs</th>
+                                      <th>2ºs</th>
+                                      <th>3ºs</th>
+                                      <th>IPF GL</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {equippedTeams.map((team, index) => (
+                                      <tr key={`${competitionType}-equipped-${team.name}`}>
+                                        <td className="text-center">
+                                          <div className="d-flex align-items-center justify-content-center">
+                                            {getMedalIcon(index + 1)}
+                                            <span className="ms-1 fw-bold">{index + 1}</span>
+                                          </div>
+                                        </td>
+                                        <td className="fw-bold">{team.name}</td>
+                                        <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
+                                        <td className="text-center">{team.firstPlaces}</td>
+                                        <td className="text-center">{team.secondPlaces}</td>
+                                        <td className="text-center">{team.thirdPlaces}</td>
+                                        <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <Alert variant="warning" className="mb-0">
+                                <FaTrophy className="me-2" />
+                                <strong>Ranking não válido:</strong> Apenas {equippedTeams.length} equipe(s) encontrada(s). 
+                                São necessárias pelo menos 3 equipes para validar o ranking.
+                              </Alert>
+                            )}
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    </Row>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+          );
+        })}
+
+        {/* Ranking geral (sem filtro por tipo) */}
+        <Row className="mb-4">
+          <Col>
+            <Card className="border-warning">
+              <Card.Header className="bg-warning text-dark">
                 <h5 className="mb-0">
                   <FaTrophy className="me-2" />
-                  Equipes Equipadas
+                  Ranking Geral das Equipes (Todos os Tipos)
                 </h5>
               </Card.Header>
               <Card.Body>
-                <div className="table-responsive">
-                  <table className="table table-striped table-hover">
-                    <thead className="table-primary">
-                      <tr>
-                        <th>Pos</th>
-                        <th>Equipe</th>
-                        <th>Total</th>
-                        <th>1ºs</th>
-                        <th>2ºs</th>
-                        <th>3ºs</th>
-                        <th>IPF GL</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {equippedTeamRanking.map((team, index) => (
-                        <tr key={team.name}>
-                          <td className="text-center">
-                            <div className="d-flex align-items-center justify-content-center">
-                              {getMedalIcon(index + 1)}
-                              <span className="ms-1 fw-bold">{index + 1}</span>
+                <Row>
+                  {/* Equipes Clássicas */}
+                  <Col md={6}>
+                    <Card className="border-success">
+                      <Card.Header className="bg-success text-white">
+                        <h6 className="mb-0">
+                          <FaTrophy className="me-2" />
+                          Equipes Clássicas - Geral
+                        </h6>
+                      </Card.Header>
+                      <Card.Body>
+                        {(() => {
+                          const classicTeams = calculateTeamRanking('Raw');
+                          return classicTeams.length >= 3 ? (
+                            <div className="table-responsive">
+                              <table className="table table-striped table-hover">
+                                <thead className="table-success">
+                                  <tr>
+                                    <th>Pos</th>
+                                    <th>Equipe</th>
+                                    <th>Total</th>
+                                    <th>1ºs</th>
+                                    <th>2ºs</th>
+                                    <th>3ºs</th>
+                                    <th>IPF GL</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {classicTeams.map((team, index) => (
+                                    <tr key={`general-classic-${team.name}`}>
+                                      <td className="text-center">
+                                        <div className="d-flex align-items-center justify-content-center">
+                                          {getMedalIcon(index + 1)}
+                                          <span className="ms-1 fw-bold">{index + 1}</span>
+                                        </div>
+                                      </td>
+                                      <td className="fw-bold">{team.name}</td>
+                                      <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
+                                      <td className="text-center">{team.firstPlaces}</td>
+                                      <td className="text-center">{team.secondPlaces}</td>
+                                      <td className="text-center">{team.thirdPlaces}</td>
+                                      <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                          </td>
-                          <td className="fw-bold">{team.name}</td>
-                          <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
-                          <td className="text-center">{team.firstPlaces}</td>
-                          <td className="text-center">{team.secondPlaces}</td>
-                          <td className="text-center">{team.thirdPlaces}</td>
-                          <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          ) : (
+                            <Alert variant="warning" className="mb-0">
+                              <FaTrophy className="me-2" />
+                              <strong>Ranking não válido:</strong> Apenas {classicTeams.length} equipe(s) encontrada(s). 
+                              São necessárias pelo menos 3 equipes para validar o ranking.
+                            </Alert>
+                          );
+                        })()}
+                      </Card.Body>
+                    </Card>
+                  </Col>
+
+                  {/* Equipes Equipadas */}
+                  <Col md={6}>
+                    <Card className="border-primary">
+                      <Card.Header className="bg-primary text-white">
+                        <h6 className="mb-0">
+                          <FaTrophy className="me-2" />
+                          Equipes Equipadas - Geral
+                        </h6>
+                      </Card.Header>
+                      <Card.Body>
+                        {(() => {
+                          const equippedTeams = calculateTeamRanking('Equipped');
+                          return equippedTeams.length >= 3 ? (
+                            <div className="table-responsive">
+                              <table className="table table-striped table-hover">
+                                <thead className="table-primary">
+                                  <tr>
+                                    <th>Pos</th>
+                                    <th>Equipe</th>
+                                    <th>Total</th>
+                                    <th>1ºs</th>
+                                    <th>2ºs</th>
+                                    <th>3ºs</th>
+                                    <th>IPF GL</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {equippedTeams.map((team, index) => (
+                                    <tr key={`general-equipped-${team.name}`}>
+                                      <td className="text-center">
+                                        <div className="d-flex align-items-center justify-content-center">
+                                          {getMedalIcon(index + 1)}
+                                          <span className="ms-1 fw-bold">{index + 1}</span>
+                                        </div>
+                                      </td>
+                                      <td className="fw-bold">{team.name}</td>
+                                      <td className="text-center fw-bold text-primary">{team.totalPoints}</td>
+                                      <td className="text-center">{team.firstPlaces}</td>
+                                      <td className="text-center">{team.secondPlaces}</td>
+                                      <td className="text-center">{team.thirdPlaces}</td>
+                                      <td className="text-center">{team.totalIPFPoints.toFixed(2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <Alert variant="warning" className="mb-0">
+                              <FaTrophy className="me-2" />
+                              <strong>Ranking não válido:</strong> Apenas {equippedTeams.length} equipe(s) encontrada(s). 
+                              São necessárias pelo menos 3 equipes para validar o ranking.
+                            </Alert>
+                          );
+                        })()}
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
               </Card.Body>
             </Card>
           </Col>

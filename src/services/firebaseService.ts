@@ -11,7 +11,8 @@ import {
   orderBy,
   limit,
   Timestamp,
-  writeBatch
+  writeBatch,
+  setDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
@@ -1057,6 +1058,38 @@ export const documentoService = {
     } catch (error) {
       console.error('❌ Erro no upload do documento:', error);
       throw error;
+    }
+  }
+};
+
+// Serviços de Tipos de Competição
+export const tipoCompeticaoService = {
+  async getAll(): Promise<string[]> {
+    const docRef = doc(db, 'configuracoes', 'tipos_competicao');
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data().tipos || [];
+    }
+    
+    // Se não existir, retornar tipos padrão
+    return ['S', 'AST', 'T'];
+  },
+
+  async update(tipos: string[]): Promise<void> {
+    const docRef = doc(db, 'configuracoes', 'tipos_competicao');
+    await updateDoc(docRef, { tipos });
+  },
+
+  async createDefault(): Promise<void> {
+    const docRef = doc(db, 'configuracoes', 'tipos_competicao');
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      await setDoc(docRef, { 
+        tipos: ['S', 'AST', 'T'],
+        dataCriacao: Timestamp.now()
+      });
     }
   }
 };

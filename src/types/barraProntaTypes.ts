@@ -71,6 +71,7 @@ export interface Entry {
   tipoAtleta?: 'NORMAL' | 'CONVIDADO';
   bodyweightKg?: number | null;
   lotNumber?: number | null;
+  cpf?: string; // CPF do atleta para unificação
   
   // Alturas dos racks
   squatHeight: string | null;

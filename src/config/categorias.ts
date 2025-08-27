@@ -4,10 +4,10 @@ import { CategoriaPeso, CategoriaIdade } from '../types';
 export const CATEGORIAS_PESO_MASCULINO: CategoriaPeso[] = [
   {
     id: 'subjunior-junior-m',
-    nome: 'Sub-Júnior/Júnior',
+    nome: 'Até 53,0 kg',
     pesoMaximo: 53.0,
     sexo: 'M',
-    descricao: 'Até 53,0 kg'
+    descricao: 'Até 53,0 kg (restrito a subjúnior 14-18 anos)'
   },
   {
     id: '59-m',
@@ -71,10 +71,10 @@ export const CATEGORIAS_PESO_MASCULINO: CategoriaPeso[] = [
 export const CATEGORIAS_PESO_FEMININO: CategoriaPeso[] = [
   {
     id: 'subjunior-junior-f',
-    nome: 'Sub-Júnior/Júnior',
+    nome: 'Até 43,0 kg',
     pesoMaximo: 43.0,
     sexo: 'F',
-    descricao: 'Até 43,0 kg'
+    descricao: 'Até 43,0 kg (restrito a subjúnior 14-18 anos)'
   },
   {
     id: '47-f',

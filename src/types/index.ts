@@ -84,6 +84,7 @@ export interface Competicao {
   permiteDobraCategoria?: boolean;
   // Novos campos para modalidade
   modalidade: 'CLASSICA' | 'EQUIPADO' | 'CLASSICA_EQUIPADO';
+  tipoCompeticao?: string; // Campo para tipo de competição (S, AST, T)
   dataCriacao?: Date;
 }
 

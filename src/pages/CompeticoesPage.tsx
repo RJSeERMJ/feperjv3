@@ -29,10 +29,11 @@ import {
   FaUserTimes,
   FaChartBar,
   FaDownload,
-  FaTrophy
+  FaTrophy,
+  FaCog
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { competicaoService, inscricaoService, atletaService, equipeService, logService } from '../services/firebaseService';
+import { competicaoService, inscricaoService, atletaService, equipeService, logService, tipoCompeticaoService } from '../services/firebaseService';
 import { Competicao, InscricaoCompeticao, Atleta, Equipe } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -422,6 +423,8 @@ const CompeticoesPage: React.FC = () => {
   const [loadingNominacao, setLoadingNominacao] = useState(false);
   const [filtroModalidade, setFiltroModalidade] = useState<string>('');
   const [filtroEquipe, setFiltroEquipe] = useState<string>('');
+  const [showTiposModal, setShowTiposModal] = useState(false);
+  const [editandoTipos, setEditandoTipos] = useState<string[]>(['S', 'AST', 'T']);
   const [selectedCompeticao, setSelectedCompeticao] = useState<Competicao | null>(null);
   const [inscricoes, setInscricoes] = useState<InscricaoCompeticao[]>([]);
   const [editingCompeticao, setEditingCompeticao] = useState<Competicao | null>(null);
@@ -445,8 +448,10 @@ const CompeticoesPage: React.FC = () => {
     descricao: '',
     status: 'AGENDADA' as 'AGENDADA' | 'REALIZADA' | 'CANCELADA',
     permiteDobraCategoria: false,
-    modalidade: 'CLASSICA' as 'CLASSICA' | 'EQUIPADO' | 'CLASSICA_EQUIPADO'
+    modalidade: 'CLASSICA' as 'CLASSICA' | 'EQUIPADO' | 'CLASSICA_EQUIPADO',
+    tipoCompeticao: ''
   });
+  const [tiposCompeticao, setTiposCompeticao] = useState<string[]>(['S', 'AST', 'T']);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -477,6 +482,17 @@ const CompeticoesPage: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      
+      // Carregar tipos de competição
+      const tiposData = await tipoCompeticaoService.getAll();
+      setTiposCompeticao(tiposData);
+      
+      // Se for admin e não há tipos configurados, criar os padrões
+      if (user?.tipo === 'admin' && tiposData.length === 0) {
+        await tipoCompeticaoService.createDefault();
+        const tiposPadrao = await tipoCompeticaoService.getAll();
+        setTiposCompeticao(tiposPadrao);
+      }
       
       // Se for admin, carrega todos os dados
       // Se for usuário comum, carrega apenas dados da sua equipe
@@ -541,7 +557,8 @@ const CompeticoesPage: React.FC = () => {
         descricao: formData.descricao,
         status: formData.status,
         permiteDobraCategoria: formData.permiteDobraCategoria,
-        modalidade: formData.modalidade
+        modalidade: formData.modalidade,
+        tipoCompeticao: formData.tipoCompeticao
       };
 
       if (editingCompeticao) {
@@ -600,7 +617,8 @@ const CompeticoesPage: React.FC = () => {
       descricao: competicao.descricao || '',
       status: competicao.status,
       permiteDobraCategoria: competicao.permiteDobraCategoria || false,
-      modalidade: competicao.modalidade || 'CLASSICA'
+      modalidade: competicao.modalidade || 'CLASSICA',
+      tipoCompeticao: competicao.tipoCompeticao || ''
     });
     setShowModal(true);
   };
@@ -1168,15 +1186,55 @@ const CompeticoesPage: React.FC = () => {
       descricao: '',
       status: 'AGENDADA',
       permiteDobraCategoria: false,
-      modalidade: 'CLASSICA'
+      modalidade: 'CLASSICA',
+      tipoCompeticao: ''
     });
     setEditingCompeticao(null);
+  };
+
+  const handleGerenciarTipos = () => {
+    setEditandoTipos([...tiposCompeticao]);
+    setShowTiposModal(true);
+  };
+
+  const handleSalvarTipos = async () => {
+    try {
+      await tipoCompeticaoService.update(editandoTipos);
+      setTiposCompeticao(editandoTipos);
+      setShowTiposModal(false);
+      toast.success('Tipos de competição atualizados com sucesso!');
+      
+      // Registrar log
+      await logService.create({
+        dataHora: new Date(),
+        usuario: user?.nome || 'Sistema',
+        acao: 'Atualizou tipos de competição',
+        detalhes: `Tipos atualizados: ${editandoTipos.join(', ')}`,
+        tipoUsuario: user?.tipo || 'usuario'
+      });
+    } catch (error) {
+      toast.error('Erro ao salvar tipos de competição');
+      console.error(error);
+    }
+  };
+
+  const handleAdicionarTipo = () => {
+    const novoTipo = prompt('Digite o novo tipo de competição:');
+    if (novoTipo && novoTipo.trim()) {
+      setEditandoTipos([...editandoTipos, novoTipo.trim()]);
+    }
+  };
+
+  const handleRemoverTipo = (index: number) => {
+    const novosTipos = editandoTipos.filter((_, i) => i !== index);
+    setEditandoTipos(novosTipos);
   };
 
   const filteredCompeticoes = competicoes.filter(competicao =>
     competicao.nomeCompeticao.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (competicao.local && competicao.local.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    competicao.status.toLowerCase().includes(searchTerm.toLowerCase())
+    competicao.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (competicao.tipoCompeticao && competicao.tipoCompeticao.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const getStatusBadge = (status: string) => {
@@ -1219,6 +1277,14 @@ const CompeticoesPage: React.FC = () => {
           {user?.tipo === 'admin' && (
             <>
               <Button 
+                variant="outline-info" 
+                onClick={handleGerenciarTipos}
+                title="Gerenciar tipos de competição"
+              >
+                <FaCog className="me-2" />
+                Tipos de Competição
+              </Button>
+              <Button 
                 variant="outline-success" 
                 onClick={handleExportCSV}
                 title="Exportar lista de competições em CSV"
@@ -1252,7 +1318,7 @@ const CompeticoesPage: React.FC = () => {
                 </InputGroup.Text>
                 <Form.Control
                   type="text"
-                  placeholder="Buscar por nome, local ou status..."
+                  placeholder="Buscar por nome, local, status ou tipo..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -1296,6 +1362,9 @@ const CompeticoesPage: React.FC = () => {
                       )}
                       {competicao.permiteDobraCategoria && (
                         <Badge bg="warning" className="ms-1">Dobra</Badge>
+                      )}
+                      {competicao.tipoCompeticao && (
+                        <Badge bg="secondary" className="ms-1">{competicao.tipoCompeticao}</Badge>
                       )}
                     </div>
                   </td>
@@ -1531,6 +1600,38 @@ const CompeticoesPage: React.FC = () => {
                 </Form.Group>
               </Col>
               <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Tipo de Competição *</Form.Label>
+                  {user?.tipo === 'admin' ? (
+                    <Form.Select
+                      value={formData.tipoCompeticao}
+                      onChange={(e) => setFormData({...formData, tipoCompeticao: e.target.value})}
+                      required
+                    >
+                      <option value="">Selecione um tipo</option>
+                      {tiposCompeticao.map((tipo) => (
+                        <option key={tipo} value={tipo}>{tipo}</option>
+                      ))}
+                    </Form.Select>
+                  ) : (
+                    <Form.Control
+                      type="text"
+                      value={formData.tipoCompeticao}
+                      readOnly
+                      className="bg-light"
+                    />
+                  )}
+                  <Form.Text className="text-muted">
+                    {user?.tipo === 'admin' 
+                      ? 'Apenas administradores podem configurar os tipos de competição' 
+                      : 'Tipo configurado pelo administrador'
+                    }
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Row>
+              <Col md={12}>
                 <Form.Group className="mb-3">
                   <Form.Check
                     type="checkbox"
@@ -2875,6 +2976,71 @@ const CompeticoesPage: React.FC = () => {
            </Button>
            <Button variant="secondary" onClick={() => setShowNominacaoModal(false)}>
              Fechar
+           </Button>
+         </Modal.Footer>
+       </Modal>
+
+       {/* Modal de Gerenciamento de Tipos de Competição */}
+       <Modal show={showTiposModal} onHide={() => setShowTiposModal(false)}>
+         <Modal.Header closeButton>
+           <Modal.Title>
+             <FaCog className="me-2" />
+             Gerenciar Tipos de Competição
+           </Modal.Title>
+         </Modal.Header>
+         <Modal.Body>
+           <Alert variant="info" className="mb-3">
+             <strong>ℹ️ Informação:</strong> Apenas administradores podem gerenciar os tipos de competição.
+             <br />
+             <strong>📝 Uso:</strong> Os tipos configurados aqui estarão disponíveis no dropdown de criação/edição de competições.
+           </Alert>
+           
+           <div className="mb-3">
+             <div className="d-flex justify-content-between align-items-center mb-2">
+               <h6>Tipos Atuais:</h6>
+               <Button 
+                 variant="outline-primary" 
+                 size="sm"
+                 onClick={handleAdicionarTipo}
+               >
+                 <FaPlus className="me-1" />
+                 Adicionar Tipo
+               </Button>
+             </div>
+             
+             {editandoTipos.length === 0 ? (
+               <Alert variant="warning">
+                 Nenhum tipo configurado. Adicione pelo menos um tipo.
+               </Alert>
+             ) : (
+               <div className="list-group">
+                 {editandoTipos.map((tipo, index) => (
+                   <div key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                     <span className="fw-bold">{tipo}</span>
+                     <Button 
+                       variant="outline-danger" 
+                       size="sm"
+                       onClick={() => handleRemoverTipo(index)}
+                       disabled={editandoTipos.length <= 1}
+                     >
+                       <FaTrash />
+                     </Button>
+                   </div>
+                 ))}
+               </div>
+             )}
+           </div>
+         </Modal.Body>
+         <Modal.Footer>
+           <Button variant="secondary" onClick={() => setShowTiposModal(false)}>
+             Cancelar
+           </Button>
+           <Button 
+             variant="primary" 
+             onClick={handleSalvarTipos}
+             disabled={editandoTipos.length === 0}
+           >
+             Salvar Alterações
            </Button>
          </Modal.Footer>
        </Modal>
