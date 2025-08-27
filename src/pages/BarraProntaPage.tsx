@@ -121,13 +121,7 @@ const BarraProntaContent: React.FC = () => {
   };
 
   const handleLoadMeet = async () => {
-    // Confirmar se o usuário quer apagar dados existentes
-    if (meet.name || registration.entries.length > 0) {
-      if (!window.confirm('Tem certeza que deseja carregar uma competição do sistema? Isso apagará todos os dados atuais da competição.')) {
-        return;
-      }
-    }
-    
+    // Removido alerta de confirmação - carrega diretamente
     setLoading(true);
     try {
       const competicoesData = await competicaoService.getAll();

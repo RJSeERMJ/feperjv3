@@ -31,7 +31,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RootState } from '../../store/barraProntaStore';
 import { Entry } from '../../types/barraProntaTypes';
-import { calculateIPFGLPointsTotal } from '../../logic/ipfGLPoints';
+import { 
+  calculateIPFGLPointsTotal, 
+  calculateIPFGLPointsBench, 
+  calculateIPFGLPointsSquat, 
+  calculateIPFGLPointsDeadlift,
+  calculateIPFGLPointsByCompetitionType 
+} from '../../logic/ipfGLPoints';
 import './Results.css';
 
 interface CalculatedResult {
@@ -76,9 +82,11 @@ const getEquipmentDisplayName = (equipment: string): string => {
   switch (equipment) {
     case 'Raw':
     case 'CLASSICA':
+    case 'Classico':
       return 'Clássica';
     case 'Equipped':
     case 'EQUIPADO':
+    case 'Equipado':
       return 'Equipado';
     default:
       return equipment || 'Clássica';
@@ -128,6 +136,46 @@ const Results: React.FC = () => {
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'detailed' | 'teams'>('complete');
+
+  // Função para recalcular pontos IPF GL baseado no tipo de competição
+  const recalculatePointsByCompetitionType = (result: CalculatedResult, categoryName: string): number => {
+    const bodyweightKg = result.entry.bodyweightKg || 0;
+    const sex = result.entry.sex;
+    const equipment = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' ? 'Classico' : 'Equipado';
+
+    // Extrair o tipo de competição da categoria
+    let competitionType = 'AST'; // Padrão para powerlifting completo
+    
+    if (categoryName.includes('Só Agachamento (A)')) {
+      competitionType = 'A';
+    } else if (categoryName.includes('Só Supino (S)')) {
+      competitionType = 'S';
+    } else if (categoryName.includes('Só Terra (T)')) {
+      competitionType = 'T';
+    } else if (categoryName.includes('Agachamento + Supino (AS)')) {
+      competitionType = 'AS';
+    } else if (categoryName.includes('Supino + Terra (ST)')) {
+      competitionType = 'ST';
+    } else if (categoryName.includes('Agachamento + Terra (AT)')) {
+      competitionType = 'AT';
+    } else if (categoryName.includes('Powerlifting (AST)')) {
+      competitionType = 'AST';
+    }
+
+    console.log(`🔍 Recalculando pontos para: ${competitionType} - ${categoryName}`);
+    console.log(`📊 Atleta: ${result.entry.name}, Peso: ${bodyweightKg}kg, Sexo: ${sex}, Equipamento: ${equipment}`);
+    console.log(`🏋️ Squat: ${result.squat}kg, Bench: ${result.bench}kg, Deadlift: ${result.deadlift}kg`);
+
+    return calculateIPFGLPointsByCompetitionType(
+      result.squat,
+      result.bench,
+      result.deadlift,
+      bodyweightKg,
+      sex,
+      equipment,
+      competitionType
+    );
+  };
 
   // Função para verificar se deve aplicar overflow automático
   const shouldAutoOverflow = () => {
@@ -191,7 +239,7 @@ const Results: React.FC = () => {
           bestDeadlift,
           entry.bodyweightKg || 0,
           entry.sex,
-          entry.equipment === 'Raw' ? 'Sleeves' : 'Single-ply'
+          entry.equipment === 'Raw' || entry.equipment === 'CLASSICA' ? 'Classico' : 'Equipado'
         );
 
         // Contar tentativas válidas
@@ -854,7 +902,7 @@ const Results: React.FC = () => {
   };
 
     // Função para calcular ranking das equipes por modalidade e tipo de competição
-  const calculateTeamRanking = (equipment: 'Raw' | 'Equipped', competitionType?: string) => {
+  const calculateTeamRanking = (equipment: 'Raw' | 'Equipped' | 'Classico' | 'Equipado', competitionType?: string) => {
     // Agrupar por equipe
     const teamsMap = new Map<string, {
       name: string;
@@ -880,14 +928,14 @@ const Results: React.FC = () => {
       // Filtrar apenas atletas OPEN desta categoria e tipo de competição
       const openAthletes = category.results.filter(result => {
         const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
-        const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA';
-        const isEquipped = result.entry.equipment === 'Equipped' || result.entry.equipment === 'EQUIPADO';
+        const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' || result.entry.equipment === 'Classico';
+        const isEquipped = result.entry.equipment === 'Equipped' || result.entry.equipment === 'EQUIPADO' || result.entry.equipment === 'Equipado';
         
         // Verificar se o atleta participa do tipo de competição especificado
         const hasCompetitionType = !competitionType || 
           (result.entry.movements && result.entry.movements.includes(competitionType));
         
-        const hasCorrectEquipment = equipment === 'Raw' ? isClassic : isEquipped;
+        const hasCorrectEquipment = (equipment === 'Raw' || equipment === 'Classico') ? isClassic : (equipment === 'Equipped' || equipment === 'Equipado') ? isEquipped : false;
         
         return ageCategory === 'OP' && hasCorrectEquipment && hasCompetitionType;
       });
@@ -1018,8 +1066,8 @@ const Results: React.FC = () => {
 
         {/* Rankings por tipo de competição */}
         {competitionTypesArray.map(competitionType => {
-          const classicTeams = calculateTeamRanking('Raw', competitionType);
-          const equippedTeams = calculateTeamRanking('Equipped', competitionType);
+          const classicTeams = calculateTeamRanking('Classico', competitionType);
+          const equippedTeams = calculateTeamRanking('Equipado', competitionType);
           
           return (
             <Row key={competitionType} className="mb-4">
@@ -1173,7 +1221,7 @@ const Results: React.FC = () => {
                       </Card.Header>
                       <Card.Body>
                         {(() => {
-                          const classicTeams = calculateTeamRanking('Raw');
+                          const classicTeams = calculateTeamRanking('Classico');
                           return classicTeams.length >= 3 ? (
                             <div className="table-responsive">
                               <table className="table table-striped table-hover">
@@ -1231,7 +1279,7 @@ const Results: React.FC = () => {
                       </Card.Header>
                       <Card.Body>
                         {(() => {
-                          const equippedTeams = calculateTeamRanking('Equipped');
+                          const equippedTeams = calculateTeamRanking('Equipado');
                           return equippedTeams.length >= 3 ? (
                             <div className="table-responsive">
                               <table className="table table-striped table-hover">
@@ -1290,19 +1338,19 @@ const Results: React.FC = () => {
   const SimplifiedResults = () => {
     // Agrupar por sexo e modalidade, ordenando por pontos IPF GL
     const maleClassicResults = calculatedResults
-      .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+      .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' || result.entry.equipment === 'Classico'))
       .sort((a, b) => b.points - a.points);
     
     const maleEquippedResults = calculatedResults
-      .filter(result => result.entry.sex === 'M' && result.entry.equipment === 'Equipped')
+      .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Equipped' || result.entry.equipment === 'Equipado'))
       .sort((a, b) => b.points - a.points);
     
     const femaleClassicResults = calculatedResults
-      .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+      .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' || result.entry.equipment === 'Classico'))
       .sort((a, b) => b.points - a.points);
     
     const femaleEquippedResults = calculatedResults
-      .filter(result => result.entry.sex === 'F' && result.entry.equipment === 'Equipped')
+      .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Equipped' || result.entry.equipment === 'Equipado'))
       .sort((a, b) => b.points - a.points);
 
     return (
@@ -2237,7 +2285,7 @@ const AttemptDisplay: React.FC<{
                             </td>
                             <td>
                               <span className="fw-bold text-success">
-                                {result.points.toFixed(2)}
+                                {recalculatePointsByCompetitionType(result, category.category.split(' - ').pop() || '').toFixed(2)}
                               </span>
                             </td>
                           </tr>
