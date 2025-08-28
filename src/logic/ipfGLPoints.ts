@@ -582,7 +582,7 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
       
       // Atribuir posições apenas para top 3
       category.results.forEach((result, index) => {
-        if (index < 3) {
+        if (index <= 3) {
           result.position = index + 1;
         }
       });

@@ -21,7 +21,7 @@ import {
   FaDownload, 
   FaSortUp,
   FaSortDown,
-  FaFileCsv,
+  FaFileCsv, 
   FaFilePdf,
   FaTable,
   FaUsers
@@ -141,7 +141,7 @@ const Results: React.FC = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'detailed' | 'teams'>('complete');
+  const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'teams'>('complete');
 
   // Função para recalcular pontos IPF GL baseado no tipo de competição
   const recalculatePointsByCompetitionType = (result: CalculatedResult, categoryName: string): number => {
@@ -149,28 +149,48 @@ const Results: React.FC = () => {
     const sex = result.entry.sex;
     const equipment = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' ? 'Classico' : 'Equipado';
 
-    // Extrair o tipo de competição da categoria
+    // Detectar tipo de competição baseado nos movimentos do atleta (prioridade) ou nome da categoria
+    const movements = result.entry.movements || '';
     let competitionType = 'AST'; // Padrão para powerlifting completo
     
-    if (categoryName.includes('Só Agachamento (A)')) {
+    // Primeiro tentar detectar pelos movimentos do atleta
+    if (movements.includes('Só Agachamento') || movements.includes('A)')) {
       competitionType = 'A';
-    } else if (categoryName.includes('Só Supino (S)')) {
+    } else if (movements.includes('Só Supino') || movements.includes('S)')) {
       competitionType = 'S';
-    } else if (categoryName.includes('Só Terra (T)')) {
+    } else if (movements.includes('Só Terra') || movements.includes('T)')) {
       competitionType = 'T';
-    } else if (categoryName.includes('Agachamento + Supino (AS)')) {
+    } else if (movements.includes('Agachamento + Supino') || movements.includes('AS)')) {
       competitionType = 'AS';
-    } else if (categoryName.includes('Supino + Terra (ST)')) {
+    } else if (movements.includes('Supino + Terra') || movements.includes('ST)')) {
       competitionType = 'ST';
-    } else if (categoryName.includes('Agachamento + Terra (AT)')) {
+    } else if (movements.includes('Agachamento + Terra') || movements.includes('AT)')) {
       competitionType = 'AT';
-    } else if (categoryName.includes('Powerlifting (AST)')) {
+    } else if (movements.includes('Powerlifting') || movements.includes('AST)')) {
       competitionType = 'AST';
+    } else {
+      // Fallback: extrair o tipo de competição da categoria
+      if (categoryName.includes('Só Agachamento (A)')) {
+        competitionType = 'A';
+      } else if (categoryName.includes('Só Supino (S)')) {
+        competitionType = 'S';
+      } else if (categoryName.includes('Só Terra (T)')) {
+        competitionType = 'T';
+      } else if (categoryName.includes('Agachamento + Supino (AS)')) {
+        competitionType = 'AS';
+      } else if (categoryName.includes('Supino + Terra (ST)')) {
+        competitionType = 'ST';
+      } else if (categoryName.includes('Agachamento + Terra (AT)')) {
+        competitionType = 'AT';
+      } else if (categoryName.includes('Powerlifting (AST)')) {
+        competitionType = 'AST';
+      }
     }
 
     console.log(`🔍 Recalculando pontos para: ${competitionType} - ${categoryName}`);
     console.log(`📊 Atleta: ${result.entry.name}, Peso: ${bodyweightKg}kg, Sexo: ${sex}, Equipamento: ${equipment}`);
     console.log(`🏋️ Squat: ${result.squat}kg, Bench: ${result.bench}kg, Deadlift: ${result.deadlift}kg`);
+    console.log(`🎯 Movimentos do atleta: ${movements}`);
 
     return calculateIPFGLPointsByCompetitionType(
       result.squat,
@@ -197,7 +217,9 @@ const Results: React.FC = () => {
 
   // Calcular resultados para cada atleta
   const calculatedResults = useMemo((): CalculatedResult[] => {
-    return registration.entries
+    const results: CalculatedResult[] = [];
+    
+    registration.entries
       .filter(entry => {
         // Filtrar por dia se selecionado
         if (selectedDay > 0 && entry.day !== selectedDay) return false;
@@ -209,7 +231,7 @@ const Results: React.FC = () => {
         if (selectedEquipment !== 'all' && entry.equipment !== selectedEquipment) return false;
         return true;
       })
-      .map(entry => {
+      .forEach(entry => {
         // Calcular melhores tentativas para cada movimento
         const squatAttempts = [entry.squat1, entry.squat2, entry.squat3];
         const benchAttempts = [entry.bench1, entry.bench2, entry.bench3];
@@ -235,57 +257,124 @@ const Results: React.FC = () => {
         const bestBench = getBestValidAttempt(benchAttempts, benchStatus);
         const bestDeadlift = getBestValidAttempt(deadliftAttempts, deadliftStatus);
 
-        // Calcular total
-        const total = bestSquat + bestBench + bestDeadlift;
-
-        // Calcular pontos IPF GL
-        const points = calculateIPFGLPointsTotal(
-          bestSquat,
-          bestBench,
-          bestDeadlift,
-          entry.bodyweightKg || 0,
-          entry.sex,
-          entry.equipment === 'Raw' || entry.equipment === 'CLASSICA' ? 'Classico' : 'Equipado'
-        );
-
         // Contar tentativas válidas
         const validSquat = squatStatus.filter(s => s === 1).length;
         const validBench = benchStatus.filter(s => s === 1).length;
         const validDeadlift = deadliftStatus.filter(s => s === 1).length;
 
-        return {
-          entry,
-          squat: bestSquat,
-          bench: bestBench,
-          deadlift: bestDeadlift,
-          total,
-          points,
-          validAttempts: {
-            squat: validSquat,
-            bench: validBench,
-            deadlift: validDeadlift
-          },
-          bestAttempts: {
-            squat: bestSquat,
-            bench: bestBench,
-            deadlift: bestDeadlift
-          },
-          // Adicionado para a nova tabela
-          squatAttempts: squatAttempts,
-          benchAttempts: benchAttempts,
-          deadliftAttempts: deadliftAttempts,
-          squatStatus: squatStatus,
-          benchStatus: benchStatus,
-          deadliftStatus: deadliftStatus,
-          positions: {
-            squat: 0, // Será preenchido pelo backend
-            bench: 0, // Será preenchido pelo backend
-            deadlift: 0, // Será preenchido pelo backend
-            total: 0 // Será preenchido pelo backend
+        // Função para calcular pontos IPF GL baseado no tipo de competição
+        const calculateDynamicIPFGLPoints = (competitionType: string, bestSquat: number, bestBench: number, bestDeadlift: number): number => {
+          const bodyweightKg = entry.bodyweightKg || 0;
+          const sex = entry.sex;
+          const equipment = entry.equipment === 'Raw' || entry.equipment === 'CLASSICA' ? 'Classico' : 'Equipado';
+          
+          console.log(`🔍 Calculando IPF GL Points para: ${entry.name} - Tipo: ${competitionType} - Movimentos: ${entry.movements}`);
+          
+          return calculateIPFGLPointsByCompetitionType(
+            bestSquat,
+            bestBench,
+            bestDeadlift,
+            bodyweightKg,
+            sex,
+            equipment,
+            competitionType
+          );
+        };
+
+        // Função para calcular total baseado na modalidade
+        const calculateTotalForModalidade = (competitionType: string, bestSquat: number, bestBench: number, bestDeadlift: number): number => {
+          switch (competitionType) {
+            case 'AST':
+              return bestSquat + bestBench + bestDeadlift;
+            case 'AS':
+              return bestSquat + bestBench;
+            case 'ST':
+              return bestBench + bestDeadlift;
+            case 'AT':
+              return bestSquat + bestDeadlift;
+            case 'A':
+              return bestSquat;
+            case 'S':
+              return bestBench;
+            case 'T':
+              return bestDeadlift;
+            default:
+              return bestSquat + bestBench + bestDeadlift;
           }
         };
-      })
-      .filter(result => result.total > 0) // Apenas atletas com total válido
+
+        // Função para criar resultado baseado na modalidade
+        const createResultForModalidade = (competitionType: string) => {
+          const total = calculateTotalForModalidade(competitionType, bestSquat, bestBench, bestDeadlift);
+          const points = calculateDynamicIPFGLPoints(competitionType, bestSquat, bestBench, bestDeadlift);
+          
+          // Criar uma cópia do entry com a modalidade específica
+          const entryCopy = {
+            ...entry,
+            movements: competitionType // Sobrescrever com a modalidade específica
+          };
+
+          return {
+            entry: entryCopy,
+            squat: bestSquat,
+            bench: bestBench,
+            deadlift: bestDeadlift,
+            total,
+            points,
+            validAttempts: {
+              squat: validSquat,
+              bench: validBench,
+              deadlift: validDeadlift
+            },
+            bestAttempts: {
+              squat: bestSquat,
+              bench: bestBench,
+              deadlift: bestDeadlift
+            },
+            squatAttempts: squatAttempts,
+            benchAttempts: benchAttempts,
+            deadliftAttempts: deadliftAttempts,
+            squatStatus: squatStatus,
+            benchStatus: benchStatus,
+            deadliftStatus: deadliftStatus,
+            positions: {
+              squat: 0,
+              bench: 0,
+              deadlift: 0,
+              total: 0
+            }
+          };
+        };
+
+        // Processar movimentos do atleta
+        const movements = entry.movements || '';
+        
+        // Se não há vírgula, é uma modalidade única
+        if (!movements.includes(',')) {
+          const competitionType = movements.trim();
+          if (competitionType) {
+            const result = createResultForModalidade(competitionType);
+            if (result.total > 0) { // Apenas adicionar se tem resultado válido
+              results.push(result);
+            }
+          }
+        } else {
+          // Se há vírgula, separar em modalidades individuais
+          const movementList = movements.split(', ').filter(m => m.trim() !== '');
+          movementList.forEach(movement => {
+            const competitionType = movement.trim();
+            if (competitionType) {
+              const result = createResultForModalidade(competitionType);
+              if (result.total > 0) { // Apenas adicionar se tem resultado válido
+                results.push(result);
+              }
+            }
+          });
+        }
+      });
+
+    // Retornar resultados ordenados
+    return results
       .sort((a, b) => {
         const aValue = a[sortBy];
         const bValue = b[sortBy];
@@ -420,8 +509,8 @@ const Results: React.FC = () => {
     csvContent += `"${meet.city} - ${meet.date}"\n\n`;
     
     // Exportar baseado na aba ativa
-    if (activeTab === 'complete' || activeTab === 'detailed') {
-      // Exportar cada categoria separadamente (Resultados Completos/Detalhados)
+    if (activeTab === 'complete') {
+      // Exportar cada categoria separadamente (Resultados Completos)
       resultsByCategory.forEach((category, categoryIndex) => {
         csvContent += `"${category.category}"\n`;
         
@@ -532,8 +621,8 @@ const Results: React.FC = () => {
     let yPosition = 40;
     
     // Exportar baseado na aba ativa
-    if (activeTab === 'complete' || activeTab === 'detailed') {
-      // Exportar cada categoria separadamente (Resultados Completos/Detalhados)
+    if (activeTab === 'complete') {
+      // Exportar cada categoria separadamente (Resultados Completos)
       resultsByCategory.forEach((category, categoryIndex) => {
         // Título da categoria
         doc.setFontSize(12);
@@ -672,7 +761,7 @@ const Results: React.FC = () => {
         startY: yPosition,
         margin: { top: 10 },
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [40, 167, 69], textColor: 255, fontStyle: 'bold' }
+        headStyles: { fillColor: [255, 193, 7], textColor: 0, fontStyle: 'bold' }
       });
       
       yPosition = (doc as any).lastAutoTable.finalY + 20;
@@ -834,6 +923,60 @@ const Results: React.FC = () => {
     console.log('Resultado da detecção:', result);
     console.log('=== FIM DEBUG ===');
     return result;
+  };
+
+  // Função para determinar quais colunas mostrar baseado na modalidade da categoria
+  const getCategoryMovements = (categoryName: string) => {
+    console.log('=== DEBUG getCategoryMovements ===');
+    console.log('Nome da categoria:', categoryName);
+    
+    // Detectar modalidade baseada no nome da categoria
+    if (categoryName.includes('Powerlifting (AST)')) {
+      console.log('Powerlifting (AST) detectado - todos os movimentos');
+      return { hasSquat: true, hasBench: true, hasDeadlift: true };
+    } else if (categoryName.includes('Só Agachamento (A)')) {
+      console.log('Só Agachamento (A) detectado - apenas agachamento');
+      return { hasSquat: true, hasBench: false, hasDeadlift: false };
+    } else if (categoryName.includes('Só Supino (S)')) {
+      console.log('Só Supino (S) detectado - apenas supino');
+      return { hasSquat: false, hasBench: true, hasDeadlift: false };
+    } else if (categoryName.includes('Só Terra (T)')) {
+      console.log('Só Terra (T) detectado - apenas terra');
+      return { hasSquat: false, hasBench: false, hasDeadlift: true };
+    } else if (categoryName.includes('Agachamento + Supino (AS)')) {
+      console.log('Agachamento + Supino (AS) detectado - A + S');
+      return { hasSquat: true, hasBench: true, hasDeadlift: false };
+    } else if (categoryName.includes('Supino + Terra (ST)')) {
+      console.log('Supino + Terra (ST) detectado - S + T');
+      return { hasSquat: false, hasBench: true, hasDeadlift: true };
+    } else if (categoryName.includes('Agachamento + Terra (AT)')) {
+      console.log('Agachamento + Terra (AT) detectado - A + T');
+      return { hasSquat: true, hasBench: false, hasDeadlift: true };
+    }
+    
+    // Padrão: todos os movimentos
+    console.log('Modalidade não reconhecida - padrão: todos os movimentos');
+    return { hasSquat: true, hasBench: true, hasDeadlift: true };
+  };
+
+  // Função para calcular colspans dinâmicos baseado na modalidade
+  const getDynamicColSpans = (categoryName: string) => {
+    const { hasSquat, hasBench, hasDeadlift } = getCategoryMovements(categoryName);
+    
+    const baseColSpan = 6; // Pos, Atleta, Categoria, Peso, Nº Lote, Equipe
+    const squatColSpan = hasSquat ? 5 : 0; // A1, A2, A3, Melhor, Pos
+    const benchColSpan = hasBench ? 5 : 0; // S1, S2, S3, Melhor, Pos
+    const deadliftColSpan = hasDeadlift ? 5 : 0; // T1, T2, T3, Melhor, Pos
+    const resultColSpan = 2; // Total, IPF GL Points
+    
+    return {
+      baseColSpan,
+      squatColSpan,
+      benchColSpan,
+      deadliftColSpan,
+      resultColSpan,
+      totalColSpan: baseColSpan + squatColSpan + benchColSpan + deadliftColSpan + resultColSpan
+    };
   };
 
   // Função para gerar cabeçalhos dinâmicos baseados nos movimentos
@@ -1924,16 +2067,7 @@ const AttemptDisplay: React.FC<{
                 Resultados Completos
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link 
-                active={activeTab === 'detailed'}
-                onClick={() => setActiveTab('detailed')}
-                className="fw-bold"
-              >
-                <FaTable className="me-2" />
-                Resultados Detalhados
-              </Nav.Link>
-            </Nav.Item>
+
             <Nav.Item>
                           <Nav.Link 
               active={activeTab === 'simplified'}
@@ -2093,221 +2227,160 @@ const AttemptDisplay: React.FC<{
                     </h5>
                   </Card.Header>
                   <Card.Body className="p-0">
-                    <div className="overflow-auto">
-                      <table className="complete-results-table">
-                        {/* Cabeçalho principal com título da categoria */}
-                        <thead>
-                          <tr className="category-header">
-                            <th colSpan={(() => {
-                              // Calcular colspan baseado na modalidade
-                              const modalidade = category.category.split(' - ').pop() || '';
-                              let colSpan = 9; // Pos, Atleta, Equipe, Peso, Modalidade, UF, Nascimento, Total, Pontos
-                              
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
-                                colSpan += 2; // Melhor A + Pos A
-                              }
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
-                                colSpan += 2; // Melhor S + Pos S
-                              }
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
-                                colSpan += 2; // Melhor T + Pos T
-                              }
-                              
-                              return colSpan;
-                            })()}>
-                              {category.category}
-                            </th>
-                          </tr>
-                          
-                          {/* Cabeçalho das seções de movimentos */}
-                          <tr className="sections-header">
-                            {/* Seção de dados básicos */}
-                            <th colSpan={7} className="section-basic">
-                              Dados do Atleta
-                            </th>
-                            
-                            {/* Seção de agachamento */}
-                            {(() => {
-                              const modalidade = category.category.split(' - ').pop() || '';
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
-                                return (
-                                  <th colSpan={2} className="section-squat">
-                                    Agachamento
-                                  </th>
-                                );
-                              }
-                              return null;
-                            })()}
-                            
-                            {/* Seção de supino */}
-                            {(() => {
-                              const modalidade = category.category.split(' - ').pop() || '';
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
-                                return (
-                                  <th colSpan={2} className="section-bench">
-                                    Supino
-                                  </th>
-                                );
-                              }
-                              return null;
-                            })()}
-                            
-                            {/* Seção de terra */}
-                            {(() => {
-                              const modalidade = category.category.split(' - ').pop() || '';
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
-                                return (
-                                  <th colSpan={2} className="section-deadlift">
-                                    Levantamento Terra
-                                  </th>
-                                );
-                              }
-                              return null;
-                            })()}
-                            
-                            {/* Seção de resultado */}
-                            <th colSpan={2} className="section-result">
-                              Resultado
-                            </th>
-                          </tr>
-                          
-                          {/* Cabeçalho das colunas específicas */}
-                          <tr className="columns-header">
-                            {/* Colunas básicas */}
-                            <th>POS</th>
-                            <th>Atleta</th>
-                            <th>Equipe</th>
-                            <th>Peso</th>
-                            <th>Modalidade</th>
-                            <th>UF</th>
-                            <th>Nascimento</th>
-                            
-                            {/* Colunas de agachamento */}
-                            {(() => {
-                              const modalidade = category.category.split(' - ').pop() || '';
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
-                                return (
-                                  <>
-                                    <th>Melhor A</th>
-                                    <th>Pos A</th>
-                                  </>
-                                );
-                              }
-                              return null;
-                            })()}
-                            
-                            {/* Colunas de supino */}
-                            {(() => {
-                              const modalidade = category.category.split(' - ').pop() || '';
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
-                                return (
-                                  <>
-                                    <th>Melhor S</th>
-                                    <th>Pos S</th>
-                                  </>
-                                );
-                              }
-                              return null;
-                            })()}
-                            
-                            {/* Colunas de terra */}
-                            {(() => {
-                              const modalidade = category.category.split(' - ').pop() || '';
-                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
-                                return (
-                                  <>
-                                    <th>Melhor T</th>
-                                    <th>Pos T</th>
-                                  </>
-                                );
-                              }
-                              return null;
-                            })()}
-                            
-                            {/* Colunas de resultado */}
-                            <th>Total</th>
-                            <th>Pontos IPF GL</th>
-                          </tr>
-                        </thead>
+                                         <div className="overflow-auto">
+                       <table className="complete-results-table">
+                         {/* Cabeçalho principal */}
+                         <thead>
+                           {(() => {
+                             const { hasSquat, hasBench, hasDeadlift } = getCategoryMovements(category.category);
+                             const colSpans = getDynamicColSpans(category.category);
+                             
+                             return (
+                               <>
+                                 <tr className="main-header">
+                                   <th colSpan={colSpans.baseColSpan} className="section-basic">
+                                     Dados do Atleta
+                                   </th>
+                                   {hasSquat && (
+                                     <th colSpan={colSpans.squatColSpan} className="section-squat">
+                                       Agachamento
+                                     </th>
+                                   )}
+                                   {hasBench && (
+                                     <th colSpan={colSpans.benchColSpan} className="section-bench">
+                                       Supino
+                                     </th>
+                                   )}
+                                   {hasDeadlift && (
+                                     <th colSpan={colSpans.deadliftColSpan} className="section-deadlift">
+                                       Terra
+                                     </th>
+                                   )}
+                                   <th colSpan={colSpans.resultColSpan} className="section-result">
+                                     Resultado
+                                   </th>
+                                 </tr>
+                                 
+                                 {/* Cabeçalho das colunas específicas */}
+                                 <tr className="columns-header">
+                                   {/* Dados do Atleta */}
+                                   <th>Pos</th>
+                                   <th>Atleta</th>
+                                   <th>Categoria</th>
+                                   <th>Peso</th>
+                                   <th>Nº Lote</th>
+                                   <th>Equipe</th>
+                                   
+                                   {/* Agachamento */}
+                                   {hasSquat && (
+                                     <>
+                                       <th>A1</th>
+                                       <th>A2</th>
+                                       <th>A3</th>
+                                       <th>Melhor</th>
+                                       <th>Pos</th>
+                                     </>
+                                   )}
+                                   
+                                   {/* Supino */}
+                                   {hasBench && (
+                                     <>
+                                       <th>S1</th>
+                                       <th>S2</th>
+                                       <th>S3</th>
+                                       <th>Melhor</th>
+                                       <th>Pos</th>
+                                     </>
+                                   )}
+                                   
+                                   {/* Terra */}
+                                   {hasDeadlift && (
+                                     <>
+                                       <th>T1</th>
+                                       <th>T2</th>
+                                       <th>T3</th>
+                                       <th>Melhor</th>
+                                       <th>Pos</th>
+                                     </>
+                                   )}
+                                   
+                                   {/* Resultado */}
+                                   <th>Total</th>
+                                   <th>IPF GL Points</th>
+                                 </tr>
+                               </>
+                             );
+                           })()}
+                         </thead>
                         
                         <tbody>
-                          {category.results.map((result, index) => (
-                            <tr key={result.entry.id}>
-                              {/* Posição */}
-                              <td className="text-center">
-                                <div className="d-flex align-items-center justify-content-center">
-                                  {getMedalIcon(index + 1)}
-                                  <span className="ms-1 fw-bold">{index + 1}</span>
-                                </div>
-                              </td>
-                              
-                              {/* Dados do atleta */}
-                              <td className="athlete">{result.entry.name}</td>
-                              <td className="team">{result.entry.team || '-'}</td>
-                              <td className="text-center">{result.entry.bodyweightKg || '-'}kg</td>
-                              <td className="text-center">
-                                <Badge bg={result.entry.equipment === 'Equipped' ? 'primary' : 'success'}>
-                                  {getEquipmentDisplayName(result.entry.equipment || 'Raw')}
-                                </Badge>
-                              </td>
-                              <td className="text-center">{result.entry.state || '-'}</td>
-                              <td className="text-center">{result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-'}</td>
-                              
-                              {/* Agachamento */}
-                              {(() => {
-                                const modalidade = category.category.split(' - ').pop() || '';
-                                if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
-                                  return (
-                                    <>
-                                      <td className="fw-bold text-success">{result.squat}</td>
-                                      <td>{result.positions.squat}</td>
-                                    </>
-                                  );
-                                }
-                                return null;
-                              })()}
-                              
-                              {/* Supino */}
-                              {(() => {
-                                const modalidade = category.category.split(' - ').pop() || '';
-                                if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
-                                  return (
-                                    <>
-                                      <td className="fw-bold text-success">{result.bench}</td>
-                                      <td>{result.positions.bench}</td>
-                                    </>
-                                  );
-                                }
-                                return null;
-                              })()}
-                              
-                              {/* Terra */}
-                              {(() => {
-                                const modalidade = category.category.split(' - ').pop() || '';
-                                if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
-                                  return (
-                                    <>
-                                      <td className="fw-bold text-success">{result.deadlift}</td>
-                                      <td>{result.positions.deadlift}</td>
-                                    </>
-                                  );
-                                }
-                                return null;
-                              })()}
-                              
-                              {/* Total */}
-                              <td className="total">
-                                <span className="fw-bold text-primary fs-5">
-                                  {calculateTotalForCategory(result, category.category)}kg
-                                </span>
-                              </td>
-                              <td className="indice">
-                                <span className="fw-bold text-success">
-                                  {recalculatePointsByCompetitionType(result, category.category.split(' - ').pop() || '').toFixed(2)}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                          {category.results.map((result, index) => {
+                            const { hasSquat, hasBench, hasDeadlift } = getCategoryMovements(category.category);
+                            
+                            return (
+                              <tr key={result.entry.id}>
+                                {/* Posição */}
+                                <td className="text-center">
+                                  <div className="d-flex align-items-center justify-content-center">
+                                    {getMedalIcon(index + 1)}
+                                    <span className="ms-1 fw-bold">{index + 1}</span>
+                                  </div>
+                                </td>
+                                
+                                {/* Dados do atleta */}
+                                <td className="athlete">{result.entry.name}</td>
+                                <td className="text-center">{result.entry.weightClass || '-'}</td>
+                                <td className="text-center">{result.entry.bodyweightKg || '-'}kg</td>
+                                <td className="text-center">{result.entry.lotNumber || '-'}</td>
+                                <td className="team">{result.entry.team || '-'}</td>
+                                
+                                {/* Agachamento */}
+                                {hasSquat && (
+                                  <>
+                                    <td className="text-center">{result.entry.squat1 || '-'}</td>
+                                    <td className="text-center">{result.entry.squat2 || '-'}</td>
+                                    <td className="text-center">{result.entry.squat3 || '-'}</td>
+                                    <td className="fw-bold text-success">{result.squat > 0 ? `${result.squat}kg` : '-'}</td>
+                                    <td className="text-center">{result.positions.squat > 0 ? `${result.positions.squat}º` : '-'}</td>
+                                  </>
+                                )}
+                                
+                                {/* Supino */}
+                                {hasBench && (
+                                  <>
+                                    <td className="text-center">{result.entry.bench1 || '-'}</td>
+                                    <td className="text-center">{result.entry.bench2 || '-'}</td>
+                                    <td className="text-center">{result.entry.bench3 || '-'}</td>
+                                    <td className="fw-bold text-success">{result.bench > 0 ? `${result.bench}kg` : '-'}</td>
+                                    <td className="text-center">{result.positions.bench > 0 ? `${result.positions.bench}º` : '-'}</td>
+                                  </>
+                                )}
+                                
+                                {/* Terra */}
+                                {hasDeadlift && (
+                                  <>
+                                    <td className="text-center">{result.entry.deadlift1 || '-'}</td>
+                                    <td className="text-center">{result.entry.deadlift2 || '-'}</td>
+                                    <td className="text-center">{result.entry.deadlift3 || '-'}</td>
+                                    <td className="fw-bold text-success">{result.deadlift > 0 ? `${result.deadlift}kg` : '-'}</td>
+                                    <td className="text-center">{result.positions.deadlift > 0 ? `${result.positions.deadlift}º` : '-'}</td>
+                                  </>
+                                )}
+                                
+                                {/* Resultado */}
+                                <td className="total text-center">
+                                  <span className="fw-bold text-primary fs-5">
+                                    {result.total}kg
+                                  </span>
+                                </td>
+                                <td className="indice text-center">
+                                  <span className="fw-bold text-success">
+                                    {result.points.toFixed(2)}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -2319,22 +2392,7 @@ const AttemptDisplay: React.FC<{
         </>
       )}
 
-      {activeTab === 'detailed' && (
-        <>
-          {/* Resultados Detalhados */}
-          {resultsByCategory.map((category, categoryIndex) => (
-            <Row key={categoryIndex} className="mb-4">
-              <Col>
-                <Card>
-                  <Card.Body className="p-0">
-                    <DetailedResultsTable results={category.results} categoryName={category.category.split(' - ').pop()} />
-                  </Card.Body>
-                </Card>
-              </Col>
-            </Row>
-          ))}
-        </>
-      )}
+
 
       {activeTab === 'simplified' && (
         <SimplifiedResults />
