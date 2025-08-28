@@ -1687,19 +1687,59 @@ const AttemptDisplay: React.FC<{
     return (
       <div className="overflow-auto">
         <table className="complete-results-table">
+          {/* Cabeçalho principal com título da categoria */}
           <thead>
-            <tr>
+            <tr className="category-header">
               <th colSpan={baseColSpan + squatColSpan + benchColSpan + deadliftColSpan + resultColSpan}>
                 {results[0]?.entry.weightClass} kg - {getAgeCategory(results[0]?.entry.birthDate || '', results[0]?.entry.sex)} - {getEquipmentDisplayName(results[0]?.entry.equipment || 'Raw')} - {movementCategory}
               </th>
             </tr>
-            <tr>
+            
+            {/* Cabeçalho das seções de movimentos */}
+            <tr className="sections-header">
+              {/* Seção de dados básicos */}
+              <th colSpan={baseColSpan} className="section-basic">
+                Dados do Atleta
+              </th>
+              
+              {/* Seção de agachamento */}
+              {hasSquat && (
+                <th colSpan={squatColSpan} className="section-squat">
+                  Agachamento
+                </th>
+              )}
+              
+              {/* Seção de supino */}
+              {hasBench && (
+                <th colSpan={benchColSpan} className="section-bench">
+                  Supino
+                </th>
+              )}
+              
+              {/* Seção de terra */}
+              {hasDeadlift && (
+                <th colSpan={deadliftColSpan} className="section-deadlift">
+                  Levantamento Terra
+                </th>
+              )}
+              
+              {/* Seção de resultado */}
+              <th colSpan={resultColSpan} className="section-result">
+                Resultado
+              </th>
+            </tr>
+            
+            {/* Cabeçalho das colunas específicas */}
+            <tr className="columns-header">
+              {/* Colunas básicas */}
               <th>POS</th>
               <th>Atleta</th>
               <th>UF</th>
               <th>Equipe</th>
               <th>Nascimento</th>
               <th>Peso</th>
+              
+              {/* Colunas de agachamento */}
               {hasSquat && (
                 <>
                   <th>A1</th>
@@ -1709,6 +1749,8 @@ const AttemptDisplay: React.FC<{
                   <th>Pos</th>
                 </>
               )}
+              
+              {/* Colunas de supino */}
               {hasBench && (
                 <>
                   <th>S1</th>
@@ -1718,6 +1760,8 @@ const AttemptDisplay: React.FC<{
                   <th>Pos</th>
                 </>
               )}
+              
+              {/* Colunas de terra */}
               {hasDeadlift && (
                 <>
                   <th>T1</th>
@@ -1727,10 +1771,13 @@ const AttemptDisplay: React.FC<{
                   <th>Pos</th>
                 </>
               )}
+              
+              {/* Colunas de resultado */}
               <th>Total</th>
               <th>Indice GL</th>
             </tr>
           </thead>
+          
           <tbody>
             {results.map((result, index) => (
                 <tr key={result.entry.id}>
@@ -2046,115 +2093,224 @@ const AttemptDisplay: React.FC<{
                     </h5>
                   </Card.Header>
                   <Card.Body className="p-0">
-                    <Table responsive striped hover className="mb-0">
-                      <thead className="table-dark">
-                        <tr>
-                          <th>Pos</th>
-                          <th>Atleta</th>
-                          <th>Equipe</th>
-                          <th>Peso</th>
-                          <th>Modalidade</th>
-                          {(() => {
-                            // Determinar quais movimentos mostrar baseado na modalidade da categoria
-                            const modalidade = category.category.split(' - ').pop() || '';
-                            
-                            if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
-                              return <th>Melhor A</th>;
-                            }
-                            return null;
-                          })()}
-                          {(() => {
-                            const modalidade = category.category.split(' - ').pop() || '';
-                            
-                            if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
-                              return <th>Melhor S</th>;
-                            }
-                            return null;
-                          })()}
-                          {(() => {
-                            const modalidade = category.category.split(' - ').pop() || '';
-                            
-                            if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
-                              return <th>Melhor T</th>;
-                            }
-                            return null;
-                          })()}
-                          <th>Total</th>
-                          <th>Pontos IPF GL</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {category.results.map((result, index) => (
-                          <tr key={result.entry.id}>
-                            <td className="text-center">
-                              <div className="d-flex align-items-center justify-content-center">
-                                {getMedalIcon(index + 1)}
-                                <span className="ms-1 fw-bold">{index + 1}º</span>
-                              </div>
-                            </td>
-                            <td>
-                              <div>
-                                <strong>{result.entry.name}</strong>
-                              </div>
-                            </td>
-                            <td>{result.entry.team}</td>
-                            <td>{result.entry.bodyweightKg || '-'}kg</td>
-                            <td>
-                              <Badge bg={result.entry.equipment === 'Equipped' ? 'primary' : 'success'}>
-                                {getEquipmentDisplayName(result.entry.equipment || 'Raw')}
-                              </Badge>
-                            </td>
-                            {(() => {
-                              // Determinar quais movimentos mostrar baseado na modalidade da categoria
+                    <div className="overflow-auto">
+                      <table className="complete-results-table">
+                        {/* Cabeçalho principal com título da categoria */}
+                        <thead>
+                          <tr className="category-header">
+                            <th colSpan={(() => {
+                              // Calcular colspan baseado na modalidade
                               const modalidade = category.category.split(' - ').pop() || '';
+                              let colSpan = 9; // Pos, Atleta, Equipe, Peso, Modalidade, UF, Nascimento, Total, Pontos
                               
                               if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
+                                colSpan += 2; // Melhor A + Pos A
+                              }
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
+                                colSpan += 2; // Melhor S + Pos S
+                              }
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
+                                colSpan += 2; // Melhor T + Pos T
+                              }
+                              
+                              return colSpan;
+                            })()}>
+                              {category.category}
+                            </th>
+                          </tr>
+                          
+                          {/* Cabeçalho das seções de movimentos */}
+                          <tr className="sections-header">
+                            {/* Seção de dados básicos */}
+                            <th colSpan={7} className="section-basic">
+                              Dados do Atleta
+                            </th>
+                            
+                            {/* Seção de agachamento */}
+                            {(() => {
+                              const modalidade = category.category.split(' - ').pop() || '';
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
                                 return (
-                                  <td>
-                                    <span className="fw-bold">{result.squat}kg</span>
-                                  </td>
+                                  <th colSpan={2} className="section-squat">
+                                    Agachamento
+                                  </th>
                                 );
                               }
                               return null;
                             })()}
+                            
+                            {/* Seção de supino */}
                             {(() => {
                               const modalidade = category.category.split(' - ').pop() || '';
-                              
                               if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
                                 return (
-                                  <td>
-                                    <span className="fw-bold">{result.bench}kg</span>
-                                  </td>
+                                  <th colSpan={2} className="section-bench">
+                                    Supino
+                                  </th>
                                 );
                               }
                               return null;
                             })()}
+                            
+                            {/* Seção de terra */}
                             {(() => {
                               const modalidade = category.category.split(' - ').pop() || '';
-                              
                               if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
                                 return (
-                                  <td>
-                                    <span className="fw-bold">{result.deadlift}kg</span>
-                                  </td>
+                                  <th colSpan={2} className="section-deadlift">
+                                    Levantamento Terra
+                                  </th>
                                 );
                               }
                               return null;
                             })()}
-                            <td>
-                              <span className="fw-bold text-primary fs-5">
-                                {calculateTotalForCategory(result, category.category)}kg
-                              </span>
-                            </td>
-                            <td>
-                              <span className="fw-bold text-success">
-                                {recalculatePointsByCompetitionType(result, category.category.split(' - ').pop() || '').toFixed(2)}
-                              </span>
-                            </td>
+                            
+                            {/* Seção de resultado */}
+                            <th colSpan={2} className="section-result">
+                              Resultado
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </Table>
+                          
+                          {/* Cabeçalho das colunas específicas */}
+                          <tr className="columns-header">
+                            {/* Colunas básicas */}
+                            <th>POS</th>
+                            <th>Atleta</th>
+                            <th>Equipe</th>
+                            <th>Peso</th>
+                            <th>Modalidade</th>
+                            <th>UF</th>
+                            <th>Nascimento</th>
+                            
+                            {/* Colunas de agachamento */}
+                            {(() => {
+                              const modalidade = category.category.split(' - ').pop() || '';
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
+                                return (
+                                  <>
+                                    <th>Melhor A</th>
+                                    <th>Pos A</th>
+                                  </>
+                                );
+                              }
+                              return null;
+                            })()}
+                            
+                            {/* Colunas de supino */}
+                            {(() => {
+                              const modalidade = category.category.split(' - ').pop() || '';
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
+                                return (
+                                  <>
+                                    <th>Melhor S</th>
+                                    <th>Pos S</th>
+                                  </>
+                                );
+                              }
+                              return null;
+                            })()}
+                            
+                            {/* Colunas de terra */}
+                            {(() => {
+                              const modalidade = category.category.split(' - ').pop() || '';
+                              if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
+                                return (
+                                  <>
+                                    <th>Melhor T</th>
+                                    <th>Pos T</th>
+                                  </>
+                                );
+                              }
+                              return null;
+                            })()}
+                            
+                            {/* Colunas de resultado */}
+                            <th>Total</th>
+                            <th>Pontos IPF GL</th>
+                          </tr>
+                        </thead>
+                        
+                        <tbody>
+                          {category.results.map((result, index) => (
+                            <tr key={result.entry.id}>
+                              {/* Posição */}
+                              <td className="text-center">
+                                <div className="d-flex align-items-center justify-content-center">
+                                  {getMedalIcon(index + 1)}
+                                  <span className="ms-1 fw-bold">{index + 1}</span>
+                                </div>
+                              </td>
+                              
+                              {/* Dados do atleta */}
+                              <td className="athlete">{result.entry.name}</td>
+                              <td className="team">{result.entry.team || '-'}</td>
+                              <td className="text-center">{result.entry.bodyweightKg || '-'}kg</td>
+                              <td className="text-center">
+                                <Badge bg={result.entry.equipment === 'Equipped' ? 'primary' : 'success'}>
+                                  {getEquipmentDisplayName(result.entry.equipment || 'Raw')}
+                                </Badge>
+                              </td>
+                              <td className="text-center">{result.entry.state || '-'}</td>
+                              <td className="text-center">{result.entry.birthDate ? new Date(result.entry.birthDate).toLocaleDateString('pt-BR') : '-'}</td>
+                              
+                              {/* Agachamento */}
+                              {(() => {
+                                const modalidade = category.category.split(' - ').pop() || '';
+                                if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Agachamento')) {
+                                  return (
+                                    <>
+                                      <td className="fw-bold text-success">{result.squat}</td>
+                                      <td>{result.positions.squat}</td>
+                                    </>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              
+                              {/* Supino */}
+                              {(() => {
+                                const modalidade = category.category.split(' - ').pop() || '';
+                                if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Supino')) {
+                                  return (
+                                    <>
+                                      <td className="fw-bold text-success">{result.bench}</td>
+                                      <td>{result.positions.bench}</td>
+                                    </>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              
+                              {/* Terra */}
+                              {(() => {
+                                const modalidade = category.category.split(' - ').pop() || '';
+                                if (modalidade.includes('Powerlifting (AST)') || modalidade.includes('Terra')) {
+                                  return (
+                                    <>
+                                      <td className="fw-bold text-success">{result.deadlift}</td>
+                                      <td>{result.positions.deadlift}</td>
+                                    </>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              
+                              {/* Total */}
+                              <td className="total">
+                                <span className="fw-bold text-primary fs-5">
+                                  {calculateTotalForCategory(result, category.category)}kg
+                                </span>
+                              </td>
+                              <td className="indice">
+                                <span className="fw-bold text-success">
+                                  {recalculatePointsByCompetitionType(result, category.category.split(' - ').pop() || '').toFixed(2)}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </Card.Body>
                 </Card>
               </Col>
