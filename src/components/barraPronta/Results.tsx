@@ -36,7 +36,13 @@ import {
   calculateIPFGLPointsBench, 
   calculateIPFGLPointsSquat, 
   calculateIPFGLPointsDeadlift,
-  calculateIPFGLPointsByCompetitionType 
+  calculateIPFGLPointsByCompetitionType,
+  calculateBestLifterResults,
+  getAgeDivisionDisplayName,
+  getEquipmentDisplayNameForBestLifter,
+  getEventTypeDisplayName,
+  type BestLifterCategory,
+  type BestLifterResult
 } from '../../logic/ipfGLPoints';
 import './Results.css';
 
@@ -777,17 +783,24 @@ const Results: React.FC = () => {
 
   // Função para obter movimentos configurados do atleta
   const getAthleteMovements = (movements: string) => {
+    console.log('=== DEBUG getAthleteMovements ===');
     console.log('Movimentos originais:', movements);
+    console.log('Tipo:', typeof movements);
+    console.log('Inclui vírgula?', movements.includes(','));
     
     // Dividir por vírgula e espaço para separar modalidades
     let movementList = movements.split(', ').filter(m => m.trim() !== '');
+    console.log('Lista de movimentos após split:', movementList);
+    console.log('Quantidade de movimentos:', movementList.length);
     
     // Se não há vírgulas, é uma modalidade única (AST, AS, A, S, T)
     if (movementList.length === 1 && !movements.includes(',')) {
       const combinedMovement = movements.trim();
+      console.log('Movimento único detectado:', combinedMovement);
       
       // Modalidades únicas
       if (combinedMovement === 'AST') {
+        console.log('AST detectado - retornando todos os movimentos');
         // Powerlifting: todos os movimentos
         return { hasSquat: true, hasBench: true, hasDeadlift: true };
       } else if (combinedMovement === 'AS') {
@@ -819,6 +832,7 @@ const Results: React.FC = () => {
     
     const result = { hasSquat, hasBench, hasDeadlift };
     console.log('Resultado da detecção:', result);
+    console.log('=== FIM DEBUG ===');
     return result;
   };
 
@@ -1334,68 +1348,65 @@ const Results: React.FC = () => {
     );
   };
 
-  // Componente para a aba de melhores atletas
+  // Componente para a aba de melhores atletas - Novo sistema de Best Lifter seguindo as regras oficiais da IPF
   const SimplifiedResults = () => {
-    // Agrupar por sexo e modalidade, ordenando por pontos IPF GL
-    const maleClassicResults = calculatedResults
-      .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' || result.entry.equipment === 'Classico'))
-      .sort((a, b) => b.points - a.points);
+    // Calcular resultados de Best Lifter usando as regras oficiais IPF
+    const bestLifterCategories = calculateBestLifterResults(registration.entries);
     
-    const maleEquippedResults = calculatedResults
-      .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Equipped' || result.entry.equipment === 'Equipado'))
-      .sort((a, b) => b.points - a.points);
-    
-    const femaleClassicResults = calculatedResults
-      .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' || result.entry.equipment === 'Classico'))
-      .sort((a, b) => b.points - a.points);
-    
-    const femaleEquippedResults = calculatedResults
-      .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Equipped' || result.entry.equipment === 'Equipado'))
-      .sort((a, b) => b.points - a.points);
+    // Estatísticas gerais
+    const totalAthletes = calculatedResults.length;
+    const totalCategories = bestLifterCategories.length;
+    const totalMedals = bestLifterCategories.reduce((sum: number, category: BestLifterCategory) => sum + category.results.length, 0);
 
     return (
       <div>
-        {/* Resumo geral da competição */}
+        {/* Cabeçalho com informações da competição */}
+        <Row className="mb-4">
+          <Col>
+            <Card className="bg-primary text-white">
+              <Card.Body className="text-center">
+                <h3 className="mb-3">
+                  <FaTrophy className="me-2" />
+                  Best Lifter - Melhor Atleta IPF
+                </h3>
+                <p className="mb-0">
+                  Resultados baseados na fórmula oficial IPF GL Points, seguindo as regras oficiais da Federação
+                </p>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Estatísticas gerais */}
         <Row className="mb-4">
           <Col>
             <Card className="bg-light">
               <Card.Body className="text-center">
-                <h4 className="text-primary mb-3">
-                  <FaTrophy className="me-2" />
-                  Melhores Atletas da Competição
-                </h4>
+                <h5 className="text-primary mb-3">Estatísticas da Competição</h5>
                 <Row>
                   <Col md={3}>
                     <div className="border-end">
-                      <h5 className="text-success">{calculatedResults.length}</h5>
+                      <h4 className="text-success">{totalAthletes}</h4>
                       <small className="text-muted">Total de Atletas</small>
                     </div>
                   </Col>
                   <Col md={3}>
                     <div className="border-end">
-                      <h5 className="text-info">{maleClassicResults.length + maleEquippedResults.length}</h5>
-                      <small className="text-muted">Masculino</small>
+                      <h4 className="text-info">{totalCategories}</h4>
+                      <small className="text-muted">Categorias Válidas</small>
                     </div>
                   </Col>
                   <Col md={3}>
                     <div className="border-end">
-                      <h5 className="text-warning">{femaleClassicResults.length + femaleEquippedResults.length}</h5>
-                      <small className="text-muted">Feminino</small>
-                    </div>
-                  </Col>
-                  <Col md={3}>
-                    <div className="border-end">
-                      <h5 className="text-warning">
-                        {calculatedResults.reduce((max, result) => Math.max(max, result.total), 0)}
-                      </h5>
-                      <small className="text-muted">Maior Total</small>
+                      <h4 className="text-warning">{totalMedals}</h4>
+                      <small className="text-muted">Medalhas Atribuídas</small>
                     </div>
                   </Col>
                   <Col md={3}>
                     <div>
-                      <h5 className="text-danger">
+                      <h4 className="text-danger">
                         {calculatedResults.reduce((max, result) => Math.max(max, result.points), 0).toFixed(2)}
-                      </h5>
+                      </h4>
                       <small className="text-muted">Maior Pontuação IPF GL</small>
                     </div>
                   </Col>
@@ -1405,338 +1416,190 @@ const Results: React.FC = () => {
           </Col>
         </Row>
 
-        {/* Masculino Clássico */}
+        {/* Explicação das regras */}
         <Row className="mb-4">
           <Col>
-            <Card>
-              <Card.Header className="bg-success text-white">
-                <h5 className="mb-0">
-                  <FaTrophy className="me-2" />
-                  Masculino Clássico ({maleClassicResults.length} atletas)
-                </h5>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <Table responsive className="mb-0">
-                  <thead className="table-dark">
-                    <tr>
-                      <th>Pos</th>
-                      <th>Atleta</th>
-                      <th>Equipe</th>
-                      <th>Peso</th>
-                      <th>Agachamento</th>
-                      <th>Supino</th>
-                      <th>Terra</th>
-                      <th>Total</th>
-                      <th>Pontos IPF GL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {maleClassicResults.map((result, index) => (
-                      <tr key={result.entry.id}>
-                        <td className="text-center">
-                          <div className="d-flex align-items-center justify-content-center">
-                            {getMedalIcon(index + 1)}
-                            <span className="ms-1 fw-bold">{index + 1}º</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <strong>{result.entry.name}</strong>
-                          </div>
-                        </td>
-                        <td>{result.entry.team}</td>
-                        <td>{result.entry.bodyweightKg || '-'}kg</td>
-                        <td>
-                          <span className="fw-bold">{result.squat}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.bench}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.deadlift}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-primary fs-5">
-                            {result.total}kg
-                          </span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-success">
-                            {result.points.toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Masculino Equipado */}
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Header className="bg-primary text-white">
-                <h5 className="mb-0">
-                  <FaTrophy className="me-2" />
-                  Masculino Equipado ({maleEquippedResults.length} atletas)
-                </h5>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <Table responsive className="mb-0">
-                  <thead className="table-dark">
-                    <tr>
-                      <th>Pos</th>
-                      <th>Atleta</th>
-                      <th>Equipe</th>
-                      <th>Peso</th>
-                      <th>Agachamento</th>
-                      <th>Supino</th>
-                      <th>Terra</th>
-                      <th>Total</th>
-                      <th>Pontos IPF GL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {maleEquippedResults.map((result, index) => (
-                      <tr key={result.entry.id}>
-                        <td className="text-center">
-                          <div className="d-flex align-items-center justify-content-center">
-                            {getMedalIcon(index + 1)}
-                            <span className="ms-1 fw-bold">{index + 1}º</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <strong>{result.entry.name}</strong>
-                          </div>
-                        </td>
-                        <td>{result.entry.team}</td>
-                        <td>{result.entry.bodyweightKg || '-'}kg</td>
-                        <td>
-                          <span className="fw-bold">{result.squat}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.bench}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.deadlift}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-primary fs-5">
-                            {result.total}kg
-                          </span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-success">
-                            {result.points.toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Feminino Clássico */}
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Header className="bg-success text-white">
-                <h5 className="mb-0">
-                  <FaTrophy className="me-2" />
-                  Feminino Clássico ({femaleClassicResults.length} atletas)
-                </h5>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <Table responsive className="mb-0">
-                  <thead className="table-dark">
-                    <tr>
-                      <th>Pos</th>
-                      <th>Atleta</th>
-                      <th>Equipe</th>
-                      <th>Peso</th>
-                      <th>Agachamento</th>
-                      <th>Supino</th>
-                      <th>Terra</th>
-                      <th>Total</th>
-                      <th>Pontos IPF GL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {femaleClassicResults.map((result, index) => (
-                      <tr key={result.entry.id}>
-                        <td className="text-center">
-                          <div className="d-flex align-items-center justify-content-center">
-                            {getMedalIcon(index + 1)}
-                            <span className="ms-1 fw-bold">{index + 1}º</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <strong>{result.entry.name}</strong>
-                          </div>
-                        </td>
-                        <td>{result.entry.team}</td>
-                        <td>{result.entry.bodyweightKg || '-'}kg</td>
-                        <td>
-                          <span className="fw-bold">{result.squat}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.bench}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.deadlift}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-primary fs-5">
-                            {result.total}kg
-                          </span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-success">
-                            {result.points.toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Feminino Equipado */}
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Header className="bg-danger text-white">
-                <h5 className="mb-0">
-                  <FaTrophy className="me-2" />
-                  Feminino Equipado ({femaleEquippedResults.length} atletas)
-                </h5>
-              </Card.Header>
-              <Card.Body className="p-0">
-                <Table responsive className="mb-0">
-                  <thead className="table-dark">
-                    <tr>
-                      <th>Pos</th>
-                      <th>Atleta</th>
-                      <th>Equipe</th>
-                      <th>Peso</th>
-                      <th>Agachamento</th>
-                      <th>Supino</th>
-                      <th>Terra</th>
-                      <th>Total</th>
-                      <th>Pontos IPF GL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {femaleEquippedResults.map((result, index) => (
-                      <tr key={result.entry.id}>
-                        <td className="text-center">
-                          <div className="d-flex align-items-center justify-content-center">
-                            {getMedalIcon(index + 1)}
-                            <span className="ms-1 fw-bold">{index + 1}º</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <strong>{result.entry.name}</strong>
-                          </div>
-                        </td>
-                        <td>{result.entry.team}</td>
-                        <td>{result.entry.bodyweightKg || '-'}kg</td>
-                        <td>
-                          <span className="fw-bold">{result.squat}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.bench}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold">{result.deadlift}kg</span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-primary fs-5">
-                            {result.total}kg
-                          </span>
-                        </td>
-                        <td>
-                          <span className="fw-bold text-success">
-                            {result.points.toFixed(2)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Melhores marcas por movimento */}
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Header className="bg-success text-white">
-                <h5 className="mb-0">
-                  <FaTrophy className="me-2" />
-                  Melhores Marcas por Movimento
-                </h5>
-              </Card.Header>
+            <Card className="bg-info text-white">
               <Card.Body>
-                <Row>
-                  <Col md={4}>
-                    <div className="text-center p-3 border rounded">
-                      <h6 className="text-primary">Agachamento</h6>
-                      <h4 className="text-primary">
-                        {calculatedResults.reduce((max, result) => Math.max(max, result.squat), 0)}kg
-                      </h4>
-                      <small className="text-muted">
-                        {calculatedResults.find(result => 
-                          result.squat === calculatedResults.reduce((max, r) => Math.max(max, r.squat), 0)
-                        )?.entry.name}
-                      </small>
-                    </div>
-                  </Col>
-                  <Col md={4}>
-                    <div className="text-center p-3 border rounded">
-                      <h6 className="text-success">Supino</h6>
-                      <h4 className="text-success">
-                        {calculatedResults.reduce((max, result) => Math.max(max, result.bench), 0)}kg
-                      </h4>
-                      <small className="text-muted">
-                        {calculatedResults.find(result => 
-                          result.bench === calculatedResults.reduce((max, r) => Math.max(max, r.bench), 0)
-                        )?.entry.name}
-                      </small>
-                    </div>
-                  </Col>
-                  <Col md={4}>
-                    <div className="text-center p-3 border rounded">
-                      <h6 className="text-warning">Terra</h6>
-                      <h4 className="text-warning">
-                        {calculatedResults.reduce((max, result) => Math.max(max, result.deadlift), 0)}kg
-                      </h4>
-                      <small className="text-muted">
-                        {calculatedResults.find(result => 
-                          result.deadlift === calculatedResults.reduce((max, r) => Math.max(max, r.deadlift), 0)
-                        )?.entry.name}
-                      </small>
-                    </div>
-                  </Col>
-                </Row>
+                <h6 className="mb-2">
+                  <FaTrophy className="me-2" />
+                  Regras do Best Lifter IPF
+                </h6>
+                <ul className="mb-0 small">
+                  <li>Prêmios são atribuídos apenas para categorias com 3+ atletas</li>
+                  <li>Ordenação: 1º IPF GL Points, 2º Peso corporal (mais leve), 3º Ordem de inscrição</li>
+                  <li>Divisões: Sub-Junior (SJ), Junior (JR), Open (OP), Master I-IV (M1-M4)</li>
+                  <li>Equipamentos: Clássico (Raw) e Equipado separadamente</li>
+                  <li>Eventos: Powerlifting (SBD) e Supino (B) com parâmetros específicos</li>
+                </ul>
               </Card.Body>
             </Card>
           </Col>
         </Row>
+
+        {/* Categorias de Best Lifter */}
+        {bestLifterCategories.length > 0 ? (
+          bestLifterCategories.map((category: BestLifterCategory, categoryIndex: number) => (
+            <Row key={categoryIndex} className="mb-4">
+              <Col>
+                <Card>
+                  <Card.Header className={`text-white ${
+                    category.sex === 'M' 
+                      ? (category.equipment === 'Classico' ? 'bg-success' : 'bg-primary')
+                      : (category.equipment === 'Classico' ? 'bg-warning' : 'bg-danger')
+                  }`}>
+                    <h5 className="mb-0">
+                      <FaTrophy className="me-2" />
+                      {category.sex === 'M' ? 'Masculino' : 'Feminino'} {' '}
+                      {getEquipmentDisplayNameForBestLifter(category.equipment)} {' '}
+                      {getAgeDivisionDisplayName(category.ageDivision)} {' '}
+                      ({getEventTypeDisplayName(category.eventType)})
+                    </h5>
+                  </Card.Header>
+                  <Card.Body className="p-0">
+                    <Table responsive className="mb-0">
+                      <thead className="table-dark">
+                        <tr>
+                          <th className="text-center">Pos</th>
+                          <th>Atleta</th>
+                          <th>Equipe</th>
+                          <th>Peso (kg)</th>
+                          {category.eventType === 'SBD' && (
+                            <>
+                              <th>Agachamento</th>
+                              <th>Supino</th>
+                              <th>Terra</th>
+                            </>
+                          )}
+                          {category.eventType === 'B' && (
+                            <th>Supino</th>
+                          )}
+                          <th>Total</th>
+                          <th>IPF GL Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {category.results.map((result: BestLifterResult) => (
+                          <tr key={result.entry.id}>
+                            <td className="text-center">
+                              <div className="d-flex align-items-center justify-content-center">
+                                {getMedalIcon(result.position)}
+                                <span className="ms-2 fw-bold">{result.position}º</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div>
+                                <strong>{result.entry.name}</strong>
+                                <br />
+                                <small className="text-muted">
+                                  {result.entry.team || 'Sem equipe'}
+                                </small>
+                              </div>
+                            </td>
+                            <td>{result.entry.team || '-'}</td>
+                            <td className="text-center">
+                              <span className="fw-bold">{result.bodyweight}kg</span>
+                            </td>
+                            {category.eventType === 'SBD' && (
+                              <>
+                                <td className="text-center">
+                                  <span className="fw-bold">
+                                    {Math.max(result.entry.squat1 || 0, result.entry.squat2 || 0, result.entry.squat3 || 0)}kg
+                                  </span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="fw-bold">
+                                    {Math.max(result.entry.bench1 || 0, result.entry.bench2 || 0, result.entry.bench3 || 0)}kg
+                                  </span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="fw-bold">
+                                    {Math.max(result.entry.deadlift1 || 0, result.entry.deadlift2 || 0, result.entry.deadlift3 || 0)}kg
+                                  </span>
+                                </td>
+                              </>
+                            )}
+                            {category.eventType === 'B' && (
+                              <td className="text-center">
+                                <span className="fw-bold">
+                                  {Math.max(result.entry.bench1 || 0, result.entry.bench2 || 0, result.entry.bench3 || 0)}kg
+                                </span>
+                              </td>
+                            )}
+                            <td className="text-center">
+                              <span className="fw-bold text-primary fs-5">
+                                {result.total}kg
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <span className="fw-bold text-success fs-5">
+                                {result.points.toFixed(2)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+          ))
+        ) : (
+          <Row>
+            <Col>
+              <Alert variant="warning" className="text-center">
+                <FaTrophy size={48} className="mb-3" />
+                <h4>Nenhuma categoria válida para Best Lifter</h4>
+                <p>
+                  Para atribuir prêmios de Best Lifter, é necessário que cada categoria tenha pelo menos 3 atletas.
+                  <br />
+                  Categorias com menos de 3 atletas não recebem prêmios conforme as regras oficiais da IPF.
+                </p>
+              </Alert>
+            </Col>
+          </Row>
+        )}
+
+        {/* Categorias sem prêmios (menos de 3 atletas) */}
+        {(() => {
+          const invalidCategories = calculateBestLifterResults(registration.entries)
+            .filter((category: BestLifterCategory) => !category.hasMinimumAthletes);
+          
+          if (invalidCategories.length > 0) {
+            return (
+              <Row className="mb-4">
+                <Col>
+                  <Card className="bg-warning">
+                    <Card.Header className="bg-warning text-dark">
+                      <h6 className="mb-0">
+                        <FaTrophy className="me-2" />
+                        Categorias sem Prêmios (Menos de 3 Atletas)
+                      </h6>
+                    </Card.Header>
+                    <Card.Body>
+                      <p className="mb-2 small">
+                        As seguintes categorias não recebem prêmios de Best Lifter por não atenderem ao mínimo de 3 atletas:
+                      </p>
+                      <ul className="mb-0 small">
+                        {invalidCategories.map((category: BestLifterCategory, index: number) => (
+                          <li key={index}>
+                            {category.sex === 'M' ? 'Masculino' : 'Feminino'} {' '}
+                            {getEquipmentDisplayNameForBestLifter(category.equipment)} {' '}
+                            {getAgeDivisionDisplayName(category.ageDivision)} {' '}
+                            ({getEventTypeDisplayName(category.eventType)}) - 
+                            {category.results.length} atleta{category.results.length !== 1 ? 's' : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+            );
+          }
+          return null;
+        })()}
       </div>
     );
   };
