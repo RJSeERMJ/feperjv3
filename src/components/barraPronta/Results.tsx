@@ -139,68 +139,61 @@ const Results: React.FC = () => {
   const [selectedDivision, setSelectedDivision] = useState<string>('all');
   const [selectedSex, setSelectedSex] = useState<'M' | 'F' | 'all'>('all');
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
+  const [selectedCompetitionType, setSelectedCompetitionType] = useState<string>('all');
+  const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'teams'>('complete');
+  const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'teams' | 'teamMedals'>('complete');
 
-  // Função para recalcular pontos IPF GL baseado no tipo de competição
-  const recalculatePointsByCompetitionType = (result: CalculatedResult, categoryName: string): number => {
-    const bodyweightKg = result.entry.bodyweightKg || 0;
-    const sex = result.entry.sex;
-    const equipment = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' ? 'Classico' : 'Equipado';
-
-    // Detectar tipo de competição baseado nos movimentos do atleta (prioridade) ou nome da categoria
-    const movements = result.entry.movements || '';
-    let competitionType = 'AST'; // Padrão para powerlifting completo
+  // Função para obter tipos de competição únicos
+  const getUniqueCompetitionTypes = () => {
+    const typesSet = new Set<string>();
     
-    // Primeiro tentar detectar pelos movimentos do atleta
-    if (movements.includes('Só Agachamento') || movements.includes('A)')) {
-      competitionType = 'A';
-    } else if (movements.includes('Só Supino') || movements.includes('S)')) {
-      competitionType = 'S';
-    } else if (movements.includes('Só Terra') || movements.includes('T)')) {
-      competitionType = 'T';
-    } else if (movements.includes('Agachamento + Supino') || movements.includes('AS)')) {
-      competitionType = 'AS';
-    } else if (movements.includes('Supino + Terra') || movements.includes('ST)')) {
-      competitionType = 'ST';
-    } else if (movements.includes('Agachamento + Terra') || movements.includes('AT)')) {
-      competitionType = 'AT';
-    } else if (movements.includes('Powerlifting') || movements.includes('AST)')) {
-      competitionType = 'AST';
-    } else {
-      // Fallback: extrair o tipo de competição da categoria
-      if (categoryName.includes('Só Agachamento (A)')) {
-        competitionType = 'A';
-      } else if (categoryName.includes('Só Supino (S)')) {
-        competitionType = 'S';
-      } else if (categoryName.includes('Só Terra (T)')) {
-        competitionType = 'T';
-      } else if (categoryName.includes('Agachamento + Supino (AS)')) {
-        competitionType = 'AS';
-      } else if (categoryName.includes('Supino + Terra (ST)')) {
-        competitionType = 'ST';
-      } else if (categoryName.includes('Agachamento + Terra (AT)')) {
-        competitionType = 'AT';
-      } else if (categoryName.includes('Powerlifting (AST)')) {
-        competitionType = 'AST';
+    registration.entries.forEach(entry => {
+      if (entry.movements) {
+        // Se não há vírgula, é uma modalidade única
+        if (!entry.movements.includes(',')) {
+          typesSet.add(entry.movements.trim());
+        } else {
+          // Se há vírgula, separar em modalidades individuais
+          const movements = entry.movements.split(', ').filter(m => m.trim() !== '');
+          movements.forEach(movement => {
+            typesSet.add(movement.trim());
+          });
+        }
       }
+    });
+    
+    return Array.from(typesSet).sort();
+  };
+
+  // Função para obter equipes únicas
+  const getUniqueTeams = () => {
+    const teamsSet = new Set<string>();
+    
+    registration.entries.forEach(entry => {
+      if (entry.team && entry.team.trim() !== '') {
+        teamsSet.add(entry.team.trim());
+      }
+    });
+    
+    return Array.from(teamsSet).sort();
+  };
+
+  // Função para verificar se um atleta compete no tipo de competição selecionado
+  const athleteCompetesInType = (entry: Entry, competitionType: string) => {
+    if (competitionType === 'all') return true;
+    
+    if (!entry.movements) return false;
+    
+    // Se não há vírgula, é uma modalidade única
+    if (!entry.movements.includes(',')) {
+      return entry.movements.trim() === competitionType;
+    } else {
+      // Se há vírgula, separar em modalidades individuais
+      const movements = entry.movements.split(', ').filter(m => m.trim() !== '');
+      return movements.includes(competitionType);
     }
-
-    console.log(`🔍 Recalculando pontos para: ${competitionType} - ${categoryName}`);
-    console.log(`📊 Atleta: ${result.entry.name}, Peso: ${bodyweightKg}kg, Sexo: ${sex}, Equipamento: ${equipment}`);
-    console.log(`🏋️ Squat: ${result.squat}kg, Bench: ${result.bench}kg, Deadlift: ${result.deadlift}kg`);
-    console.log(`🎯 Movimentos do atleta: ${movements}`);
-
-    return calculateIPFGLPointsByCompetitionType(
-      result.squat,
-      result.bench,
-      result.deadlift,
-      bodyweightKg,
-      sex,
-      equipment,
-      competitionType
-    );
   };
 
   // Função para verificar se deve aplicar overflow automático
@@ -229,6 +222,10 @@ const Results: React.FC = () => {
         if (selectedSex !== 'all' && entry.sex !== selectedSex) return false;
         // Filtrar por equipamento/modalidade se selecionado
         if (selectedEquipment !== 'all' && entry.equipment !== selectedEquipment) return false;
+        // Filtrar por tipo de competição se selecionado
+        if (selectedCompetitionType !== 'all' && !athleteCompetesInType(entry, selectedCompetitionType)) return false;
+        // Filtrar por equipe se selecionado
+        if (selectedTeam !== 'all' && entry.team !== selectedTeam) return false;
         return true;
       })
       .forEach(entry => {
@@ -380,7 +377,7 @@ const Results: React.FC = () => {
         const bValue = b[sortBy];
         return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
       });
-  }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, sortBy, sortOrder]);
+  }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, selectedCompetitionType, selectedTeam, sortBy, sortOrder]);
 
   // Função para obter nome da categoria de movimentos
   const getMovementCategoryName = (movements: string) => {
@@ -393,13 +390,35 @@ const Results: React.FC = () => {
       case 'A': return 'Só Agachamento (A)';
       case 'S': return 'Só Supino (S)';
       case 'T': return 'Só Terra (T)';
+      case 'ST': return 'Supino + Terra (ST)';
+      case 'AT': return 'Agachamento + Terra (AT)';
       default: return movement;
+    }
+  };
+
+  // Função para obter nome amigável do tipo de competição
+  const getCompetitionTypeDisplayName = (type: string) => {
+    switch (type) {
+      case 'AST': return 'Powerlifting (AST)';
+      case 'AS': return 'Agachamento + Supino (AS)';
+      case 'A': return 'Só Agachamento (A)';
+      case 'S': return 'Só Supino (S)';
+      case 'T': return 'Só Terra (T)';
+      case 'ST': return 'Supino + Terra (ST)';
+      case 'AT': return 'Agachamento + Terra (AT)';
+      default: return type;
     }
   };
 
   // Função para obter todas as modalidades únicas da competição
   const getUniqueMovementCategories = () => {
     const categoriesSet = new Set<string>();
+    
+    // Se há um filtro de tipo de competição ativo, usar apenas esse tipo
+    if (selectedCompetitionType !== 'all') {
+      categoriesSet.add(selectedCompetitionType);
+      return Array.from(categoriesSet).sort();
+    }
     
     calculatedResults.forEach(result => {
       if (!result.entry.movements) return;
@@ -451,13 +470,19 @@ const Results: React.FC = () => {
         // Verificar se o atleta compete nesta modalidade específica
         let competesInThisCategory = false;
         
-        if (!result.entry.movements?.includes(',')) {
-          // Modalidade única
-          competesInThisCategory = result.entry.movements?.trim() === movementCategory;
+        // Se há um filtro de tipo de competição ativo, usar lógica específica
+        if (selectedCompetitionType !== 'all') {
+          competesInThisCategory = athleteCompetesInType(result.entry, movementCategory);
         } else {
-          // Modalidades separadas
-          const movements = result.entry.movements?.split(', ').filter(m => m.trim() !== '') || [];
-          competesInThisCategory = movements.includes(movementCategory);
+          // Lógica original para quando não há filtro
+          if (!result.entry.movements?.includes(',')) {
+            // Modalidade única
+            competesInThisCategory = result.entry.movements?.trim() === movementCategory;
+          } else {
+            // Modalidades separadas
+            const movements = result.entry.movements?.split(', ').filter(m => m.trim() !== '') || [];
+            competesInThisCategory = movements.includes(movementCategory);
+          }
         }
         
         if (!competesInThisCategory) return;
@@ -496,7 +521,7 @@ const Results: React.FC = () => {
       category,
       results: results.sort((a, b) => b.total - a.total)
     }));
-  }, [calculatedResults]);
+  }, [calculatedResults, selectedCompetitionType]);
 
 
 
@@ -2097,93 +2122,124 @@ const AttemptDisplay: React.FC<{
       {/* Conteúdo das Abas */}
       {activeTab === 'complete' && (
         <>
-          {/* Filtros */}
-          <Row className="mb-4">
-            <Col>
-              <Card>
-                <Card.Header>
-                  <h5 className="mb-0">Filtros e Ordenação</h5>
-                </Card.Header>
-                <Card.Body>
-                  <Row>
-                    <Col md={2}>
-                      <Form.Group>
-                        <Form.Label>Dia</Form.Label>
-                        <Form.Select 
-                          value={selectedDay} 
-                          onChange={(e) => setSelectedDay(Number(e.target.value))}
-                          disabled={shouldAutoOverflow().singleDay}
-                        >
-                          <option value={0}>Todos os dias</option>
-                          {Array.from({ length: meet.lengthDays }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>Dia {i + 1}</option>
-                          ))}
-                        </Form.Select>
-                        {shouldAutoOverflow().singleDay && (
-                          <Form.Text className="text-muted">
-                            Auto: Apenas 1 dia configurado
-                          </Form.Text>
-                        )}
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group>
-                        <Form.Label>Divisão</Form.Label>
-                        <Form.Select 
-                          value={selectedDivision} 
-                          onChange={(e) => setSelectedDivision(e.target.value)}
-                        >
-                          <option value="all">Todas as divisões</option>
-                          {meet.divisions.map(div => (
-                            <option key={div} value={div}>{div}</option>
-                          ))}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group>
-                        <Form.Label>Sexo</Form.Label>
-                        <Form.Select 
-                          value={selectedSex} 
-                          onChange={(e) => setSelectedSex(e.target.value as 'M' | 'F' | 'all')}
-                        >
-                          <option value="all">Todos</option>
-                          <option value="M">Masculino</option>
-                          <option value="F">Feminino</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group>
-                        <Form.Label>Modalidade</Form.Label>
-                        <Form.Select 
-                          value={selectedEquipment} 
-                          onChange={(e) => setSelectedEquipment(e.target.value)}
-                        >
-                          <option value="all">Todas</option>
-                          <option value="Raw">Clássica</option>
-                          <option value="Equipped">Equipado</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={2}>
-                      <Form.Group>
-                        <Form.Label>Ordenar por</Form.Label>
-                        <Form.Select 
-                          value={sortBy} 
-                          onChange={(e) => setSortBy(e.target.value as any)}
-                        >
-                          <option value="total">Total</option>
-                          <option value="points">Pontos IPF GL</option>
-                          <option value="squat">Agachamento</option>
-                          <option value="bench">Supino</option>
-                          <option value="deadlift">Terra</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                  </Row>
-                  <Row className="mt-3">
-                    <Col>
+                {/* Filtros */}
+      <Row className="mb-4">
+        <Col>
+          <Card>
+            <Card.Header>
+              <h5 className="mb-0">Filtros e Ordenação</h5>
+            </Card.Header>
+            <Card.Body>
+              <Row>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Dia</Form.Label>
+                    <Form.Select 
+                      value={selectedDay} 
+                      onChange={(e) => setSelectedDay(Number(e.target.value))}
+                      disabled={shouldAutoOverflow().singleDay}
+                    >
+                      <option value={0}>Todos os dias</option>
+                      {Array.from({ length: meet.lengthDays }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>Dia {i + 1}</option>
+                      ))}
+                    </Form.Select>
+                    {shouldAutoOverflow().singleDay && (
+                      <Form.Text className="text-muted">
+                        Auto: Apenas 1 dia configurado
+                      </Form.Text>
+                    )}
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Divisão</Form.Label>
+                    <Form.Select 
+                      value={selectedDivision} 
+                      onChange={(e) => setSelectedDivision(e.target.value)}
+                    >
+                      <option value="all">Todas as divisões</option>
+                      {meet.divisions.map(div => (
+                        <option key={div} value={div}>{div}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Sexo</Form.Label>
+                    <Form.Select 
+                      value={selectedSex} 
+                      onChange={(e) => setSelectedSex(e.target.value as 'M' | 'F' | 'all')}
+                    >
+                      <option value="all">Todos</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Modalidade</Form.Label>
+                    <Form.Select 
+                      value={selectedEquipment} 
+                      onChange={(e) => setSelectedEquipment(e.target.value)}
+                    >
+                      <option value="all">Todas</option>
+                      <option value="Raw">Clássica</option>
+                      <option value="Equipped">Equipado</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Tipo de Competição</Form.Label>
+                                         <Form.Select 
+                       value={selectedCompetitionType} 
+                       onChange={(e) => setSelectedCompetitionType(e.target.value)}
+                     >
+                       <option value="all">Todos</option>
+                       {getUniqueCompetitionTypes().map(type => (
+                         <option key={type} value={type}>{getCompetitionTypeDisplayName(type)}</option>
+                       ))}
+                     </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Equipe</Form.Label>
+                    <Form.Select 
+                      value={selectedTeam} 
+                      onChange={(e) => setSelectedTeam(e.target.value)}
+                    >
+                      <option value="all">Todas</option>
+                      {getUniqueTeams().map(team => (
+                        <option key={team} value={team}>{team}</option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+              <Row className="mt-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Ordenar por</Form.Label>
+                    <Form.Select 
+                      value={sortBy} 
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                    >
+                      <option value="total">Total</option>
+                      <option value="points">Pontos IPF GL</option>
+                      <option value="squat">Agachamento</option>
+                      <option value="bench">Supino</option>
+                      <option value="deadlift">Terra</option>
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label>Ordem</Form.Label>
+                    <div>
                       <ButtonGroup>
                         <Button 
                           variant={sortOrder === 'desc' ? 'primary' : 'outline-primary'}
@@ -2200,12 +2256,83 @@ const AttemptDisplay: React.FC<{
                           Crescente
                         </Button>
                       </ButtonGroup>
-                    </Col>
-                  </Row>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
+                    </div>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+
+             {/* Filtros Ativos e Estatísticas */}
+       <Row className="mb-3">
+         <Col>
+           <Card className="bg-light border-info">
+             <Card.Body className="py-2">
+               <div className="d-flex align-items-center justify-content-between">
+                 <div className="d-flex align-items-center">
+                   <strong className="text-info me-2">Filtros Ativos:</strong>
+                   <div className="d-flex flex-wrap gap-2">
+                     {(() => {
+                       const activeFilters = [];
+                       
+                       if (selectedDay > 0) {
+                         activeFilters.push(`Dia ${selectedDay}`);
+                       }
+                       if (selectedDivision !== 'all') {
+                         activeFilters.push(`Divisão: ${selectedDivision}`);
+                       }
+                       if (selectedSex !== 'all') {
+                         activeFilters.push(`Sexo: ${selectedSex === 'M' ? 'Masculino' : 'Feminino'}`);
+                       }
+                       if (selectedEquipment !== 'all') {
+                         activeFilters.push(`Modalidade: ${selectedEquipment === 'Raw' ? 'Clássica' : 'Equipado'}`);
+                       }
+                       if (selectedCompetitionType !== 'all') {
+                         activeFilters.push(`Tipo: ${getCompetitionTypeDisplayName(selectedCompetitionType)}`);
+                       }
+                       if (selectedTeam !== 'all') {
+                         activeFilters.push(`Equipe: ${selectedTeam}`);
+                       }
+                       
+                       if (activeFilters.length === 0) {
+                         return <span className="text-muted">Nenhum filtro ativo</span>;
+                       }
+                       
+                       return activeFilters.map((filter, index) => (
+                         <Badge key={index} bg="info" className="me-1">
+                           {filter}
+                         </Badge>
+                       ));
+                     })()}
+                   </div>
+                 </div>
+                 
+                 <div className="d-flex align-items-center gap-3">
+                   <div className="text-muted small">
+                     <strong>{calculatedResults.length}</strong> atleta{calculatedResults.length !== 1 ? 's' : ''} exibido{calculatedResults.length !== 1 ? 's' : ''}
+                   </div>
+                   <Button 
+                     variant="outline-danger" 
+                     size="sm"
+                     onClick={() => {
+                       setSelectedDay(0);
+                       setSelectedDivision('all');
+                       setSelectedSex('all');
+                       setSelectedEquipment('all');
+                       setSelectedCompetitionType('all');
+                       setSelectedTeam('all');
+                     }}
+                   >
+                     Limpar Filtros
+                   </Button>
+                 </div>
+               </div>
+             </Card.Body>
+           </Card>
+         </Col>
+       </Row>
         </>
       )}
 
@@ -2400,6 +2527,43 @@ const AttemptDisplay: React.FC<{
 
       {activeTab === 'teams' && (
         <TeamResults />
+      )}
+
+      {activeTab === 'teamMedals' && (
+        <div>
+          <Row className="mb-4">
+            <Col>
+              <Card className="bg-light">
+                <Card.Body className="text-center">
+                  <h4 className="text-primary mb-3">
+                    <FaMedal className="me-2" />
+                    Medalhas por Equipe - Divisão OPEN
+                  </h4>
+                  <p className="text-muted">
+                    <strong>Sistema de Pontuação:</strong> 1º=12, 2º=9, 3º=8, 4º=7, 5º=6, 6º=5, 7º=4, 8º=3, 9º=2, 10º+=1
+                  </p>
+                  <p className="text-muted">
+                    <strong>Regra:</strong> Contam apenas os 5 melhores resultados de cada equipe por modalidade
+                  </p>
+                  <p className="text-info">
+                    <strong>Exemplo:</strong> Equipe com 3 ouros + 2 pratas = (3×12) + (2×9) = 54 pontos
+                  </p>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+          
+          <Row>
+            <Col>
+              <Alert variant="info" className="text-center">
+                <FaMedal className="me-2" />
+                <strong>Funcionalidade em desenvolvimento:</strong> A aba de Medalhas por Equipe está sendo implementada.
+                <br />
+                Em breve você poderá ver o ranking completo de medalhas por equipe na divisão OPEN.
+              </Alert>
+            </Col>
+          </Row>
+        </div>
       )}
 
       {/* Mensagem quando não há resultados */}

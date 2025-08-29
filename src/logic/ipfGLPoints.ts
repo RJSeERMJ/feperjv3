@@ -497,71 +497,106 @@ export interface BestLifterCategory {
  * @returns Categorias de Best Lifter com top 3
  */
 export const calculateBestLifterResults = (entries: readonly any[]): BestLifterCategory[] => {
+  console.log('🔍 calculateBestLifterResults - Entradas recebidas:', entries.length);
+  
   const categories: { [key: string]: BestLifterCategory } = {};
   
   // Processar cada atleta
-  entries.forEach(entry => {
+  entries.forEach((entry, index) => {
+    console.log(`🏃 Processando atleta ${index + 1}: ${entry.name} - Movimentos: ${entry.movements}`);
+    
     // Calcular divisão de idade
     const ageDivision = calculateIPFAgeDivision(entry.birthDate, entry.sex);
     
     // Normalizar equipamento
     const normalizedEquipment = normalizeEquipment(entry.equipment);
     
-    // Determinar tipo de evento
-    const eventType = getEventTypeFromMovements(entry.movements);
+    // Processar múltiplas modalidades se houver vírgulas
+    const movementsList = entry.movements ? entry.movements.split(',').map((m: string) => m.trim()) : ['AST'];
     
-    // Calcular total baseado no tipo de competição
-    const total = calculateTotalByCompetitionType(
-      Math.max(entry.squat1 || 0, entry.squat2 || 0, entry.squat3 || 0),
-      Math.max(entry.bench1 || 0, entry.bench2 || 0, entry.bench3 || 0),
-      Math.max(entry.deadlift1 || 0, entry.deadlift2 || 0, entry.deadlift3 || 0),
-      entry.movements
-    );
+    console.log(`📋 Modalidades detectadas para ${entry.name}:`, movementsList);
     
-    // Calcular pontos IPF GL com parâmetros corretos
-    const points = goodlift(
-      total,
-      entry.bodyweightKg || 0,
-      entry.sex,
-      entry.equipment,
-      eventType
-    );
-    
-    // Criar chave única para a categoria
-    const categoryKey = `${entry.sex}_${normalizedEquipment}_${ageDivision}_${eventType}`;
-    
-    if (!categories[categoryKey]) {
-      categories[categoryKey] = {
-        sex: entry.sex,
+    // Processar cada modalidade separadamente
+    movementsList.forEach((movement: string) => {
+      if (!movement) return;
+      
+      console.log(`🎯 Processando modalidade "${movement}" para ${entry.name}`);
+      
+      // Determinar tipo de evento para esta modalidade
+      const eventType = getEventTypeFromMovements(movement);
+      
+      // Calcular total baseado na modalidade específica
+      const total = calculateTotalByCompetitionType(
+        Math.max(entry.squat1 || 0, entry.squat2 || 0, entry.squat3 || 0),
+        Math.max(entry.bench1 || 0, entry.bench2 || 0, entry.bench3 || 0),
+        Math.max(entry.deadlift1 || 0, entry.deadlift2 || 0, entry.deadlift3 || 0),
+        movement
+      );
+      
+      console.log(`💪 Total para ${entry.name} - Modalidade ${movement}: ${total}kg`);
+      
+      // Calcular pontos IPF GL com parâmetros corretos para esta modalidade
+      const points = goodlift(
+        total,
+        entry.bodyweightKg || 0,
+        entry.sex,
+        entry.equipment,
+        eventType
+      );
+      
+      console.log(`🏆 Pontos IPF GL para ${entry.name} - Modalidade ${movement}: ${points.toFixed(2)}`);
+      
+      // Criar chave única para a categoria desta modalidade
+      const categoryKey = `${entry.sex}_${normalizedEquipment}_${ageDivision}_${eventType}`;
+      
+      console.log(`🔑 Chave da categoria: ${categoryKey}`);
+      
+      if (!categories[categoryKey]) {
+        categories[categoryKey] = {
+          sex: entry.sex,
+          equipment: normalizedEquipment,
+          ageDivision,
+          eventType,
+          results: [],
+          hasMinimumAthletes: false
+        };
+        console.log(`✨ Nova categoria criada: ${categoryKey}`);
+      }
+      
+      // Adicionar resultado do atleta para esta modalidade
+      categories[categoryKey].results.push({
+        position: 0, // Será calculado depois
+        entry: {
+          ...entry,
+          movements: movement, // Usar apenas a modalidade específica
+          originalMovements: entry.movements // Manter movimentos originais
+        },
+        total,
+        points,
+        bodyweight: entry.bodyweightKg || 0,
+        division: ageDivision,
         equipment: normalizedEquipment,
-        ageDivision,
-        eventType,
-        results: [],
-        hasMinimumAthletes: false
-      };
-    }
-    
-    // Adicionar resultado do atleta
-    categories[categoryKey].results.push({
-      position: 0, // Será calculado depois
-      entry,
-      total,
-      points,
-      bodyweight: entry.bodyweightKg || 0,
-      division: ageDivision,
-      equipment: normalizedEquipment,
-      sex: entry.sex,
-      eventType
+        sex: entry.sex,
+        eventType
+      });
+      
+      console.log(`✅ ${entry.name} adicionado à categoria ${categoryKey} para modalidade ${movement}`);
     });
   });
   
+  console.log('📋 Categorias criadas:', Object.keys(categories));
+  
   // Processar cada categoria
-  Object.values(categories).forEach(category => {
+  Object.values(categories).forEach((category, index) => {
+    console.log(`🔍 Processando categoria ${index + 1}: ${category.sex} ${category.equipment} ${category.ageDivision} ${category.eventType} - ${category.results.length} atletas`);
+    
     // Filtrar apenas atletas com total válido
     category.results = category.results.filter(result => result.total > 0);
     
     // Verificar se há pelo menos 3 atletas (regra IPF)
     category.hasMinimumAthletes = category.results.length >= 3;
+    
+    console.log(`🏆 Categoria ${category.ageDivision} ${category.equipment} ${category.eventType}: ${category.hasMinimumAthletes ? 'VÁLIDA' : 'INVÁLIDA'} (${category.results.length} atletas)`);
     
     if (category.hasMinimumAthletes) {
       // Ordenar por pontos IPF GL (decrescente)
@@ -582,20 +617,30 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
       
       // Atribuir posições apenas para top 3
       category.results.forEach((result, index) => {
-        if (index <= 3) {
+        if (index < 3) {
           result.position = index + 1;
         }
       });
       
       // Manter apenas top 3
       category.results = category.results.slice(0, 3);
+      
+      console.log(`🥇 Top 3 da categoria ${category.ageDivision} ${category.equipment} ${category.eventType}:`, 
+        category.results.map(r => `${r.position}º ${r.entry.name} (${r.points.toFixed(2)} pts)`));
     }
   });
   
   // Retornar apenas categorias com resultados válidos
-  return Object.values(categories).filter(category => 
+  const finalCategories = Object.values(categories).filter(category => 
     category.hasMinimumAthletes && category.results.length > 0
   );
+  
+  console.log('🏁 Categorias finais retornadas:', finalCategories.length);
+  finalCategories.forEach((category, index) => {
+    console.log(`📊 Categoria ${index + 1}: ${category.sex} ${category.equipment} ${category.ageDivision} ${category.eventType} - ${category.results.length} atletas`);
+  });
+  
+  return finalCategories;
 };
 
 /**
