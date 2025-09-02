@@ -140,11 +140,6 @@ export type RegistrationState = {
 };
 
 export interface GlobalState {
-  versions: {
-    stateVersion: string;
-    releaseVersion: string;
-  };
-  language: Language;
   meet: MeetState;
   registration: RegistrationState;
   lifting: LiftingState;

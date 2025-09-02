@@ -2,11 +2,6 @@ import { GlobalState, Action, VersionsState, MeetState, RegistrationState, Lifti
 
 // Estado inicial
 const initialState: GlobalState = {
-  versions: {
-    stateVersion: '1.0',
-    releaseVersion: '1.0'
-  },
-  language: 'pt' as Language,
   meet: {
     name: '',
     country: 'Brasil',
@@ -22,8 +17,8 @@ const initialState: GlobalState = {
       women: []
     },
     divisions: ['Open'],
-    weightClassesKgMen: [59, 66, 74, 83, 93, 105, 120, 999],
-    weightClassesKgWomen: [47, 52, 57, 63, 69, 76, 84, 999],
+    weightClassesKgMen: [59, 66, 74, 83, 93, 105, 120, 120],
+    weightClassesKgWomen: [47, 52, 57, 63, 69, 76, 84, 84],
     weightClassesKgMx: [],
     formula: 'IPF',
     combineSleevesAndWraps: false,
@@ -233,8 +228,6 @@ const liftingReducer = (state: LiftingState = initialState.lifting, action: Acti
 // Reducer principal
 const barraProntaReducer = (state: GlobalState = initialState, action: Action): GlobalState => {
   return {
-    versions: state.versions,
-    language: state.language,
     meet: meetReducer(state.meet, action),
     registration: registrationReducer(state.registration, action),
     lifting: liftingReducer(state.lifting, action)

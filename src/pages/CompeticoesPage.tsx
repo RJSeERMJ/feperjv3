@@ -1037,7 +1037,7 @@ const CompeticoesPage: React.FC = () => {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `nominacao_por_categoria_${nominacaoCompeticao?.nomeCompeticao?.replace(/[^a-zA-Z0-9]/g, '_') || 'competicao'}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `nominacao_por_categoria_${nominacaoCompeticao.nomeCompeticao.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -1231,9 +1231,9 @@ const CompeticoesPage: React.FC = () => {
   };
 
   const filteredCompeticoes = competicoes.filter(competicao =>
-    competicao.nomeCompeticao?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    competicao.nomeCompeticao.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (competicao.local && competicao.local.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    competicao.status?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    competicao.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (competicao.tipoCompeticao && competicao.tipoCompeticao.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -2134,7 +2134,7 @@ const CompeticoesPage: React.FC = () => {
                <br />
                <strong>💰 Valor da Inscrição:</strong> R$ {selectedCompeticao?.valorInscricao.toFixed(2)}
                {selectedCompeticao?.valorDobra && (
-                 <span> | <strong>Valor da Dobra:</strong> R$ {selectedCompeticao.valorDobra?.toFixed(2)}</span>
+                 <span> | <strong>Valor da Dobra:</strong> R$ {selectedCompeticao.valorDobra.toFixed(2)}</span>
                )}
                <br />
                <strong>🎯 Categoria Convidado:</strong> Durante a categorização, você pode selecionar "Convidado" para atletas especiais sem restrições de idade/peso.
