@@ -486,7 +486,7 @@ export interface BestLifterCategory {
   sex: string;
   equipment: string;
   ageDivision: string;
-  eventType: 'SBD' | 'B';
+  eventType: Event; // Aceitar todos os tipos de evento (AST, S, T, AS, ST, AT)
   results: BestLifterResult[];
   hasMinimumAthletes: boolean;
 }
@@ -505,8 +505,9 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
   entries.forEach((entry, index) => {
     console.log(`🏃 Processando atleta ${index + 1}: ${entry.name} - Movimentos: ${entry.movements}`);
     
-    // Calcular divisão de idade
-    const ageDivision = calculateIPFAgeDivision(entry.birthDate, entry.sex);
+    // CORREÇÃO: Usar a divisão registrada na inscrição em vez de calcular pela data de nascimento
+    // Respeitar a escolha do atleta na inscrição
+    const ageDivision = entry.division || 'OP'; // Usar divisão da inscrição, padrão 'OP' se não informado
     
     // Normalizar equipamento
     const normalizedEquipment = normalizeEquipment(entry.equipment);
@@ -546,8 +547,9 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
       
       console.log(`🏆 Pontos IPF GL para ${entry.name} - Modalidade ${movement}: ${points.toFixed(2)}`);
       
-      // Criar chave única para a categoria desta modalidade
-      const categoryKey = `${entry.sex}_${normalizedEquipment}_${ageDivision}_${eventType}`;
+      // CORREÇÃO: Criar chave única para a categoria incluindo o tipo específico da competição
+      // Manter AST, S, T, AS, ST, AT em vez de normalizar para SBD/B
+      const categoryKey = `${entry.sex}_${normalizedEquipment}_${ageDivision}_${movement}`;
       
       console.log(`🔑 Chave da categoria: ${categoryKey}`);
       
@@ -556,7 +558,7 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
           sex: entry.sex,
           equipment: normalizedEquipment,
           ageDivision,
-          eventType,
+          eventType: movement as Event, // Usar o tipo específico da competição
           results: [],
           hasMinimumAthletes: false
         };
@@ -593,8 +595,19 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
     // Filtrar apenas atletas com total válido
     category.results = category.results.filter(result => result.total > 0);
     
-    // Verificar se há pelo menos 3 atletas (regra IPF)
-    category.hasMinimumAthletes = category.results.length >= 3;
+    // CORREÇÃO: Contar atletas únicos para verificar se há pelo menos 3 atletas
+    // Um atleta pode ter múltiplas modalidades, mas conta como um atleta por categoria
+    const uniqueAthletes = new Set();
+    category.results.forEach(result => {
+      const athleteKey = `${result.entry.id}_${result.division}`;
+      uniqueAthletes.add(athleteKey);
+    });
+    
+    console.log(`👥 Atletas únicos na categoria ${category.sex} ${category.equipment} ${category.ageDivision} ${category.eventType}: ${uniqueAthletes.size}`);
+    console.log(`📝 IDs dos atletas únicos:`, Array.from(uniqueAthletes));
+    
+    // Verificar se há pelo menos 3 atletas únicos (regra IPF)
+    category.hasMinimumAthletes = uniqueAthletes.size >= 3;
     
     console.log(`🏆 Categoria ${category.ageDivision} ${category.equipment} ${category.eventType}: ${category.hasMinimumAthletes ? 'VÁLIDA' : 'INVÁLIDA'} (${category.results.length} atletas)`);
     
@@ -654,9 +667,32 @@ export const getEquipmentDisplayNameForBestLifter = (equipment: string): string 
 
 /**
  * Obtém o nome de exibição do tipo de evento para Best Lifter
- * @param eventType - Tipo de evento
+ * @param eventType - Tipo de evento (AST, S, T, AS, ST, AT)
  * @returns Nome de exibição em português
  */
-export const getEventTypeDisplayName = (eventType: 'SBD' | 'B'): string => {
-  return eventType === 'B' ? 'Supino' : 'Powerlifting';
+export const getEventTypeDisplayName = (eventType: Event): string => {
+  switch (eventType) {
+    case 'AST':
+      return 'Powerlifting (AST)';
+    case 'S':
+      return 'Só Supino (S)';
+    case 'T':
+      return 'Só Terra (T)';
+    case 'A':
+      return 'Só Agachamento (A)';
+    case 'AS':
+      return 'Agachamento + Supino (AS)';
+    case 'ST':
+      return 'Supino + Terra (ST)';
+    case 'AT':
+      return 'Agachamento + Terra (AT)';
+    case 'SBD':
+      return 'Powerlifting (SBD)';
+    case 'B':
+      return 'Supino (B)';
+    case 'D':
+      return 'Terra (D)';
+    default:
+      return eventType;
+  }
 };

@@ -210,7 +210,7 @@ const FinanceiroPage: React.FC = () => {
   const calcularValorTotalCompeticoes = () => {
     return competicoes.reduce((total, competicao) => {
       const inscricoesCompeticao = inscricoes.filter(insc => insc.idCompeticao === competicao.id);
-      return total + (inscricoesCompeticao.length * competicao.valorInscricao);
+      return total + (inscricoesCompeticao.length * (competicao.valorInscricao || 0));
     }, 0);
   };
 
@@ -872,10 +872,10 @@ const FinanceiroPage: React.FC = () => {
                               </td>
                               <td>R$ {(anuidade?.valor || 0).toFixed(2)}</td>
                               <td>
-                                {pagamento?.dataPagamento 
-                                  ? pagamento.dataPagamento.toLocaleDateString('pt-BR')
-                                  : '-'
-                                }
+                                                              {pagamento?.dataPagamento 
+                                ? (pagamento.dataPagamento ? pagamento.dataPagamento.toLocaleDateString('pt-BR') : 'Data não informada')
+                                : '-'
+                              }
                               </td>
                               <td>
                                 <div className="d-flex gap-1">
@@ -982,7 +982,7 @@ const FinanceiroPage: React.FC = () => {
                             {doc.formato}
                           </Badge>
                         </td>
-                        <td>{doc.dataUpload.toLocaleDateString('pt-BR')}</td>
+                                                    <td>{doc.dataUpload ? doc.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}</td>
                         <td>
                           <Badge bg={doc.ativo ? 'success' : 'secondary'}>
                             {doc.ativo ? 'Ativo' : 'Inativo'}
@@ -1121,12 +1121,12 @@ const FinanceiroPage: React.FC = () => {
                             <small>{comprovante.nome}</small>
                             <br />
                             <small className="text-muted">
-                              {(comprovante.tamanho / 1024 / 1024).toFixed(2)} MB
+                              {comprovante.tamanho ? (comprovante.tamanho / 1024 / 1024).toFixed(2) : '0.00'} MB
                             </small>
                           </td>
                           <td>R$ {comprovante.valor ? comprovante.valor.toFixed(2) : 'N/A'}</td>
                           <td>
-                            {comprovante.dataPagamento ? comprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+                            {comprovante.dataPagamento ? (comprovante.dataPagamento ? comprovante.dataPagamento.toLocaleDateString('pt-BR') : 'Data não informada') : 'N/A'}
                           </td>
                           <td>
                             <Badge bg={
@@ -1139,7 +1139,7 @@ const FinanceiroPage: React.FC = () => {
                             </Badge>
                           </td>
                           <td>
-                            {comprovante.dataUpload.toLocaleDateString('pt-BR')}
+                            {comprovante.dataUpload ? comprovante.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}
                           </td>
                           <td>
                             <div className="d-flex gap-1">
@@ -1234,7 +1234,7 @@ const FinanceiroPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                            {competicoes.map(competicao => {
+                            {competicoes.filter(competicao => competicao && competicao.id).map(competicao => {
                               const equipesInscritas = getEquipesInscritasNaCompeticao(competicao.id!);
                               const comprovantesCompeticao = comprovantesInscricao.filter(
                                 comp => comp.competicaoId === competicao.id
@@ -1256,7 +1256,7 @@ const FinanceiroPage: React.FC = () => {
                                     <br />
                                     <small className="text-muted">{competicao.local}</small>
                           </td>
-                                  <td>{competicao.dataCompeticao.toLocaleDateString('pt-BR')}</td>
+                                  <td>{competicao.dataCompeticao ? competicao.dataCompeticao.toLocaleDateString('pt-BR') : 'Data não informada'}</td>
                                   <td>
                                     <Badge bg={
                                       competicao.status === 'REALIZADA' ? 'success' : 
@@ -1465,8 +1465,8 @@ const FinanceiroPage: React.FC = () => {
                                   <td>
                                     <small className="text-muted">{comprovante.nome}</small>
                                   </td>
-                                  <td>{comprovante.dataUpload.toLocaleDateString('pt-BR')}</td>
-                                  <td>R$ {calcularValorEquipeNaCompeticao(selectedEquipeInscricao?.id || '', comprovante.competicaoId).toFixed(2)}</td>
+                                  <td>{comprovante.dataUpload ? comprovante.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}</td>
+                                  <td>R$ {calcularValorEquipeNaCompeticao(selectedEquipeInscricao?.id || '', comprovante.competicaoId || '').toFixed(2)}</td>
                           <td>
                             <Badge bg={
                               comprovante.status === 'APROVADO' ? 'success' : 
@@ -1558,7 +1558,7 @@ const FinanceiroPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                        {competicoes.map(competicao => {
+                        {competicoes.filter(competicao => competicao && competicao.id).map(competicao => {
                           const comprovantesCompeticao = comprovantesInscricao.filter(
                             comp => comp.competicaoId === competicao.id && comp.equipeId === user?.idEquipe
                           );
@@ -1579,7 +1579,7 @@ const FinanceiroPage: React.FC = () => {
                             <br />
                                 <small className="text-muted">{competicao.local}</small>
                           </td>
-                              <td>{competicao.dataCompeticao.toLocaleDateString('pt-BR')}</td>
+                              <td>{competicao.dataCompeticao ? competicao.dataCompeticao.toLocaleDateString('pt-BR') : 'Data não informada'}</td>
                                                             <td>
                                 <Badge bg={
                                   competicao.status === 'REALIZADA' ? 'success' : 
@@ -1647,8 +1647,8 @@ const FinanceiroPage: React.FC = () => {
                               <td>
                                 <small className="text-muted">{comprovante.nome}</small>
                               </td>
-                              <td>{comprovante.dataUpload.toLocaleDateString('pt-BR')}</td>
-                              <td>R$ {calcularValorEquipeNaCompeticao(user?.idEquipe || '', comprovante.competicaoId).toFixed(2)}</td>
+                              <td>{comprovante.dataUpload ? comprovante.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}</td>
+                              <td>R$ {calcularValorEquipeNaCompeticao(user?.idEquipe || '', comprovante.competicaoId || '').toFixed(2)}</td>
                               <td>
                                 <Badge bg={
                                   comprovante.status === 'APROVADO' ? 'success' : 
@@ -1726,7 +1726,7 @@ const FinanceiroPage: React.FC = () => {
             <Alert variant="warning" className="mt-3">
               <strong>⚠️ Valor Atual:</strong> R$ {anuidade.valor.toFixed(2)}
               <br />
-              <small>Configurado em: {anuidade.dataCriacao.toLocaleDateString('pt-BR')}</small>
+                              <small>Configurado em: {anuidade.dataCriacao ? anuidade.dataCriacao.toLocaleDateString('pt-BR') : 'Data não informada'}</small>
             </Alert>
           )}
         </Modal.Body>
@@ -1785,7 +1785,7 @@ const FinanceiroPage: React.FC = () => {
             <Alert variant="success">
               <strong>✅ Arquivo selecionado:</strong> {selectedFile.name}
               <br />
-              <small>Tamanho: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB</small>
+                              <small>Tamanho: {selectedFile.size ? (selectedFile.size / 1024 / 1024).toFixed(2) : '0.00'} MB</small>
             </Alert>
           )}
         </Modal.Body>
@@ -1868,7 +1868,7 @@ const FinanceiroPage: React.FC = () => {
                             <td>R$ {(anuidade?.valor || 0).toFixed(2)}</td>
                             <td>
                               {pagamento?.dataPagamento 
-                                ? pagamento.dataPagamento.toLocaleDateString('pt-BR')
+                                ? (pagamento.dataPagamento ? pagamento.dataPagamento.toLocaleDateString('pt-BR') : 'Data não informada')
                                 : '-'
                               }
                             </td>
@@ -1891,7 +1891,7 @@ const FinanceiroPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {competicoes.map(competicao => {
+                      {competicoes.filter(competicao => competicao && competicao.id).map(competicao => {
                         const inscricoesCompeticao = getInscricoesEquipe(selectedEquipe.id!)
                           .filter(insc => insc.idCompeticao === competicao.id);
                         
@@ -1902,12 +1902,12 @@ const FinanceiroPage: React.FC = () => {
                             <td>
                               <strong>{competicao.nomeCompeticao}</strong>
                             </td>
-                            <td>{competicao.dataCompeticao.toLocaleDateString('pt-BR')}</td>
+                            <td>{competicao.dataCompeticao ? competicao.dataCompeticao.toLocaleDateString('pt-BR') : 'Data não informada'}</td>
                             <td>{inscricoesCompeticao.length}</td>
-                            <td>R$ {competicao.valorInscricao.toFixed(2)}</td>
-                            <td>
-                              <strong>R$ {(inscricoesCompeticao.length * competicao.valorInscricao).toFixed(2)}</strong>
-                            </td>
+                            <td>R$ {competicao.valorInscricao ? competicao.valorInscricao.toFixed(2) : '0.00'}</td>
+                                                          <td>
+                                <strong>R$ {(inscricoesCompeticao.length * (competicao.valorInscricao || 0)).toFixed(2)}</strong>
+                              </td>
                           </tr>
                         );
                       })}
@@ -2010,7 +2010,7 @@ const FinanceiroPage: React.FC = () => {
             <Alert variant="success">
               <strong>✅ Arquivo selecionado:</strong> {comprovanteFile.name}
               <br />
-              <small>Tamanho: {(comprovanteFile.size / 1024 / 1024).toFixed(2)} MB</small>
+                              <small>Tamanho: {comprovanteFile.size ? (comprovanteFile.size / 1024 / 1024).toFixed(2) : '0.00'} MB</small>
             </Alert>
           )}
         </Modal.Body>
@@ -2045,11 +2045,11 @@ const FinanceiroPage: React.FC = () => {
                 <br />
                 <strong>💰 Valor:</strong> R$ {selectedComprovante.valor ? selectedComprovante.valor.toFixed(2) : 'N/A'}
                 <br />
-                <strong>📅 Data de Aprovação:</strong> {selectedComprovante.dataPagamento ? selectedComprovante.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+                <strong>📅 Data de Aprovação:</strong> {selectedComprovante.dataPagamento ? (selectedComprovante.dataPagamento ? selectedComprovante.dataPagamento.toLocaleDateString('pt-BR') : 'Data não informada') : 'N/A'}
                 <br />
-                <strong>📤 Data Upload:</strong> {selectedComprovante.dataUpload.toLocaleDateString('pt-BR')}
+                <strong>📤 Data Upload:</strong> {selectedComprovante.dataUpload ? selectedComprovante.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}
                 <br />
-                <strong>📏 Tamanho:</strong> {(selectedComprovante.tamanho / 1024 / 1024).toFixed(2)} MB
+                <strong>📏 Tamanho:</strong> {selectedComprovante.tamanho ? (selectedComprovante.tamanho / 1024 / 1024).toFixed(2) : '0.00'} MB
               </Alert>
 
               <Form.Group className="mb-3">
@@ -2098,7 +2098,7 @@ const FinanceiroPage: React.FC = () => {
               <Alert variant="info">
                 <strong>🏆 Competição:</strong> {selectedCompeticao.nomeCompeticao}
                 <br />
-                <strong>📅 Data:</strong> {selectedCompeticao.dataCompeticao.toLocaleDateString('pt-BR')}
+                <strong>📅 Data:</strong> {selectedCompeticao.dataCompeticao ? selectedCompeticao.dataCompeticao.toLocaleDateString('pt-BR') : 'Data não informada'}
                 <br />
                 <strong>📍 Local:</strong> {selectedCompeticao.local || 'Não informado'}
                 {selectedEquipeInscricao && (
@@ -2147,7 +2147,7 @@ const FinanceiroPage: React.FC = () => {
                   <ul className="mb-0 mt-2">
                     {selectedFiles.map((file, index) => (
                       <li key={index}>
-                        {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                        {file.name} ({file.size ? (file.size / 1024 / 1024).toFixed(2) : '0.00'} MB)
                       </li>
                     ))}
                   </ul>
@@ -2191,9 +2191,9 @@ const FinanceiroPage: React.FC = () => {
                 <br />
                 <strong>📁 Arquivo:</strong> {selectedComprovanteInscricao.nome}
                 <br />
-                <strong>💰 Valor:</strong> R$ {selectedComprovanteInscricao.valor.toFixed(2)}
+                <strong>💰 Valor:</strong> R$ {selectedComprovanteInscricao.valor ? selectedComprovanteInscricao.valor.toFixed(2) : '0.00'}
                 <br />
-                <strong>📅 Data Upload:</strong> {selectedComprovanteInscricao.dataUpload.toLocaleDateString('pt-BR')}
+                <strong>📅 Data Upload:</strong> {selectedComprovanteInscricao.dataUpload ? selectedComprovanteInscricao.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}
                 <br />
                 <strong>📊 Status Atual:</strong> {selectedComprovanteInscricao.status}
               </Alert>

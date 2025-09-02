@@ -1231,9 +1231,10 @@ const CompeticoesPage: React.FC = () => {
   };
 
   const filteredCompeticoes = competicoes.filter(competicao =>
+    competicao && competicao.nomeCompeticao && 
     competicao.nomeCompeticao.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (competicao.local && competicao.local.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    competicao.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (competicao.status && competicao.status.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (competicao.tipoCompeticao && competicao.tipoCompeticao.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -1339,7 +1340,7 @@ const CompeticoesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredCompeticoes.map((competicao) => (
+              {filteredCompeticoes.filter(competicao => competicao && competicao.id && competicao.nomeCompeticao && competicao.dataCompeticao && competicao.valorInscricao && competicao.status).map((competicao) => (
                 <tr 
                   key={competicao.id} 
                   style={{ cursor: 'pointer' }}
@@ -1349,7 +1350,7 @@ const CompeticoesPage: React.FC = () => {
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
                 >
                   <td>
-                    <strong>{competicao.nomeCompeticao}</strong>
+                    <strong>{competicao.nomeCompeticao || 'Nome não informado'}</strong>
                     <div className="mt-1">
                       {competicao.modalidade === 'CLASSICA' && (
                         <Badge bg="primary" className="me-1">Clássica</Badge>
@@ -1371,29 +1372,33 @@ const CompeticoesPage: React.FC = () => {
                   <td>
                     <div>
                       <FaCalendarAlt className="me-1" />
-                      {competicao.dataCompeticao.toLocaleDateString('pt-BR')}
+                      {competicao.dataCompeticao ? competicao.dataCompeticao.toLocaleDateString('pt-BR') : 'Data não informada'}
                     </div>
                   </td>
                   <td>
-                    {competicao.local && (
+                    {competicao.local ? (
                       <div>
                         <FaMapMarkerAlt className="me-1" />
                         {competicao.local}
+                      </div>
+                    ) : (
+                      <div className="text-muted">
+                        <small>Local não informado</small>
                       </div>
                     )}
                   </td>
                   <td>
                     <div>
                       <FaMoneyBillWave className="me-1" />
-                      R$ {competicao.valorInscricao.toFixed(2)}
+                      R$ {competicao.valorInscricao ? competicao.valorInscricao.toFixed(2) : '0.00'}
                       {competicao.valorDobra && (
                         <span className="text-muted ms-1">
-                          (Dobra: R$ {competicao.valorDobra.toFixed(2)})
+                          (Dobra: R$ {competicao.valorDobra ? competicao.valorDobra.toFixed(2) : '0.00'})
                         </span>
                       )}
                     </div>
                   </td>
-                  <td>{getStatusBadge(competicao.status)}</td>
+                  <td>{competicao.status ? getStatusBadge(competicao.status) : <Badge bg="secondary">Status não informado</Badge>}</td>
                   <td>
                      <div className="text-muted">
                        <small>Clique na linha para ver detalhes</small>

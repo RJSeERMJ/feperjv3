@@ -1273,7 +1273,7 @@ const Results: React.FC = () => {
                             </h6>
                           </Card.Header>
                           <Card.Body>
-                            {classicTeams.length >= 3 ? (
+                            {classicTeams.length > 2 ? (
                               <div className="table-responsive">
                                 <table className="table table-striped table-hover">
                                   <thead className="table-success">
