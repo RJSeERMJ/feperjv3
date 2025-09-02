@@ -1558,7 +1558,7 @@ const FinanceiroPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                        {competicoes.filter(competicao => competicao && competicao.id).map(competicao => {
+                        {competicoes.map(competicao => {
                           const comprovantesCompeticao = comprovantesInscricao.filter(
                             comp => comp.competicaoId === competicao.id && comp.equipeId === user?.idEquipe
                           );
@@ -1891,7 +1891,7 @@ const FinanceiroPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {competicoes.filter(competicao => competicao && competicao.id).map(competicao => {
+                      {competicoes.map(competicao => {
                         const inscricoesCompeticao = getInscricoesEquipe(selectedEquipe.id!)
                           .filter(insc => insc.idCompeticao === competicao.id);
                         

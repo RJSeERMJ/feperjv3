@@ -36,6 +36,7 @@ import { toast } from 'react-toastify';
 import { competicaoService, inscricaoService, atletaService, equipeService, logService, tipoCompeticaoService } from '../services/firebaseService';
 import { Competicao, InscricaoCompeticao, Atleta, Equipe } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { formatarData } from '../utils/dateUtils';
 import { 
   CATEGORIAS_IDADE, 
   calcularIdade, 
@@ -877,13 +878,13 @@ const CompeticoesPage: React.FC = () => {
         ['Nome', 'Data', 'Local', 'Valor Inscrição', 'Valor Dobra', 'Status', 'Início Inscrições', 'Fim Inscrições', 'Descrição'],
         ...competicoes.map(competicao => [
           competicao.nomeCompeticao,
-          competicao.dataCompeticao.toLocaleDateString('pt-BR'),
+          formatarData(competicao.dataCompeticao),
           competicao.local || '',
           `R$ ${competicao.valorInscricao.toFixed(2)}`,
           competicao.valorDobra ? `R$ ${competicao.valorDobra.toFixed(2)}` : '',
           competicao.status,
-          competicao.dataInicioInscricao.toLocaleDateString('pt-BR'),
-          competicao.dataFimInscricao.toLocaleDateString('pt-BR'),
+          formatarData(competicao.dataInicioInscricao),
+          formatarData(competicao.dataFimInscricao),
           competicao.descricao || ''
         ])
       ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
@@ -1372,7 +1373,7 @@ const CompeticoesPage: React.FC = () => {
                   <td>
                     <div>
                       <FaCalendarAlt className="me-1" />
-                      {competicao.dataCompeticao ? competicao.dataCompeticao.toLocaleDateString('pt-BR') : 'Data não informada'}
+                      {formatarData(competicao.dataCompeticao)}
                     </div>
                   </td>
                   <td>
@@ -1695,7 +1696,7 @@ const CompeticoesPage: React.FC = () => {
                       </td>
                       <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
                       <td>
-                        {inscricao.dataInscricao?.toLocaleDateString('pt-BR') || '-'}
+                        {formatarData(inscricao.dataInscricao)}
                       </td>
                       <td>
                         <Badge bg="success">
@@ -2024,7 +2025,7 @@ const CompeticoesPage: React.FC = () => {
                       </td>
                       <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
                       <td>
-                        {inscricao.dataInscricao?.toLocaleDateString('pt-BR') || '-'}
+                        {formatarData(inscricao.dataInscricao)}
                       </td>
                       <td>
                         <Badge bg="danger">
@@ -2539,7 +2540,7 @@ const CompeticoesPage: React.FC = () => {
                        <FaCalendarAlt className="text-primary mb-2" size={24} />
                        <h6>Data da Competição</h6>
                        <p className="mb-0 fw-bold">
-                         {competicaoDetalhes.dataCompeticao.toLocaleDateString('pt-BR')}
+                         {formatarData(competicaoDetalhes.dataCompeticao)}
                        </p>
                      </Card.Body>
                    </Card>
@@ -2613,10 +2614,10 @@ const CompeticoesPage: React.FC = () => {
                        <FaCalendarAlt className="text-info mb-2" size={24} />
                        <h6>Prazo de Inscrição</h6>
                        <p className="mb-0 fw-bold">
-                         Até {competicaoDetalhes.dataFimInscricao.toLocaleDateString('pt-BR')}
+                         Até {formatarData(competicaoDetalhes.dataFimInscricao)}
                        </p>
                        <small className="text-muted">
-                         Início: {competicaoDetalhes.dataInicioInscricao.toLocaleDateString('pt-BR')}
+                                                   Início: {formatarData(competicaoDetalhes.dataInicioInscricao)}
                        </small>
                      </Card.Body>
                    </Card>
@@ -2628,13 +2629,13 @@ const CompeticoesPage: React.FC = () => {
                        <h6>Nominata Final</h6>
                        <p className="mb-0 fw-bold">
                          {competicaoDetalhes.dataNominacaoFinal 
-                           ? competicaoDetalhes.dataNominacaoFinal.toLocaleDateString('pt-BR')
+                           ? formatarData(competicaoDetalhes.dataNominacaoFinal)
                            : 'Não definida'
                          }
                        </p>
                        <small className="text-muted">
                          {competicaoDetalhes.dataNominacaoPreliminar && 
-                           `Preliminar: ${competicaoDetalhes.dataNominacaoPreliminar.toLocaleDateString('pt-BR')}`
+                           `Preliminar: ${formatarData(competicaoDetalhes.dataNominacaoPreliminar)}`
                          }
                        </small>
                      </Card.Body>
