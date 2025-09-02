@@ -497,13 +497,13 @@ export interface BestLifterCategory {
  * @returns Categorias de Best Lifter com top 3
  */
 export const calculateBestLifterResults = (entries: readonly any[]): BestLifterCategory[] => {
-  console.log('🔍 calculateBestLifterResults - Entradas recebidas:', entries.length);
+  
   
   const categories: { [key: string]: BestLifterCategory } = {};
   
   // Processar cada atleta
   entries.forEach((entry, index) => {
-    console.log(`🏃 Processando atleta ${index + 1}: ${entry.name} - Movimentos: ${entry.movements}`);
+    
     
     // Calcular divisão de idade
     const ageDivision = calculateIPFAgeDivision(entry.birthDate, entry.sex);
@@ -513,15 +513,14 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
     
     // Processar múltiplas modalidades se houver vírgulas
     const movementsList = entry.movements ? entry.movements.split(',').map((m: string) => m.trim()) : ['AST'];
-    
-    console.log(`📋 Modalidades detectadas para ${entry.name}:`, movementsList);
+
+   
     
     // Processar cada modalidade separadamente
     movementsList.forEach((movement: string) => {
       if (!movement) return;
       
-      console.log(`🎯 Processando modalidade "${movement}" para ${entry.name}`);
-      
+           
       // Determinar tipo de evento para esta modalidade
       const eventType = getEventTypeFromMovements(movement);
       
@@ -533,7 +532,7 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
         movement
       );
       
-      console.log(`💪 Total para ${entry.name} - Modalidade ${movement}: ${total}kg`);
+     
       
       // Calcular pontos IPF GL com parâmetros corretos para esta modalidade
       const points = goodlift(
@@ -594,7 +593,7 @@ export const calculateBestLifterResults = (entries: readonly any[]): BestLifterC
     category.results = category.results.filter(result => result.total > 0);
     
     // Verificar se há pelo menos 3 atletas (regra IPF)
-    category.hasMinimumAthletes = category.results.length >= 3;
+    category.hasMinimumAthletes = category.results.length > 2;
     
     console.log(`🏆 Categoria ${category.ageDivision} ${category.equipment} ${category.eventType}: ${category.hasMinimumAthletes ? 'VÁLIDA' : 'INVÁLIDA'} (${category.results.length} atletas)`);
     

@@ -13,7 +13,9 @@ import {
   ButtonGroup,
   Nav,
   Navbar,
-  NavDropdown
+  NavDropdown,
+  Modal,
+  Spinner
 } from 'react-bootstrap';
 import { 
   FaTrophy, 
@@ -24,7 +26,8 @@ import {
   FaFileCsv, 
   FaFilePdf,
   FaTable,
-  FaUsers
+  FaUsers,
+  FaCloudUploadAlt
 } from 'react-icons/fa';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
@@ -44,6 +47,8 @@ import {
   type BestLifterCategory,
   type BestLifterResult
 } from '../../logic/ipfGLPoints';
+import { addDoc, collection, Timestamp } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import './Results.css';
 
 interface CalculatedResult {
@@ -144,6 +149,15 @@ const Results: React.FC = () => {
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'teams' | 'teamMedals'>('complete');
+  
+  // Estado para importação Firebase
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<{
+    success: boolean;
+    message: string;
+    details?: string;
+  } | null>(null);
 
   // Função para obter tipos de competição únicos
   const getUniqueCompetitionTypes = () => {
@@ -649,6 +663,7 @@ const Results: React.FC = () => {
     if (activeTab === 'complete') {
       // Exportar cada categoria separadamente (Resultados Completos)
       resultsByCategory.forEach((category, categoryIndex) => {
+      
         // Título da categoria
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
@@ -883,6 +898,141 @@ const Results: React.FC = () => {
     }
     
     doc.save(`${meet.name || 'Resultados'}_${activeTab}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  // Função para importar resultados para Firebase
+  const importToFirebase = async () => {
+    setImporting(true);
+    setImportStatus(null);
+    
+    try {
+      // Criar documento da competição
+      const competitionData = {
+        name: meet.name || 'Competição sem nome',
+        city: meet.city || '',
+        state: meet.state || '',
+        country: meet.country || 'Brasil',
+        date: meet.date || '',
+        federation: meet.federation || '',
+        lengthDays: meet.lengthDays || 1,
+        platformsOnDays: meet.platformsOnDays || [],
+        allowedMovements: meet.allowedMovements || [],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+      
+      const competitionRef = await addDoc(collection(db, 'competicoes'), competitionData);
+      
+      // Importar resultados por categoria
+      let totalResults = 0;
+      let successCount = 0;
+      
+      for (const category of resultsByCategory) {
+        for (const result of category.results) {
+          totalResults++;
+          
+          try {
+            const resultData = {
+              idCompeticao: competitionRef.id,
+              idAtleta: result.entry.id || `atleta_${Date.now()}_${Math.random()}`,
+              nomeAtleta: result.entry.name || '',
+              equipe: result.entry.team || '',
+              categoria: category.category,
+              peso: result.entry.bodyweightKg || 0,
+              divisao: result.entry.division || '',
+              equipamento: result.entry.equipment || 'Raw',
+              sexo: result.entry.sex || 'M',
+              dataNascimento: result.entry.birthDate || '',
+              numeroLote: result.entry.lotNumber || '',
+              
+              // Tentativas
+              agachamento1: result.entry.squat1 || null,
+              agachamento2: result.entry.squat2 || null,
+              agachamento3: result.entry.squat3 || null,
+              supino1: result.entry.bench1 || null,
+              supino2: result.entry.bench2 || null,
+              supino3: result.entry.bench3 || null,
+              terra1: result.entry.deadlift1 || null,
+              terra2: result.entry.deadlift2 || null,
+              terra3: result.entry.deadlift3 || null,
+              
+              // Status das tentativas
+              statusAgachamento: result.entry.squatStatus || [0, 0, 0],
+              statusSupino: result.entry.benchStatus || [0, 0, 0],
+              statusTerra: result.entry.deadliftStatus || [0, 0, 0],
+              
+              // Melhores resultados
+              melhorAgachamento: result.squat || 0,
+              melhorSupino: result.bench || 0,
+              melhorTerra: result.deadlift || 0,
+              total: result.total || 0,
+              
+              // Pontuação e posições
+              pontosIPFGL: result.points || 0,
+              posicaoAgachamento: result.positions?.squat || 0,
+              posicaoSupino: result.positions?.bench || 0,
+              posicaoTerra: result.positions?.deadlift || 0,
+              posicaoTotal: result.positions?.total || 0,
+              
+              // Metadados
+              modalidade: result.entry.movements || '',
+              dia: result.entry.day || 1,
+              plataforma: result.entry.platform || 1,
+              lote: result.entry.flight || 1,
+              
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now()
+            };
+            
+            await addDoc(collection(db, 'resultados_competicao'), resultData);
+            successCount++;
+            
+          } catch (error) {
+            console.error('Erro ao importar resultado individual:', error);
+          }
+        }
+      }
+      
+      // Importar resultados de Best Lifter se disponível
+      if (activeTab === 'simplified') {
+        try {
+          const bestLifterData = {
+            idCompeticao: competitionRef.id,
+            tipo: 'best_lifter',
+            resultados: calculatedResults.map(result => ({
+              nomeAtleta: result.entry.name,
+              equipe: result.entry.team || '',
+              sexo: result.entry.sex,
+              equipamento: result.entry.equipment || 'Raw',
+              total: result.total,
+              pontosIPFGL: result.points,
+              categoria: `${result.entry.weightClass}kg - ${getAgeCategory(result.entry.birthDate || '', result.entry.sex)}`
+            })),
+            createdAt: Timestamp.now()
+          };
+          
+          await addDoc(collection(db, 'best_lifter_results'), bestLifterData);
+        } catch (error) {
+          console.error('Erro ao importar Best Lifter:', error);
+        }
+      }
+      
+      setImportStatus({
+        success: true,
+        message: `Importação concluída com sucesso!`,
+        details: `${successCount} de ${totalResults} resultados importados. ID da competição: ${competitionRef.id}`
+      });
+      
+    } catch (error) {
+      console.error('Erro na importação:', error);
+      setImportStatus({
+        success: false,
+        message: 'Erro na importação para Firebase',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    } finally {
+      setImporting(false);
+    }
   };
 
   // Função para obter ícone de medalha
@@ -1523,6 +1673,7 @@ const Results: React.FC = () => {
     
     // Estatísticas gerais
     const totalAthletes = calculatedResults.length;
+
     const totalCategories = bestLifterCategories.length;
     const totalMedals = bestLifterCategories.reduce((sum: number, category: BestLifterCategory) => sum + category.results.length, 0);
 
@@ -1793,6 +1944,7 @@ const AttemptDisplay: React.FC<{
 
     // Componente para tabela de resultados completos
   const DetailedResultsTable: React.FC<{ results: CalculatedResult[], categoryName?: string }> = ({ results, categoryName }) => {
+
     // Determinar quais movimentos mostrar baseado no primeiro atleta (assumindo mesma categoria)
     const firstAthleteMovements = getAthleteMovements(results[0]?.entry.movements || '');
     const { hasSquat, hasBench, hasDeadlift } = firstAthleteMovements;
@@ -2072,6 +2224,10 @@ const AttemptDisplay: React.FC<{
               <Button variant="outline-primary" onClick={exportToPDF}>
                 <FaFilePdf className="me-2" />
                 Exportar PDF
+              </Button>
+              <Button variant="outline-success" onClick={() => setShowImportModal(true)}>
+                <FaCloudUploadAlt className="me-2" />
+                Importar Firebase
               </Button>
             </ButtonGroup>
           </div>
@@ -2581,6 +2737,103 @@ const AttemptDisplay: React.FC<{
           </Col>
         </Row>
       )}
+
+      {/* Modal de Importação para Firebase */}
+      <Modal show={showImportModal} onHide={() => setShowImportModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaCloudUploadAlt className="me-2 text-success" />
+            Importar Resultados para Firebase
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {!importStatus ? (
+            <div className="text-center">
+              <h5>Confirmação de Importação</h5>
+              <p className="text-muted">
+                Esta ação irá importar todos os resultados da competição para o Firebase.
+              </p>
+              
+              <div className="row text-start">
+                <div className="col-md-6">
+                  <h6>📊 Dados da Competição:</h6>
+                  <ul className="list-unstyled">
+                    <li><strong>Nome:</strong> {meet.name || 'Sem nome'}</li>
+                    <li><strong>Cidade:</strong> {meet.city || 'Não informada'}</li>
+                    <li><strong>Data:</strong> {meet.date || 'Não informada'}</li>
+                    <li><strong>Federação:</strong> {meet.federation || 'Não informada'}</li>
+                  </ul>
+                </div>
+                <div className="col-md-6">
+                  <h6>👥 Resumo dos Resultados:</h6>
+                  <ul className="list-unstyled">
+                    <li><strong>Total de Atletas:</strong> {calculatedResults.length}</li>
+                    <li><strong>Categorias:</strong> {resultsByCategory.length}</li>
+                    <li><strong>Aba Ativa:</strong> {activeTab === 'complete' ? 'Resultados Completos' : 
+                                                      activeTab === 'simplified' ? 'Melhor Atleta' : 
+                                                      activeTab === 'teams' ? 'Melhor Equipe' : 'Medalhas por Equipe'}</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <Alert variant="warning" className="mt-3">
+                <strong>⚠️ Atenção:</strong> Esta operação criará novos documentos no Firebase. 
+                Certifique-se de que os dados estão corretos antes de prosseguir.
+              </Alert>
+            </div>
+          ) : (
+            <div className="text-center">
+              {importStatus.success ? (
+                <div>
+                  <div className="text-success mb-3">
+                    <FaCloudUploadAlt size={48} />
+                  </div>
+                  <h5 className="text-success">{importStatus.message}</h5>
+                  <p className="text-muted">{importStatus.details}</p>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-danger mb-3">
+                    <FaCloudUploadAlt size={48} />
+                  </div>
+                  <h5 className="text-danger">{importStatus.message}</h5>
+                  <p className="text-muted">{importStatus.details}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          {!importStatus ? (
+            <>
+              <Button variant="secondary" onClick={() => setShowImportModal(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                variant="success" 
+                onClick={importToFirebase}
+                disabled={importing}
+              >
+                {importing ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Importando...
+                  </>
+                ) : (
+                  <>
+                    <FaCloudUploadAlt className="me-2" />
+                    Confirmar Importação
+                  </>
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" onClick={() => setShowImportModal(false)}>
+              Fechar
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };

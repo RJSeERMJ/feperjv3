@@ -1,148 +1,77 @@
-import { 
-  GlobalState, 
-  Language, 
-  MeetState, 
-  Entry, 
-  LiftingState,
-  Lift,
-  LiftStatus,
-  MarkAttemptAction,
-  OverwriteStoreAction,
-  SetLanguageAction,
-  UpdateMeetAction,
-  AddEntryAction,
-  UpdateEntryAction,
-  DeleteEntryAction,
-  SetLiftingStateAction
-} from '../types/barraProntaTypes';
 import { saveAs } from 'file-saver';
+import { BARRA_PRONTA_CONSTANTS } from '../constants/barraPronta';
+import type { GlobalState, Language } from '../types/barraProntaTypes';
 
 // Action para sobrescrever todo o store
-export const overwriteStore = (store: GlobalState): OverwriteStoreAction => {
+export const overwriteStore = (store: GlobalState) => {
   return {
-    type: 'OVERWRITE_STORE',
-    store: store,
+    type: 'OVERWRITE_STORE' as const,
+    store
   };
 };
 
 // Action para definir idioma
-export const setLanguage = (language: Language): SetLanguageAction => {
+export const setLanguage = (language: Language) => {
   return {
-    type: 'SET_LANGUAGE',
-    language: language,
+    type: 'SET_LANGUAGE' as const,
+    language
   };
 };
 
-// Action para atualizar configuração da competição
-export const updateMeet = (meet: Partial<MeetState>): UpdateMeetAction => {
+// Action para atualizar dados da competição
+export const updateMeet = (meet: Partial<GlobalState['meet']>) => {
   return {
-    type: 'UPDATE_MEET',
-    meet: meet,
+    type: 'UPDATE_MEET' as const,
+    meet
   };
 };
 
-// Action para adicionar inscrição
-export const addEntry = (entry: Entry): AddEntryAction => {
+// Action para adicionar entrada
+export const addEntry = (entry: any) => {
   return {
-    type: 'ADD_ENTRY',
-    entry: entry,
+    type: 'ADD_ENTRY' as const,
+    entry
   };
 };
 
-// Action para atualizar inscrição
-export const updateEntry = (id: number, entry: Partial<Entry>): UpdateEntryAction => {
+// Action para atualizar entrada
+export const updateEntry = (id: number, entry: Partial<any>) => {
   return {
-    type: 'UPDATE_ENTRY',
-    id: id,
-    entry: entry,
+    type: 'UPDATE_ENTRY' as const,
+    id,
+    entry
   };
 };
 
-// Action para deletar inscrição
-export const deleteEntry = (id: number): DeleteEntryAction => {
+// Action para deletar entrada
+export const deleteEntry = (id: number) => {
   return {
-    type: 'DELETE_ENTRY',
-    id: id,
+    type: 'DELETE_ENTRY' as const,
+    id
   };
 };
 
-// Action para definir estado de levantamento
-export const setLiftingState = (lifting: Partial<LiftingState>): SetLiftingStateAction => {
+// Action para definir estado de lifting
+export const setLiftingState = (lifting: Partial<GlobalState['lifting']>) => {
   return {
-    type: 'SET_LIFTING_STATE',
-    lifting: lifting,
+    type: 'SET_LIFTING_STATE' as const,
+    lifting
   };
 };
 
-// Action creators para operações complexas
+// Action para criar nova competição
 export const createNewMeet = () => {
   return (dispatch: any) => {
-    // Resetar para estado inicial
-    const initialState = {
-      versions: {
-        stateVersion: '1.0',
-        releaseVersion: '1.0'
-      },
-      language: 'pt' as Language,
+    // Resetar para estado inicial usando constantes
+    const initialState: GlobalState = {
+      versions: BARRA_PRONTA_CONSTANTS.VERSIONS,
+      language: BARRA_PRONTA_CONSTANTS.LANGUAGE,
       meet: {
-        name: '',
-        country: 'Brasil',
-        state: 'RJ',
-        city: '',
-        federation: 'FEPERJ',
-        date: '',
-        lengthDays: 1,
-        platformsOnDays: [1],
-        allowedMovements: [], // Removido: movimentos predefinidos
-        ageCoefficients: {
-          men: [],
-          women: []
-        },
-        divisions: ['Open'],
-        weightClassesKgMen: [59, 66, 74, 83, 93, 105, 120, 120],
-        weightClassesKgWomen: [47, 52, 57, 63, 69, 76, 84, 84],
-        weightClassesKgMx: [],
-        formula: 'IPF GL Points' as const,
-        combineSleevesAndWraps: false,
-        combineSingleAndMulti: false,
-        allow4thAttempts: false,
-        roundTotalsDown: false,
-        inKg: true,
-        squatBarAndCollarsWeightKg: 20,
-        benchBarAndCollarsWeightKg: 20,
-        deadliftBarAndCollarsWeightKg: 20,
-        plates: [
-          { weightKg: 25, pairCount: 10, color: '#FF0000' },
-          { weightKg: 20, pairCount: 10, color: '#0000FF' },
-          { weightKg: 15, pairCount: 10, color: '#FFFF00' },
-          { weightKg: 10, pairCount: 10, color: '#00FF00' },
-          { weightKg: 5, pairCount: 10, color: '#FF8000' },
-          { weightKg: 2.5, pairCount: 10, color: '#800080' },
-          { weightKg: 1.25, pairCount: 10, color: '#FFC0CB' },
-          { weightKg: 1, pairCount: 10, color: '#FFFFFF' },
-          { weightKg: 0.5, pairCount: 10, color: '#808080' },
-          { weightKg: 0.25, pairCount: 10, color: '#000000' }
-        ],
-        showAlternateUnits: false
+        ...BARRA_PRONTA_CONSTANTS.DEFAULT_MEET,
+        plates: BARRA_PRONTA_CONSTANTS.DEFAULT_PLATES
       },
-      registration: {
-        nextEntryId: 1,
-        entries: [],
-        lookup: {}
-      },
-      lifting: {
-        day: 1,
-        platform: 1,
-        flight: 'A' as const,
-        lift: 'S' as const,
-        attemptOneIndexed: 1,
-        overrideAttempt: null,
-        overrideEntryId: null,
-        selectedEntryId: null,
-        selectedAttempt: 1,
-        isAttemptActive: false,
-        attemptTimers: new Map()
-      }
+      registration: BARRA_PRONTA_CONSTANTS.DEFAULT_REGISTRATION,
+      lifting: BARRA_PRONTA_CONSTANTS.DEFAULT_LIFTING
     };
     
     dispatch(overwriteStore(initialState));
@@ -192,10 +121,7 @@ export const loadSavedMeetData = () => {
 export const saveMeetToFile = () => {
   return (dispatch: any, getState: any) => {
     try {
-      console.log('🔍 Iniciando saveMeetToFile...');
-      
       const state = getState();
-      console.log('📊 Estado completo:', state);
       
       // O estado já é o GlobalState diretamente, não precisa de .barraPronta
       const meetData = state;
@@ -206,8 +132,6 @@ export const saveMeetToFile = () => {
         throw new Error('Estado da competição não encontrado');
       }
       
-      console.log('✅ Estado válido encontrado:', meetData.meet);
-      
       // Gerar nome do arquivo baseado no nome da competição
       let meetname = meetData.meet.name;
       if (meetname === "") {
@@ -215,20 +139,14 @@ export const saveMeetToFile = () => {
       }
       meetname = meetname.replace(/ /g, "-");
       
-      console.log('📁 Nome do arquivo:', meetname);
-      
       // Converter estado para JSON e criar blob
       const stateJson = JSON.stringify(meetData, null, 2);
-      console.log('📝 JSON gerado com sucesso, tamanho:', stateJson.length);
       
       const blob = new Blob([stateJson], { type: "application/json;charset=utf-8" });
-      console.log('💾 Blob criado com sucesso, tamanho:', blob.size);
       
       // Salvar arquivo usando file-saver
-      console.log('🚀 Chamando saveAs...');
       saveAs(blob, `${meetname}.barrapronta`);
       
-      console.log('✅ Arquivo salvo com sucesso!');
       return meetData;
     } catch (error) {
       console.error('❌ Erro ao salvar para arquivo:', error);
@@ -275,9 +193,9 @@ export const loadMeetFromFile = (file: File) => {
 };
 
 // Action para marcar tentativa (Good Lift, No Lift, DNS)
-export const markAttempt = (entryId: number, lift: Lift, attempt: number, status: LiftStatus, weight: number): MarkAttemptAction => {
+export const markAttempt = (entryId: number, lift: string, attempt: number, status: number, weight: number) => {
   return {
-    type: 'MARK_ATTEMPT',
+    type: 'MARK_ATTEMPT' as const,
     entryId,
     lift,
     attempt,

@@ -1,15 +1,14 @@
-import React, { useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import { Card, Badge, Image } from 'react-bootstrap';
-import { RootState } from '../../store/barraProntaStore';
-import { Lift } from '../../types/barraProntaTypes';
+import React from 'react';
+import { Card, Badge } from 'react-bootstrap';
+import { useLifting, useMeet } from '../../hooks/useBarraPronta';
+import { getLiftName, getAttemptWeight, formatWeight } from '../../utils/barraProntaUtils';
 import BarLoad from './BarLoad';
 import './LeftCard.css';
 
 interface LeftCardProps {
   currentEntryId: number | null;
   nextEntryId: number | null;
-  lift: Lift;
+  lift: string;
   attemptOneIndexed: number;
   entries: any[];
 }
@@ -21,8 +20,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
   attemptOneIndexed,
   entries
 }) => {
-  const meet = useSelector((state: RootState) => state.meet);
-  const { day, platform, flight } = useSelector((state: RootState) => state.lifting);
+  const { getBarAndCollarsWeight } = useMeet();
 
   // Encontrar o atleta atual
   const currentEntry = currentEntryId ? entries.find((e: any) => e.id === currentEntryId) : null;
@@ -30,53 +28,15 @@ const LeftCard: React.FC<LeftCardProps> = ({
   // Encontrar o próximo atleta
   const nextEntry = nextEntryId ? entries.find((e: any) => e.id === nextEntryId) : null;
 
-  // Monitorar mudanças no estado para sincronização automática
-  useEffect(() => {
-    console.log('🔄 LeftCard - Estado mudou, atualizando...', {
-      currentEntryId, nextEntryId, lift, attemptOneIndexed,
-      day, platform, flight,
-      totalEntries: entries.length,
-      currentEntry: currentEntry?.name,
-      currentWeight: getCurrentWeight()
-    });
-    
-    // Forçar re-render se o atleta atual mudou
-    if (currentEntry) {
-      console.log('✅ LeftCard - Atleta atual atualizado:', currentEntry.name, 'peso:', getCurrentWeight());
-    }
-  }, [currentEntryId, nextEntryId, lift, attemptOneIndexed, day, platform, flight, entries, currentEntry]);
-
   // Obter o peso atual baseado no movimento e tentativa
   const getCurrentWeight = (): number => {
     if (!currentEntry) return 0;
-    
-    const weightField = lift === 'S' ? `squat${attemptOneIndexed}` : 
-                       lift === 'B' ? `bench${attemptOneIndexed}` : 
-                       `deadlift${attemptOneIndexed}`;
-    
-    const weight = (currentEntry as any)[weightField] || 0;
-    
-    // Debug: mostrar peso atual
-    console.log('🔍 LeftCard - Peso atual:', { 
-      currentEntryId, 
-      lift, 
-      attemptOneIndexed, 
-      weightField, 
-      weight,
-      currentEntry: currentEntry?.name 
-    });
-    
-    return weight;
+    return getAttemptWeight(currentEntry, lift as any, attemptOneIndexed);
   };
 
   // Obter o nome do movimento
-  const getLiftName = (): string => {
-    switch (lift) {
-      case 'S': return 'Agachamento';
-      case 'B': return 'Supino';
-      case 'D': return 'Terra';
-      default: return 'Movimento';
-    }
+  const getCurrentLiftName = (): string => {
+    return getLiftName(lift as any);
   };
 
   return (
@@ -99,14 +59,12 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 </Badge>
               </div>
             </div>
-            
-
 
             {/* Visualização da Carga da Barra */}
             {getCurrentWeight() > 0 && (
               <div className="bar-load-section mt-3">
                 <div className="loading-bar">
-                  <div className="attempt-text">{getCurrentWeight()}kg</div>
+                  <div className="attempt-text">{formatWeight(getCurrentWeight())}</div>
                   <div className="bar-area">
                     <BarLoad 
                       weightKg={getCurrentWeight()}
@@ -130,12 +88,9 @@ const LeftCard: React.FC<LeftCardProps> = ({
       {/* Card do Próximo Atleta */}
       {nextEntry && (
         <Card className="next-athlete-card">
-          <Card.Header className="next-athlete-header">
-            <h5 className="mb-0">⏭️ Próximo Atleta</h5>
-          </Card.Header>
           <Card.Body>
             <div className="athlete-info">
-              <h6 className="athlete-name">{nextEntry.name}</h6>
+              <h6 className="athlete-name">Próximo: {nextEntry.name}</h6>
               <div className="athlete-details">
                 <Badge bg="secondary" className="me-1">
                   {nextEntry.sex === 'M' ? 'M' : 'F'}
@@ -148,32 +103,14 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 </Badge>
               </div>
             </div>
-            
-            <div className="next-lift-info mt-3">
-              <h6 className="next-lift-title">Próximo: {getLiftName()}</h6>
-              <div className="next-weight-display">
-                <span className="next-weight-value">
-                  {(() => {
-                    const weightField = lift === 'S' ? `squat${attemptOneIndexed}` : 
-                                       lift === 'B' ? `bench${attemptOneIndexed}` : 
-                                       `deadlift${attemptOneIndexed}`;
-                    return (nextEntry as any)[weightField] || 'Não definido';
-                  })()} kg
-                </span>
-                <span className="next-weight-label">Peso da Próxima Tentativa</span>
-              </div>
-            </div>
 
-            {/* Visualização da Carga da Barra do Próximo Atleta */}
+            {/* Visualização da Carga da Barra do Próximo */}
             {(() => {
-              const weightField = lift === 'S' ? `squat${attemptOneIndexed}` : 
-                                 lift === 'B' ? `bench${attemptOneIndexed}` : 
-                                 `deadlift${attemptOneIndexed}`;
-              const nextWeight = (nextEntry as any)[weightField];
-              return nextWeight && nextWeight > 0 ? (
+              const nextWeight = getAttemptWeight(nextEntry, lift as any, attemptOneIndexed);
+              return nextWeight > 0 ? (
                 <div className="bar-load-section mt-3">
                   <div className="loading-bar">
-                    <div className="attempt-text">{nextWeight}kg</div>
+                    <div className="attempt-text">{formatWeight(nextWeight)}</div>
                     <div className="bar-area">
                       <BarLoad 
                         weightKg={nextWeight}
@@ -195,7 +132,22 @@ const LeftCard: React.FC<LeftCardProps> = ({
         </Card>
       )}
 
-
+      {/* Card de Informações da Sessão */}
+      <Card className="session-info-card mt-3">
+        <Card.Body>
+          <h6 className="session-title">{getCurrentLiftName()}</h6>
+          <div className="session-details">
+            <div className="detail-item">
+              <span className="detail-label">Tentativa:</span>
+              <span className="detail-value">{attemptOneIndexed}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Atletas:</span>
+              <span className="detail-value">{entries.length}</span>
+            </div>
+          </div>
+        </Card.Body>
+      </Card>
     </div>
   );
 };
