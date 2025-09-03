@@ -19,6 +19,7 @@ import UsuariosPage from './pages/UsuariosPage';
 import LogPage from './pages/LogPage';
 import BarraProntaPage from './pages/BarraProntaPage';
 import LiftingPopup from './components/barraPronta/LiftingPopup';
+import DetalhesResultadoPage from './pages/DetalhesResultadoPage';
 
 
 // Componente para proteger rotas
@@ -115,6 +116,12 @@ const App: React.FC = () => {
                 <AdminRoute>
                   <LiftingPopup />
                 </AdminRoute>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/detalhes-resultado/:id" element={
+              <ProtectedRoute>
+                <DetalhesResultadoPage />
               </ProtectedRoute>
             } />
             

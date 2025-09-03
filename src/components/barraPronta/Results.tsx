@@ -24,13 +24,15 @@ import {
   FaFileCsv, 
   FaFilePdf,
   FaTable,
-  FaUsers
+  FaUsers,
+  FaCloudUploadAlt
 } from 'react-icons/fa';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RootState } from '../../store/barraProntaStore';
 import { Entry } from '../../types/barraProntaTypes';
+import { resultadoImportadoService } from '../../services/resultadoImportadoService';
 import { 
   calculateIPFGLPointsTotal, 
   calculateIPFGLPointsBench, 
@@ -525,6 +527,80 @@ const Results: React.FC = () => {
 
 
 
+  // Função para importar resultados para o Firebase
+  const handleImportResults = async () => {
+    try {
+      // Verificar se há dados para importar
+      if (!meet.name || calculatedResults.length === 0) {
+        alert('Não há resultados para importar ou a competição não está configurada.');
+        return;
+      }
+
+      // Confirmar a importação
+      if (!window.confirm(`Tem certeza que deseja importar os resultados da competição "${meet.name}" para o Firebase?\n\nEsta ação salvará todos os resultados calculados.`)) {
+        return;
+      }
+
+      // Preparar dados para importação
+      const competitionResults = {
+        competitionName: meet.name,
+        competitionDate: meet.date || new Date().toISOString().split('T')[0],
+        competitionCity: meet.city || 'Cidade não informada',
+        competitionCountry: meet.country || 'Brasil',
+        importDate: new Date().toISOString(),
+        totalAthletes: calculatedResults.length,
+        results: {
+          complete: resultsByCategory,
+          simplified: [
+            ...calculatedResults
+              .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+              .sort((a, b) => b.points - a.points),
+            ...calculatedResults
+              .filter(result => result.entry.sex === 'M' && result.entry.equipment === 'Equipped')
+              .sort((a, b) => b.points - a.points),
+            ...calculatedResults
+              .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
+              .sort((a, b) => b.points - a.points),
+            ...calculatedResults
+              .filter(result => result.entry.sex === 'F' && result.entry.equipment === 'Equipped')
+              .sort((a, b) => b.points - a.points)
+          ],
+          teams: {
+            // Rankings de equipes por tipo de competição e modalidade
+            astClassic: calculateTeamRanking('Classico', 'AST'),
+            astEquipped: calculateTeamRanking('Equipado', 'AST'),
+            sClassic: calculateTeamRanking('Classico', 'S'),
+            sEquipped: calculateTeamRanking('Equipado', 'S'),
+            tClassic: calculateTeamRanking('Classico', 'T'),
+            tEquipped: calculateTeamRanking('Equipado', 'T')
+          }
+        }
+      };
+
+      // Enviar para Firebase usando o serviço
+      console.log('📊 Enviando dados para Firebase...');
+      
+      const resultadoId = await resultadoImportadoService.create({
+        competitionName: competitionResults.competitionName,
+        competitionDate: new Date(competitionResults.competitionDate),
+        competitionCity: competitionResults.competitionCity,
+        competitionCountry: competitionResults.competitionCountry,
+        totalAthletes: competitionResults.totalAthletes,
+        status: 'IMPORTADO',
+        results: competitionResults.results
+      });
+      
+      console.log('✅ Resultados enviados para Firebase com ID:', resultadoId);
+      
+      alert(`✅ Resultados da competição "${meet.name}" importados com sucesso para o Firebase!\n\nTotal de atletas: ${calculatedResults.length}\nData de importação: ${new Date().toLocaleString('pt-BR')}\nID do resultado: ${resultadoId}`);
+      
+    } catch (error) {
+      console.error('❌ Erro ao importar resultados:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`❌ Erro ao importar resultados: ${errorMessage}`);
+    }
+  };
+
   // Função para exportar resultados como CSV
   const exportToCSV = () => {
     let csvContent = '';
@@ -631,6 +707,8 @@ const Results: React.FC = () => {
     const fileName = `${meet.name || 'Resultados'}_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
     saveAs(blob, fileName);
   };
+
+
 
   // Função para exportar resultados como PDF
   const exportToPDF = () => {
@@ -2122,6 +2200,15 @@ const AttemptDisplay: React.FC<{
               <Button variant="outline-primary" onClick={exportToPDF}>
                 <FaFilePdf className="me-2" />
                 Exportar PDF
+              </Button>
+              <Button 
+                variant="outline-success" 
+                onClick={handleImportResults}
+                disabled={!meet.name || calculatedResults.length === 0}
+                title={!meet.name ? 'Configure o nome da competição primeiro' : calculatedResults.length === 0 ? 'Não há resultados para importar' : 'Importar resultados para o Firebase'}
+              >
+                <FaCloudUploadAlt className="me-2" />
+                Importar Resultados
               </Button>
             </ButtonGroup>
           </div>

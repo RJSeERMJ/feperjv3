@@ -13,7 +13,8 @@ import {
   Badge,
   Dropdown,
   Tabs,
-  Tab
+  Tab,
+  Nav
 } from 'react-bootstrap';
 import { 
   FaPlus, 
@@ -34,7 +35,10 @@ import {
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { competicaoService, inscricaoService, atletaService, equipeService, logService, tipoCompeticaoService } from '../services/firebaseService';
+import { resultadoImportadoService, ResultadoImportado } from '../services/resultadoImportadoService';
 import { Competicao, InscricaoCompeticao, Atleta, Equipe } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useAuth } from '../contexts/AuthContext';
 import { formatarData } from '../utils/dateUtils';
 import { 
@@ -431,6 +435,10 @@ const CompeticoesPage: React.FC = () => {
   const [editingCompeticao, setEditingCompeticao] = useState<Competicao | null>(null);
   const [atletasDisponiveis, setAtletasDisponiveis] = useState<Atleta[]>([]);
   const [atletasSelecionados, setAtletasSelecionados] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'competicoes' | 'resultados'>('competicoes');
+  const [resultadosImportados, setResultadosImportados] = useState<ResultadoImportado[]>([]);
+  const [loadingResultados, setLoadingResultados] = useState(false);
+
   const [inscricaoFormData, setInscricaoFormData] = useState({
     temDobra: false,
     observacoes: '',
@@ -527,6 +535,9 @@ const CompeticoesPage: React.FC = () => {
       setAtletas(atletasData);
       setEquipes(equipesData);
       setCompeticoes(competicoesData);
+      
+      // Carregar resultados importados do Firebase
+      await loadResultadosImportados();
     } catch (error) {
       toast.error('Erro ao carregar dados');
       console.error(error);
@@ -1231,6 +1242,165 @@ const CompeticoesPage: React.FC = () => {
     setEditandoTipos(novosTipos);
   };
 
+  // Função para ver detalhes de um resultado
+  const handleVerDetalhesResultado = (resultado: ResultadoImportado) => {
+    // Navegar para a página de detalhes
+    window.open(`/detalhes-resultado/${resultado.id}`, '_blank');
+  };
+
+  // Função para converter chaves técnicas em nomes legíveis
+  const getCategoryDisplayName = (key: string): string => {
+    const categoryMap: { [key: string]: string } = {
+      'astClassic': 'AST - Clássico',
+      'astEquipped': 'AST - Equipado',
+      'sClassic': 'Supino - Clássico',
+      'sEquipped': 'Supino - Equipado',
+      'tClassic': 'Terra - Clássico',
+      'tEquipped': 'Terra - Equipado'
+    };
+    
+    return categoryMap[key] || key;
+  };
+
+  // Função para exportar resultado para PDF
+  const handleExportarResultadoPDF = async (resultado: ResultadoImportado) => {
+    try {
+      // Buscar dados completos do resultado
+      const resultadoCompleto = await resultadoImportadoService.getById(resultado.id!);
+      if (!resultadoCompleto) {
+        toast.error('Erro ao carregar dados para exportação');
+        return;
+      }
+
+      // Gerar PDF
+      const doc = new jsPDF();
+      
+      // Cabeçalho
+      doc.setFontSize(20);
+      doc.text('Resultados da Competição', 14, 20);
+      
+      doc.setFontSize(12);
+      doc.text(`${resultadoCompleto.competitionName}`, 14, 30);
+      doc.text(`${resultadoCompleto.competitionCity} - ${formatarData(resultadoCompleto.competitionDate)}`, 14, 37);
+      doc.text(`Total de Atletas: ${resultadoCompleto.totalAthletes}`, 14, 44);
+      doc.text(`Data de Importação: ${formatarData(resultadoCompleto.importDate)}`, 14, 51);
+      
+      // Resultados por categoria
+      if (resultadoCompleto.results?.complete) {
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text('Resultados por Categoria', 14, 20);
+        
+        let yPosition = 35;
+        resultadoCompleto.results.complete.forEach((category: any, index: number) => {
+          if (yPosition > 250) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          
+          doc.setFontSize(14);
+          doc.text(category.category, 14, yPosition);
+          yPosition += 10;
+          
+          // Tabela de resultados da categoria
+          const tableData = category.results.map((result: any, pos: number) => [
+            pos + 1,
+            result.entry.name,
+            result.entry.team || '-',
+            result.total,
+            result.points.toFixed(2)
+          ]);
+          
+          autoTable(doc, {
+            startY: yPosition,
+            head: [['Pos', 'Atleta', 'Equipe', 'Total (kg)', 'Pontos IPF GL']],
+            body: tableData,
+            theme: 'grid',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [66, 139, 202] }
+          });
+          
+          yPosition = (doc as any).lastAutoTable.finalY + 15;
+        });
+      }
+      
+      // Ranking de equipes
+      if (resultadoCompleto.results?.teams) {
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text('Ranking de Equipes', 14, 20);
+        
+        let yPosition = 35;
+        Object.entries(resultadoCompleto.results.teams).forEach(([key, teams]: [string, any]) => {
+          if (yPosition > 250) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          
+          doc.setFontSize(12);
+          doc.text(getCategoryDisplayName(key), 14, yPosition);
+          yPosition += 8;
+          
+          if (teams && Array.isArray(teams)) {
+            const tableData = teams.map((team: any, pos: number) => [
+              pos + 1,
+              team.name,
+              team.totalPoints,
+              team.firstPlaces,
+              team.secondPlaces,
+              team.thirdPlaces
+            ]);
+            
+            autoTable(doc, {
+              startY: yPosition,
+              head: [['Pos', 'Equipe', 'Pontos', '1º', '2º', '3º']],
+              body: tableData,
+              theme: 'grid',
+              styles: { fontSize: 8 },
+              headStyles: { fillColor: [66, 139, 202] }
+            });
+            
+            yPosition = (doc as any).lastAutoTable.finalY + 15;
+          }
+        });
+      }
+      
+      // Salvar PDF
+      const fileName = `resultados_${resultadoCompleto.competitionName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast.success(`PDF exportado com sucesso: ${fileName}`);
+      
+    } catch (error) {
+      console.error('❌ Erro ao exportar PDF:', error);
+      toast.error('Erro ao exportar PDF');
+    }
+  };
+
+  // Função para carregar resultados importados do Firebase
+  const loadResultadosImportados = async () => {
+    try {
+      setLoadingResultados(true);
+      
+      // Buscar resultados reais do Firebase
+      const resultados = await resultadoImportadoService.getAll();
+      setResultadosImportados(resultados);
+      
+      if (resultados.length === 0) {
+        console.log('ℹ️ Nenhum resultado importado encontrado no Firebase');
+      } else {
+        console.log(`✅ ${resultados.length} resultado(s) importado(s) carregado(s) do Firebase`);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar resultados:', error);
+      toast.error('Erro ao carregar resultados importados');
+      // Em caso de erro, manter array vazio
+      setResultadosImportados([]);
+    } finally {
+      setLoadingResultados(false);
+    }
+  };
+
   const filteredCompeticoes = competicoes.filter(competicao =>
     competicao && competicao.nomeCompeticao && 
     competicao.nomeCompeticao.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1310,7 +1480,27 @@ const CompeticoesPage: React.FC = () => {
         </div>
       </div>
 
-      <Card>
+      {/* Sistema de Abas */}
+      <Row className="mb-4">
+        <Col>
+          <Nav variant="tabs" activeKey={activeTab} onSelect={(k) => setActiveTab(k as 'competicoes' | 'resultados')}>
+            <Nav.Item>
+              <Nav.Link eventKey="competicoes" className="fw-bold">
+                🏆 Competições
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="resultados" className="fw-bold">
+                📊 Resultados Importados
+              </Nav.Link>
+            </Nav.Item>
+          </Nav>
+        </Col>
+      </Row>
+
+      {/* Conteúdo da aba Competições */}
+      {activeTab === 'competicoes' && (
+        <Card>
         <Card.Body>
           <Row className="mb-3">
             <Col md={6}>
@@ -1422,6 +1612,119 @@ const CompeticoesPage: React.FC = () => {
           )}
         </Card.Body>
       </Card>
+      )}
+
+      {/* Conteúdo da aba Resultados */}
+      {activeTab === 'resultados' && (
+        <Card>
+          <Card.Body>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5>📊 Resultados Importados do Barra Pronta</h5>
+              <Button 
+                variant="outline-primary" 
+                size="sm"
+                onClick={loadResultadosImportados}
+                disabled={loadingResultados}
+              >
+                {loadingResultados ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Carregando...
+                  </>
+                ) : (
+                  <>
+                    <FaDownload className="me-2" />
+                    Atualizar
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {loadingResultados ? (
+              <div className="text-center py-4">
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Carregando resultados...</span>
+                </Spinner>
+              </div>
+            ) : resultadosImportados.length === 0 ? (
+              <Alert variant="info" className="text-center">
+                <strong>ℹ️ Nenhum resultado importado encontrado</strong>
+                <br />
+                Os resultados aparecerão aqui após serem importados do sistema Barra Pronta.
+              </Alert>
+            ) : (
+              <Table responsive striped hover>
+                <thead>
+                  <tr>
+                    <th>Nome da Competição</th>
+                    <th>Data da Competição</th>
+                    <th>Cidade</th>
+                    <th>Total de Atletas</th>
+                    <th>Data de Importação</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                                     <tbody>
+                       {resultadosImportados.map((resultado) => (
+                         <tr key={resultado.id}>
+                           <td>
+                             <strong>{resultado.competitionName}</strong>
+                           </td>
+                           <td>
+                             <FaCalendarAlt className="me-1" />
+                             {formatarData(resultado.competitionDate)}
+                           </td>
+                           <td>
+                             <FaMapMarkerAlt className="me-1" />
+                             {resultado.competitionCity}
+                           </td>
+                           <td>
+                             <Badge bg="info">
+                               {resultado.totalAthletes} atleta{resultado.totalAthletes !== 1 ? 's' : ''}
+                             </Badge>
+                           </td>
+                           <td>
+                             <small className="text-muted">
+                               {formatarData(resultado.importDate)}
+                             </small>
+                           </td>
+                           <td>
+                             <Badge bg="success">
+                               {resultado.status}
+                             </Badge>
+                           </td>
+                           <td>
+                             <div className="d-flex gap-1">
+                               <Button
+                                 variant="outline-primary"
+                                 size="sm"
+                                 onClick={() => handleVerDetalhesResultado(resultado)}
+                                 title="Ver detalhes dos resultados"
+                               >
+                                 <FaChartBar className="me-1" />
+                                 Detalhes
+                               </Button>
+                               <Button
+                                 variant="outline-success"
+                                 size="sm"
+                                 onClick={() => handleExportarResultadoPDF(resultado)}
+                                 title="Exportar para PDF"
+                                 disabled={!resultado.results}
+                               >
+                                 <FaFileExport className="me-1" />
+                                 PDF
+                               </Button>
+                             </div>
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+              </Table>
+            )}
+          </Card.Body>
+        </Card>
+      )}
 
       {/* Modal de Cadastro/Edição */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
@@ -3050,6 +3353,8 @@ const CompeticoesPage: React.FC = () => {
            </Button>
          </Modal.Footer>
        </Modal>
+
+
      </div>
    );
  };
