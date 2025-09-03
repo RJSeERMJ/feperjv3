@@ -1085,6 +1085,10 @@ const Results: React.FC = () => {
 
     // Função para calcular ranking das equipes por modalidade e tipo de competição
   const calculateTeamRanking = (equipment: 'Raw' | 'Equipped' | 'Classico' | 'Equipado', competitionType?: string) => {
+    // Debug: log para verificar parâmetros recebidos
+    console.log(`🚀 calculateTeamRanking chamada com: equipment=${equipment}, competitionType=${competitionType}`);
+    console.log(`📊 Total de categorias disponíveis: ${resultsByCategory.length}`);
+    
     // Agrupar por equipe
     const teamsMap = new Map<string, {
       name: string;
@@ -1107,20 +1111,59 @@ const Results: React.FC = () => {
 
     // Para cada categoria de peso, calcular posições
     resultsByCategory.forEach(category => {
+      // Debug: log para verificar categoria sendo processada
+      console.log(`🔍 Processando categoria: ${category.category}`);
+      console.log(`   Total de atletas na categoria: ${category.results.length}`);
+      
       // Filtrar apenas atletas OPEN desta categoria e tipo de competição
       const openAthletes = category.results.filter(result => {
-        const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
+        // Usar a divisão direta do atleta em vez de calcular pela data de nascimento
+        const athleteDivision = result.entry.division || '';
         const isClassic = result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA' || result.entry.equipment === 'Classico';
         const isEquipped = result.entry.equipment === 'Equipped' || result.entry.equipment === 'EQUIPADO' || result.entry.equipment === 'Equipado';
         
-        // Verificar se o atleta participa do tipo de competição especificado
-        const hasCompetitionType = !competitionType || 
-          (result.entry.movements && result.entry.movements.includes(competitionType));
+        // Verificar se o atleta participa EXCLUSIVAMENTE do tipo de competição especificado
+        let hasCompetitionType = false;
+        if (competitionType) {
+          // Se há um tipo específico, verificar se o atleta compete APENAS nesse tipo
+          if (result.entry.movements) {
+            const movements = result.entry.movements.split(', ').filter(m => m.trim() !== '');
+            // O atleta deve competir APENAS no tipo especificado (não pode ter outros tipos)
+            hasCompetitionType = movements.length === 1 && movements[0] === competitionType;
+          }
+        } else {
+          // Se não há tipo específico, aceitar qualquer atleta
+          hasCompetitionType = true;
+        }
         
         const hasCorrectEquipment = (equipment === 'Raw' || equipment === 'Classico') ? isClassic : (equipment === 'Equipped' || equipment === 'Equipado') ? isEquipped : false;
         
-        return ageCategory === 'OP' && hasCorrectEquipment && hasCompetitionType;
+        // Verificar se é atleta OPEN (pode ser 'Open', 'OPEN', 'open', etc.)
+        const isOpenAthlete = athleteDivision.toLowerCase().includes('open');
+        
+        // Debug: log para verificar filtros
+        if (athleteDivision) {
+          console.log(`🔍 Atleta: ${result.entry.name}`);
+          console.log(`   Divisão: "${athleteDivision}"`);
+          console.log(`   Equipment: ${result.entry.equipment}`);
+          console.log(`   Movements: "${result.entry.movements}"`);
+          console.log(`   Tipo de competição filtrado: ${competitionType || 'TODOS'}`);
+          console.log(`   isOpenAthlete: ${isOpenAthlete}`);
+          console.log(`   hasCorrectEquipment: ${hasCorrectEquipment}`);
+          console.log(`   hasCompetitionType: ${hasCompetitionType}`);
+          console.log(`   ---`);
+        }
+        
+        return isOpenAthlete && hasCorrectEquipment && hasCompetitionType;
       });
+      
+      // Debug: log para verificar quantos atletas OPEN foram encontrados
+      console.log(`📊 Categoria: ${category.category}`);
+      console.log(`   Total de atletas na categoria: ${category.results.length}`);
+      console.log(`   Atletas OPEN encontrados: ${openAthletes.length}`);
+      console.log(`   Tipo de competição filtrado: ${competitionType || 'TODOS'}`);
+      console.log(`   Modalidade filtrada: ${equipment}`);
+      console.log(`   ========================`);
 
       // Ordenar por total (posição na categoria)
       openAthletes.sort((a, b) => b.total - a.total);
@@ -1170,7 +1213,14 @@ const Results: React.FC = () => {
       team.secondPlaces = top5.filter(a => a.teamPoints === 9).length;
       team.thirdPlaces = top5.filter(a => a.teamPoints === 8).length;
       team.totalIPFPoints = top5.reduce((sum, athlete) => sum + athlete.ipfPoints, 0);
+      
+      // Debug: log para verificar dados da equipe
+      console.log(`🏆 Equipe: ${team.name}, Total de atletas: ${team.athletes.length}, Top 5 pontos: ${team.totalPoints}`);
     });
+    
+    // Debug: log para verificar total de equipes encontradas
+    console.log(`🎯 Total de equipes encontradas: ${teamsMap.size}`);
+    console.log(`📋 Equipes: ${Array.from(teamsMap.keys()).join(', ')}`);
 
     // Converter para array e ordenar
     const teamsArray = Array.from(teamsMap.values());
