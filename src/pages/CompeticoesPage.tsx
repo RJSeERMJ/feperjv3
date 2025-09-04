@@ -31,7 +31,8 @@ import {
   FaChartBar,
   FaDownload,
   FaTrophy,
-  FaCog
+  FaCog,
+  FaInfoCircle
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { competicaoService, inscricaoService, atletaService, equipeService, logService, tipoCompeticaoService } from '../services/firebaseService';
@@ -39,7 +40,10 @@ import { resultadoImportadoService, ResultadoImportado } from '../services/resul
 import { Competicao, InscricaoCompeticao, Atleta, Equipe } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import CSVImportModal from '../components/CSVImportModal';
+import RecordsDisplay from '../components/RecordsDisplay';
 import { useAuth } from '../contexts/AuthContext';
+import { useAdminPermission } from '../hooks/useAdminPermission';
 import { formatarData } from '../utils/dateUtils';
 import { 
   CATEGORIAS_IDADE, 
@@ -435,9 +439,10 @@ const CompeticoesPage: React.FC = () => {
   const [editingCompeticao, setEditingCompeticao] = useState<Competicao | null>(null);
   const [atletasDisponiveis, setAtletasDisponiveis] = useState<Atleta[]>([]);
   const [atletasSelecionados, setAtletasSelecionados] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'competicoes' | 'resultados'>('competicoes');
+  const [activeTab, setActiveTab] = useState<'competicoes' | 'resultados' | 'record'>('competicoes');
   const [resultadosImportados, setResultadosImportados] = useState<ResultadoImportado[]>([]);
   const [loadingResultados, setLoadingResultados] = useState(false);
+  const [showCSVImportModal, setShowCSVImportModal] = useState(false);
 
   const [inscricaoFormData, setInscricaoFormData] = useState({
     temDobra: false,
@@ -462,6 +467,7 @@ const CompeticoesPage: React.FC = () => {
   });
   const [tiposCompeticao, setTiposCompeticao] = useState<string[]>(['S', 'AST', 'T']);
   const { user } = useAuth();
+  const { isAdmin } = useAdminPermission();
 
   useEffect(() => {
     loadData();
@@ -1401,6 +1407,18 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
+  // Estado para forçar refresh dos records
+  const [recordsRefreshKey, setRecordsRefreshKey] = useState(0);
+
+  // Função para recarregar records (usada pelo RecordsDisplay)
+  const loadRecords = () => {
+    // Esta função é chamada pelo RecordsDisplay para forçar recarregamento
+    console.log('🔄 Recarregando records...');
+    
+    // Incrementar a chave para forçar re-render do RecordsDisplay
+    setRecordsRefreshKey(prev => prev + 1);
+  };
+
   const filteredCompeticoes = competicoes.filter(competicao =>
     competicao && competicao.nomeCompeticao && 
     competicao.nomeCompeticao.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1483,7 +1501,7 @@ const CompeticoesPage: React.FC = () => {
       {/* Sistema de Abas */}
       <Row className="mb-4">
         <Col>
-          <Nav variant="tabs" activeKey={activeTab} onSelect={(k) => setActiveTab(k as 'competicoes' | 'resultados')}>
+          <Nav variant="tabs" activeKey={activeTab} onSelect={(k) => setActiveTab(k as 'competicoes' | 'resultados' | 'record')}>
             <Nav.Item>
               <Nav.Link eventKey="competicoes" className="fw-bold">
                 🏆 Competições
@@ -1492,6 +1510,11 @@ const CompeticoesPage: React.FC = () => {
             <Nav.Item>
               <Nav.Link eventKey="resultados" className="fw-bold">
                 📊 Resultados Importados
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="record" className="fw-bold">
+                👑 Records
               </Nav.Link>
             </Nav.Item>
           </Nav>
@@ -1725,6 +1748,45 @@ const CompeticoesPage: React.FC = () => {
           </Card.Body>
         </Card>
       )}
+
+               {/* Conteúdo da aba Records */}
+         {activeTab === 'record' && (
+           <Card>
+             <Card.Body>
+               <div className="d-flex justify-content-between align-items-center mb-3">
+                 <h5>👑 Records de Powerlifting</h5>
+                 {isAdmin && (
+                   <Alert variant="success" className="mb-0">
+                     <FaCog className="me-2" />
+                     <strong>🎯 Edição Inline Ativada:</strong> Configure os filtros na tabela para editar records diretamente
+                   </Alert>
+                 )}
+               </div>
+         
+               <Alert variant="info" className="mb-3">
+                 <strong>ℹ️ Informação:</strong> Os records são organizados por divisão de idade, gênero e modalidade.
+                 <br />
+                 <strong>📋 Formato:</strong> O administrador configura movimento, divisão, modalidade e sexo.
+                 <br />
+                 {isAdmin ? (
+                   <>
+                     <strong>🎯 Edição Inline:</strong> Configure os filtros na tabela para editar records diretamente.
+                     <br />
+                     <strong>👁️ Visualização:</strong> Usuários comuns podem visualizar e exportar records.
+                   </>
+                 ) : (
+                   <>
+                     <strong>👁️ Visualização:</strong> Você pode visualizar e exportar records.
+                     <br />
+                     <strong>🔒 Edição:</strong> Apenas administradores podem editar records.
+                   </>
+                 )}
+               </Alert>
+         
+               <RecordsDisplay key={recordsRefreshKey} onRefresh={loadRecords} />
+             </Card.Body>
+           </Card>
+         )}
 
       {/* Modal de Cadastro/Edição */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
@@ -3354,6 +3416,16 @@ const CompeticoesPage: React.FC = () => {
          </Modal.Footer>
        </Modal>
 
+       {/* Modal de Importação CSV para Records */}
+       <CSVImportModal 
+         show={showCSVImportModal}
+         onHide={() => setShowCSVImportModal(false)}
+         onImportComplete={() => {
+           setShowCSVImportModal(false);
+           // Recarregar records após importação
+           loadRecords();
+         }}
+       />
 
      </div>
    );
