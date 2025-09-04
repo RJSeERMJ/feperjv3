@@ -17,7 +17,7 @@
 
 .results-stats-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: rgb(244, 241, 241);
   border: none;
   border-radius: 15px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -827,14 +827,69 @@
     padding: 2px 3px;
     min-width: 30px;
   }
-  
-  .complete-results-table .athlete {
-    min-width: 100px;
+}
+
+/* Estilos para indicadores de record na tabela */
+.record-indicator-small {
+  margin-top: 2px;
+  text-align: center;
+}
+
+.record-indicator-small small {
+  font-size: 10px;
+  font-weight: 700;
+  color: #007bff !important;
+  display: block;
+  margin-bottom: 1px;
+}
+
+.record-divisions-small {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1px;
+}
+
+.record-division-small {
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 3px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 123, 255, 0.3);
+  line-height: 1;
+}
+
+/* Responsividade para indicadores de record */
+@media (max-width: 768px) {
+  .record-indicator-small small {
+    font-size: 9px;
   }
   
-  .complete-results-table .team {
-    min-width: 80px;
+  .record-division-small {
+    font-size: 7px;
+    padding: 1px 2px;
   }
+}
+
+@media (max-width: 576px) {
+  .record-indicator-small small {
+    font-size: 8px;
+  }
+  
+  .record-division-small {
+    font-size: 6px;
+    padding: 1px 2px;
+  }
+}
+
+.complete-results-table .athlete {
+  min-width: 100px;
+}
+
+.complete-results-table .team {
+  min-width: 80px;
 }
 
 

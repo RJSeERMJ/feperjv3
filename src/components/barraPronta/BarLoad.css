@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 20px;
+  padding: 10px;
   background: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #dee2e6;
@@ -16,7 +16,7 @@
   width: 15px;
   height: 15px;
   background: #495057;
-  border-radius: 2px;
+  border-radius: 1px;
 }
 
 .bar-left {
@@ -39,7 +39,7 @@
   display: flex;
   align-items: center;
   gap: 1px;
-  min-height: 60px;
+  min-height: 40px;
 }
 
 .plate {

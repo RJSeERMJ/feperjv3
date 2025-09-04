@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Card, Badge, Image } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { Lift } from '../../types/barraProntaTypes';
+import { recordsService } from '../../services/recordsService';
 import BarLoad from './BarLoad';
 import './LeftCard.css';
 
@@ -23,6 +24,14 @@ const LeftCard: React.FC<LeftCardProps> = ({
 }) => {
   const meet = useSelector((state: RootState) => state.meet);
   const { day, platform, flight } = useSelector((state: RootState) => state.lifting);
+  
+  // Estado para controlar a verificação de records
+  const [recordInfo, setRecordInfo] = useState<{
+    isRecord: boolean;
+    recordDivisions: string[];
+    currentRecords: any[];
+  } | null>(null);
+  const [isCheckingRecord, setIsCheckingRecord] = useState(false);
 
   // Encontrar o atleta atual
   const currentEntry = currentEntryId ? entries.find((e: any) => e.id === currentEntryId) : null;
@@ -43,6 +52,16 @@ const LeftCard: React.FC<LeftCardProps> = ({
     // Forçar re-render se o atleta atual mudou
     if (currentEntry) {
       console.log('✅ LeftCard - Atleta atual atualizado:', currentEntry.name, 'peso:', getCurrentWeight());
+      
+      // Verificar se é record quando o peso muda
+      const currentWeight = getCurrentWeight();
+      if (currentWeight > 0) {
+        checkRecord(currentWeight, currentEntry);
+      } else {
+        setRecordInfo(null);
+      }
+    } else {
+      setRecordInfo(null);
     }
   }, [currentEntryId, nextEntryId, lift, attemptOneIndexed, day, platform, flight, entries, currentEntry]);
 
@@ -76,6 +95,49 @@ const LeftCard: React.FC<LeftCardProps> = ({
       case 'B': return 'Supino';
       case 'D': return 'Terra';
       default: return 'Movimento';
+    }
+  };
+
+  // Função para verificar se o peso atual é record
+  const checkRecord = async (weight: number, entry: any) => {
+    if (!weight || weight <= 0 || !entry) {
+      setRecordInfo(null);
+      return;
+    }
+
+    setIsCheckingRecord(true);
+    try {
+      // Mapear movimento para o formato do recordsService
+      const movementMap: { [key in Lift]: 'squat' | 'bench' | 'deadlift' } = {
+        'S': 'squat',
+        'B': 'bench',
+        'D': 'deadlift'
+      };
+
+      const movement = movementMap[lift];
+      
+      // Obter tipo de competição (assumindo que está no meet ou pode ser inferido)
+      const competitionType = meet.allowedMovements?.join('') || 'AST';
+
+      const result = await recordsService.checkRecordAttempt(
+        weight,
+        movement,
+        {
+          sex: entry.sex,
+          age: entry.age,
+          weightClass: entry.weightClass,
+          division: entry.division,
+          equipment: entry.equipment
+        },
+        competitionType
+      );
+
+      setRecordInfo(result);
+    } catch (error) {
+      console.error('❌ Erro ao verificar record:', error);
+      setRecordInfo(null);
+    } finally {
+      setIsCheckingRecord(false);
     }
   };
 
@@ -121,6 +183,28 @@ const LeftCard: React.FC<LeftCardProps> = ({
                     />
                   </div>
                 </div>
+                
+                {/* Indicativo de Record */}
+                {isCheckingRecord && (
+                  <div className="record-checking">
+                    <small className="text-muted">Verificando record...</small>
+                  </div>
+                )}
+                
+                {recordInfo && recordInfo.isRecord && !isCheckingRecord && (
+                  <div className="record-indicator">
+                    <div className="record-badge">
+                      🏆 RECORD
+                    </div>
+                    <div className="record-divisions">
+                      {recordInfo.recordDivisions.map((division, index) => (
+                        <span key={index} className="record-division">
+                          {division}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </Card.Body>

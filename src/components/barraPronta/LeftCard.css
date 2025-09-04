@@ -183,6 +183,49 @@
   padding: 10px;
 }
 
+/* Indicativo de Record */
+.record-checking {
+  text-align: center;
+  margin-top: 10px;
+  padding: 5px;
+}
+
+.record-indicator {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.record-badge {
+  background: linear-gradient(135deg, #556B2F 0%, #6B8E23 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(85, 107, 47, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.5px;
+}
+
+.record-divisions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.record-division {
+  background: rgba(85, 107, 47, 0.1);
+  color: #556B2F;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(85, 107, 47, 0.3);
+}
+
 /* Responsividade da barra de carregamento */
 @media (max-width: 768px) {
   .attempt-text {
@@ -192,6 +235,16 @@
   .bar-area {
     min-height: 50px;
     padding: 8px;
+  }
+  
+  .record-badge {
+    font-size: 14px;
+    padding: 6px 12px;
+  }
+  
+  .record-division {
+    font-size: 11px;
+    padding: 3px 6px;
   }
 }
 
@@ -203,5 +256,15 @@
   .bar-area {
     min-height: 45px;
     padding: 6px;
+  }
+  
+  .record-badge {
+    font-size: 13px;
+    padding: 5px 10px;
+  }
+  
+  .record-division {
+    font-size: 10px;
+    padding: 2px 5px;
   }
 }

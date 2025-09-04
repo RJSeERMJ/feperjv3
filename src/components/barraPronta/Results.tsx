@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { 
   Container, 
@@ -33,6 +33,7 @@ import autoTable from 'jspdf-autotable';
 import { RootState } from '../../store/barraProntaStore';
 import { Entry } from '../../types/barraProntaTypes';
 import { resultadoImportadoService } from '../../services/resultadoImportadoService';
+import { recordsService } from '../../services/recordsService';
 import { 
   calculateIPFGLPointsTotal, 
   calculateIPFGLPointsBench, 
@@ -77,6 +78,12 @@ interface CalculatedResult {
     bench: number;
     deadlift: number;
     total: number;
+  };
+  // Informações de records
+  records: {
+    squat: { isRecord: boolean; divisions: string[] };
+    bench: { isRecord: boolean; divisions: string[] };
+    deadlift: { isRecord: boolean; divisions: string[] };
   };
 }
 
@@ -146,6 +153,13 @@ const Results: React.FC = () => {
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'teams' | 'teamMedals'>('complete');
+  
+  // Estado para armazenar informações de records
+  const [recordInfo, setRecordInfo] = useState<Map<string, {
+    isRecord: boolean;
+    recordDivisions: string[];
+  }>>(new Map());
+
 
   // Função para obter tipos de competição únicos
   const getUniqueCompetitionTypes = () => {
@@ -341,6 +355,11 @@ const Results: React.FC = () => {
               bench: 0,
               deadlift: 0,
               total: 0
+            },
+            records: {
+              squat: { isRecord: false, divisions: [] },
+              bench: { isRecord: false, divisions: [] },
+              deadlift: { isRecord: false, divisions: [] }
             }
           };
         };
@@ -524,6 +543,57 @@ const Results: React.FC = () => {
       results: results.sort((a, b) => b.total - a.total)
     }));
   }, [calculatedResults, selectedCompetitionType]);
+
+  // useEffect para verificar records após o cálculo dos resultados
+  useEffect(() => {
+    const checkRecordsForResults = async () => {
+      const newRecordInfo = new Map<string, { isRecord: boolean; recordDivisions: string[] }>();
+      
+      for (const result of calculatedResults) {
+        const entry = result.entry;
+        
+        // Verificar records para cada movimento
+        const movements = ['squat', 'bench', 'deadlift'] as const;
+        
+        for (const movement of movements) {
+          const weight = result[movement];
+          if (weight > 0) {
+            const recordKey = `${entry.id}-${movement}-${weight}`;
+            
+            try {
+              const competitionType = meet.allowedMovements?.join('') || 'AST';
+              
+              const recordResult = await recordsService.checkRecordAttempt(
+                weight,
+                movement,
+                {
+                  sex: entry.sex,
+                  age: entry.age,
+                  weightClass: entry.weightClass,
+                  division: entry.division,
+                  equipment: entry.equipment
+                },
+                competitionType
+              );
+
+              newRecordInfo.set(recordKey, {
+                isRecord: recordResult.isRecord,
+                recordDivisions: recordResult.recordDivisions
+              });
+            } catch (error) {
+              console.error(`❌ Erro ao verificar record para ${entry.name} - ${movement}:`, error);
+            }
+          }
+        }
+      }
+      
+      setRecordInfo(newRecordInfo);
+    };
+
+    if (calculatedResults.length > 0) {
+      checkRecordsForResults();
+    }
+  }, [calculatedResults, meet.allowedMovements]);
 
 
 
@@ -1235,13 +1305,6 @@ const Results: React.FC = () => {
         return isOpenAthlete && hasCorrectEquipment && hasCompetitionType;
       });
       
-      // Debug: log para verificar quantos atletas OPEN foram encontrados
-      console.log(`📊 Categoria: ${category.category}`);
-      console.log(`   Total de atletas na categoria: ${category.results.length}`);
-      console.log(`   Atletas OPEN encontrados: ${openAthletes.length}`);
-      console.log(`   Tipo de competição filtrado: ${competitionType || 'TODOS'}`);
-      console.log(`   Modalidade filtrada: ${equipment}`);
-      console.log(`   ========================`);
 
       // Ordenar por total (posição na categoria)
       openAthletes.sort((a, b) => b.total - a.total);
@@ -1292,15 +1355,9 @@ const Results: React.FC = () => {
       team.thirdPlaces = top5.filter(a => a.teamPoints === 8).length;
       team.totalIPFPoints = top5.reduce((sum, athlete) => sum + athlete.ipfPoints, 0);
       
-      // Debug: log para verificar dados da equipe
-      console.log(`🏆 Equipe: ${team.name}, Total de atletas: ${team.athletes.length}, Top 5 pontos: ${team.totalPoints}`);
-    });
+      });
     
-    // Debug: log para verificar total de equipes encontradas
-    console.log(`🎯 Total de equipes encontradas: ${teamsMap.size}`);
-    console.log(`📋 Equipes: ${Array.from(teamsMap.keys()).join(', ')}`);
-
-    // Converter para array e ordenar
+      // Converter para array e ordenar
     const teamsArray = Array.from(teamsMap.values());
     
     // Ordenar por critérios de desempate
@@ -2099,16 +2156,46 @@ const AttemptDisplay: React.FC<{
                         <span className={`attempt ${result.squatAttempts[0] && result.squatStatus[0] === 1 ? 'valid' : result.squatAttempts[0] && result.squatStatus[0] === 2 ? 'invalid' : 'empty'}`}>
                           {result.squatAttempts[0] || '-'}
                         </span>
+                        {result.squatAttempts[0] && result.squatStatus[0] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[0]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[0]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className={`attempt ${result.squatAttempts[1] && result.squatStatus[1] === 1 ? 'valid' : result.squatAttempts[1] && result.squatStatus[1] === 2 ? 'invalid' : 'empty'}`}>
                           {result.squatAttempts[1] || '-'}
                         </span>
+                        {result.squatAttempts[1] && result.squatStatus[1] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[1]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[1]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className={`attempt ${result.squatAttempts[2] && result.squatStatus[2] === 1 ? 'valid' : result.squatAttempts[2] && result.squatStatus[2] === 2 ? 'invalid' : 'empty'}`}>
                           {result.squatAttempts[2] || '-'}
                         </span>
+                        {result.squatAttempts[2] && result.squatStatus[2] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[2]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[2]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td className="fw-bold text-success">{result.squat}</td>
                       <td>{result.positions.squat}</td>
@@ -2122,16 +2209,46 @@ const AttemptDisplay: React.FC<{
                         <span className={`attempt ${result.benchAttempts[0] && result.benchStatus[0] === 1 ? 'valid' : result.benchAttempts[0] && result.benchStatus[0] === 2 ? 'invalid' : 'empty'}`}>
                           {result.benchAttempts[0] || '-'}
                         </span>
+                        {result.benchAttempts[0] && result.benchStatus[0] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[0]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[0]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className={`attempt ${result.benchAttempts[1] && result.benchStatus[1] === 1 ? 'valid' : result.benchAttempts[1] && result.benchStatus[1] === 2 ? 'invalid' : 'empty'}`}>
                           {result.benchAttempts[1] || '-'}
                         </span>
+                        {result.benchAttempts[1] && result.benchStatus[1] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[1]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[1]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className={`attempt ${result.benchAttempts[2] && result.benchStatus[2] === 1 ? 'valid' : result.benchAttempts[2] && result.benchStatus[2] === 2 ? 'invalid' : 'empty'}`}>
                           {result.benchAttempts[2] || '-'}
                         </span>
+                        {result.benchAttempts[2] && result.benchStatus[2] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[2]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[2]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td className="fw-bold text-success">{result.bench}</td>
                       <td>{result.positions.bench}</td>
@@ -2145,16 +2262,46 @@ const AttemptDisplay: React.FC<{
                         <span className={`attempt ${result.deadliftAttempts[0] && result.deadliftStatus[0] === 1 ? 'valid' : result.deadliftAttempts[0] && result.deadliftStatus[0] === 2 ? 'invalid' : 'empty'}`}>
                           {result.deadliftAttempts[0] || '-'}
                         </span>
+                        {result.deadliftAttempts[0] && result.deadliftStatus[0] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[0]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[0]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className={`attempt ${result.deadliftAttempts[1] && result.deadliftStatus[1] === 1 ? 'valid' : result.deadliftAttempts[1] && result.deadliftStatus[1] === 2 ? 'invalid' : 'empty'}`}>
                           {result.deadliftAttempts[1] || '-'}
                         </span>
+                        {result.deadliftAttempts[1] && result.deadliftStatus[1] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[1]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[1]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span className={`attempt ${result.deadliftAttempts[2] && result.deadliftStatus[2] === 1 ? 'valid' : result.deadliftAttempts[2] && result.deadliftStatus[2] === 2 ? 'invalid' : 'empty'}`}>
                           {result.deadliftAttempts[2] || '-'}
                         </span>
+                        {result.deadliftAttempts[2] && result.deadliftStatus[2] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[2]}`)?.isRecord && (
+                          <div className="record-indicator-small">
+                            <small className="text-primary">🏆 RECORD</small>
+                            <div className="record-divisions-small">
+                              {recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[2]}`)?.recordDivisions.map((div, idx) => (
+                                <span key={idx} className="record-division-small">{div}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td className="fw-bold text-success">{result.deadlift}</td>
                       <td>{result.positions.deadlift}</td>

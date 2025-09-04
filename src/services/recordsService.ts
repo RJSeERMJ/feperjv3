@@ -10,8 +10,7 @@ import {
   query, 
   where, 
   orderBy,
-  writeBatch,
-  Timestamp 
+  writeBatch
 } from 'firebase/firestore';
 
 // Tipos para os records
@@ -300,18 +299,30 @@ export const recordsService = {
       
       const constraints = [];
 
-      if (movement) constraints.push(where('movement', '==', movement));
-      if (division) constraints.push(where('division', '==', division));
-      if (sex) constraints.push(where('sex', '==', sex));
-      if (equipment) constraints.push(where('equipment', '==', equipment));
+      if (movement) {
+        constraints.push(where('movement', '==', movement));
+        console.log(`✅ Filtro movimento: ${movement}`);
+      }
+      if (division) {
+        constraints.push(where('division', '==', division));
+        console.log(`✅ Filtro divisão: ${division}`);
+      }
+      if (sex) {
+        constraints.push(where('sex', '==', sex));
+        console.log(`✅ Filtro sexo: ${sex}`);
+      }
+      if (equipment) {
+        constraints.push(where('equipment', '==', equipment));
+        console.log(`✅ Filtro equipamento: ${equipment}`);
+      }
 
       let q;
       if (constraints.length > 0) {
         q = query(collection(db, 'records'), ...constraints);
-        console.log('📋 Query com constraints:', constraints);
+        console.log('📋 Query com constraints:', constraints.length);
       } else {
         q = collection(db, 'records');
-        console.log('📋 Query sem constraints');
+        console.log('📋 Query sem constraints - buscando todos os records');
       }
 
       const querySnapshot = await getDocs(q);
@@ -319,7 +330,16 @@ export const recordsService = {
       
       const records = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('📄 Documento:', doc.id, data);
+        console.log('📄 Documento encontrado:', {
+          id: doc.id,
+          movement: data.movement,
+          division: data.division,
+          sex: data.sex,
+          equipment: data.equipment,
+          weightClass: data.weightClass,
+          weight: data.weight,
+          athleteName: data.athleteName
+        });
         
         return {
           id: doc.id,
@@ -330,12 +350,186 @@ export const recordsService = {
         } as Record;
       });
       
-      console.log('✅ Records processados:', records);
+      console.log('✅ Records processados:', records.length);
       return records;
     } catch (error) {
       console.error('❌ Erro ao buscar records filtrados:', error);
       throw error;
     }
+  },
+
+  // Função para verificar se um peso é record
+  async checkRecordAttempt(
+    weight: number,
+    movement: 'squat' | 'bench' | 'deadlift',
+    athleteData: {
+      sex: 'M' | 'F';
+      age: number;
+      weightClass: string;
+      division?: string;
+      equipment?: string;
+    },
+    competitionType: string
+  ): Promise<{
+    isRecord: boolean;
+    recordDivisions: string[];
+    currentRecords: Record[];
+  }> {
+    try {
+      console.log('🔍 Verificando tentativa de record:', {
+        weight,
+        movement,
+        athleteData,
+        competitionType
+      });
+
+      // Determinar categorias de idade baseadas na idade do atleta
+      const ageDivisions = this.getAgeDivisions(athleteData.age);
+      
+      // Se o atleta tem uma divisão específica inscrita, incluir também
+      const allDivisions = athleteData.division 
+        ? [...ageDivisions, athleteData.division]
+        : ageDivisions;
+
+      // Remover duplicatas
+      const uniqueDivisions = Array.from(new Set(allDivisions));
+
+      console.log('📋 Divisões a verificar:', uniqueDivisions);
+
+      const recordDivisions: string[] = [];
+      const currentRecords: Record[] = [];
+
+      // Verificar cada divisão
+      for (const division of uniqueDivisions) {
+        console.log(`🔍 Verificando divisão: ${division}`);
+        
+        // Normalizar equipamento
+        const normalizedEquipment = this.normalizeEquipment(athleteData.equipment || 'CLASSICA');
+        console.log(`🔧 Equipamento normalizado: "${athleteData.equipment}" → "${normalizedEquipment}"`);
+        
+        const records = await this.getRecordsByFilters(
+          movement,
+          division,
+          athleteData.sex,
+          normalizedEquipment
+        );
+
+        console.log(`📊 Records encontrados para ${division}:`, records.length);
+
+        // Filtrar por categoria de peso - tentar diferentes formatos
+        const weightClassRecords = records.filter(record => {
+          const recordWeightClass = record.weightClass;
+          const athleteWeightClass = athleteData.weightClass;
+          
+          console.log(`🔍 Comparando categorias de peso: "${recordWeightClass}" vs "${athleteWeightClass}"`);
+          
+          // Comparação exata
+          if (recordWeightClass === athleteWeightClass) {
+            console.log('✅ Match exato encontrado');
+            return true;
+          }
+          
+          // Tentar normalizar e comparar
+          const normalizedRecord = recordWeightClass.replace(/[,\s]/g, '').toLowerCase();
+          const normalizedAthlete = athleteWeightClass.replace(/[,\s]/g, '').toLowerCase();
+          
+          if (normalizedRecord === normalizedAthlete) {
+            console.log('✅ Match normalizado encontrado');
+            return true;
+          }
+          
+          console.log('❌ Nenhum match encontrado');
+          return false;
+        });
+
+        console.log(`📊 Records para categoria de peso ${athleteData.weightClass}:`, weightClassRecords.length);
+
+        if (weightClassRecords.length > 0) {
+          // Pegar o melhor record da categoria
+          const bestRecord = weightClassRecords.reduce((best, current) => 
+            current.weight > best.weight ? current : best
+          );
+
+          console.log(`📊 Record atual para ${division} - ${athleteData.weightClass}:`, bestRecord);
+
+          // Se o peso da tentativa é maior que o record atual
+          if (weight > bestRecord.weight) {
+            recordDivisions.push(division);
+            currentRecords.push(bestRecord);
+            console.log(`🏆 NOVO RECORD! ${division}: ${bestRecord.weight}kg → ${weight}kg`);
+          } else {
+            console.log(`❌ Não é record. Record atual: ${bestRecord.weight}kg, Tentativa: ${weight}kg`);
+          }
+        } else {
+          // MODIFICAÇÃO: Não considerar como record se não há records existentes
+          // Isso evita marcar qualquer peso como record quando não há dados
+          console.log(`⚠️ Nenhum record encontrado para ${division} - ${athleteData.weightClass}. Não marcando como record.`);
+        }
+      }
+
+      const result = {
+        isRecord: recordDivisions.length > 0,
+        recordDivisions,
+        currentRecords
+      };
+
+      console.log('✅ Resultado da verificação:', result);
+      return result;
+
+    } catch (error) {
+      console.error('❌ Erro ao verificar record:', error);
+      return {
+        isRecord: false,
+        recordDivisions: [],
+        currentRecords: []
+      };
+    }
+  },
+
+  // Função auxiliar para determinar divisões baseadas na idade
+  getAgeDivisions(age: number): string[] {
+    const divisions: string[] = [];
+    
+    if (age <= 18) {
+      divisions.push('SUBJR');
+    }
+    if (age <= 23) {
+      divisions.push('JUNIOR');
+    }
+    if (age >= 18) {
+      divisions.push('OPEN');
+    }
+    if (age >= 40) {
+      divisions.push('MASTER1');
+    }
+    if (age >= 50) {
+      divisions.push('MASTER2');
+    }
+    if (age >= 60) {
+      divisions.push('MASTER3');
+    }
+    if (age >= 70) {
+      divisions.push('MASTER4');
+    }
+
+    return divisions;
+  },
+
+  // Função para normalizar equipamento
+  normalizeEquipment(equipment: string): string {
+    if (!equipment) return 'CLASSICA';
+    
+    const normalized = equipment.toUpperCase().trim();
+    
+    // Mapear variações para o formato padrão
+    if (normalized.includes('CLASSIC') || normalized.includes('RAW')) {
+      return 'CLASSICA';
+    }
+    if (normalized.includes('EQUIP') || normalized.includes('GEAR')) {
+      return 'EQUIPADO';
+    }
+    
+    return normalized;
   },
 
   // Função para criar records de teste
@@ -344,6 +538,7 @@ export const recordsService = {
       console.log('🧪 Criando records de teste...');
       
       const testRecords = [
+        // Records para teste - Agachamento Masculino 83kg
         {
           movement: 'squat' as const,
           division: 'OPEN',
@@ -357,6 +552,19 @@ export const recordsService = {
           date: new Date('2024-01-15')
         },
         {
+          movement: 'squat' as const,
+          division: 'JUNIOR',
+          sex: 'M' as const,
+          equipment: 'CLASSICA' as const,
+          weightClass: '83,0 kg',
+          weight: 180,
+          athleteName: 'Carlos Junior',
+          team: 'Equipe A',
+          competition: 'Campeonato Estadual 2024',
+          date: new Date('2024-01-15')
+        },
+        // Records para teste - Supino Feminino 57kg
+        {
           movement: 'bench' as const,
           division: 'OPEN',
           sex: 'F' as const,
@@ -369,13 +577,38 @@ export const recordsService = {
           date: new Date('2024-01-15')
         },
         {
-          movement: 'deadlift' as const,
+          movement: 'bench' as const,
           division: 'JUNIOR',
+          sex: 'F' as const,
+          equipment: 'CLASSICA' as const,
+          weightClass: '57,0 kg',
+          weight: 75,
+          athleteName: 'Ana Junior',
+          team: 'Equipe B',
+          competition: 'Campeonato Estadual 2024',
+          date: new Date('2024-01-15')
+        },
+        // Records para teste - Terra Masculino 93kg
+        {
+          movement: 'deadlift' as const,
+          division: 'OPEN',
           sex: 'M' as const,
-          equipment: 'EQUIPADO' as const,
+          equipment: 'CLASSICA' as const,
           weightClass: '93,0 kg',
           weight: 250,
           athleteName: 'Pedro Costa',
+          team: 'Equipe C',
+          competition: 'Campeonato Estadual 2024',
+          date: new Date('2024-01-15')
+        },
+        {
+          movement: 'deadlift' as const,
+          division: 'JUNIOR',
+          sex: 'M' as const,
+          equipment: 'CLASSICA' as const,
+          weightClass: '93,0 kg',
+          weight: 220,
+          athleteName: 'Lucas Junior',
           team: 'Equipe C',
           competition: 'Campeonato Estadual 2024',
           date: new Date('2024-01-15')
@@ -391,5 +624,175 @@ export const recordsService = {
       console.error('❌ Erro ao criar records de teste:', error);
       throw error;
     }
+  },
+
+  // Função para verificar se há records no banco
+  async checkRecordsExist(): Promise<boolean> {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'records'));
+      const hasRecords = querySnapshot.docs.length > 0;
+      console.log(`📊 Verificação de records: ${querySnapshot.docs.length} records encontrados`);
+      return hasRecords;
+    } catch (error) {
+      console.error('❌ Erro ao verificar records:', error);
+      return false;
+    }
+  },
+
+  // Função de debug para testar a verificação de records
+  async debugRecordCheck(
+    weight: number,
+    movement: 'squat' | 'bench' | 'deadlift',
+    athleteData: {
+      sex: 'M' | 'F';
+      age: number;
+      weightClass: string;
+      division?: string;
+      equipment?: string;
+    }
+  ): Promise<void> {
+    console.log('🔍 === DEBUG RECORD CHECK ===');
+    console.log('Dados do atleta:', athleteData);
+    console.log('Peso a verificar:', weight);
+    console.log('Movimento:', movement);
+    
+    // Verificar se há records no banco
+    const hasRecords = await this.checkRecordsExist();
+    console.log('Há records no banco?', hasRecords);
+    
+    if (!hasRecords) {
+      console.log('⚠️ ATENÇÃO: Não há records no banco de dados!');
+      console.log('💡 Execute recordsService.createTestRecords() para criar records de teste');
+      return;
+    }
+    
+    // Executar verificação normal
+    const result = await this.checkRecordAttempt(weight, movement, athleteData, 'AST');
+    console.log('Resultado da verificação:', result);
+    console.log('=== FIM DEBUG ===');
+  },
+
+  // Função para listar todos os records e verificar formatos
+  async debugListAllRecords(): Promise<void> {
+    console.log('🔍 === LISTANDO TODOS OS RECORDS ===');
+    try {
+      const querySnapshot = await getDocs(collection(db, 'records'));
+      console.log(`📊 Total de records: ${querySnapshot.docs.length}`);
+      
+      querySnapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`📄 Record ${index + 1}:`, {
+          id: doc.id,
+          movement: data.movement,
+          division: data.division,
+          sex: data.sex,
+          equipment: data.equipment,
+          weightClass: data.weightClass,
+          weight: data.weight,
+          athleteName: data.athleteName
+        });
+      });
+    } catch (error) {
+      console.error('❌ Erro ao listar records:', error);
+    }
+    console.log('=== FIM LISTAGEM ===');
+  },
+
+  // Função para testar busca específica
+  async debugSearchRecord(
+    movement: string,
+    division: string,
+    sex: string,
+    equipment: string,
+    weightClass: string
+  ): Promise<void> {
+    console.log('🔍 === BUSCA ESPECÍFICA DE RECORD ===');
+    console.log('Parâmetros de busca:', { movement, division, sex, equipment, weightClass });
+    
+    try {
+      const records = await this.getRecordsByFilters(movement, division, sex, equipment);
+      console.log(`📊 Records encontrados: ${records.length}`);
+      
+      if (records.length > 0) {
+        console.log('📄 Records encontrados:');
+        records.forEach((record, index) => {
+          console.log(`  ${index + 1}.`, {
+            movement: record.movement,
+            division: record.division,
+            sex: record.sex,
+            equipment: record.equipment,
+            weightClass: record.weightClass,
+            weight: record.weight,
+            athleteName: record.athleteName
+          });
+        });
+        
+        // Filtrar por categoria de peso
+        const weightClassRecords = records.filter(record => 
+          record.weightClass === weightClass
+        );
+        console.log(`📊 Records para categoria de peso "${weightClass}": ${weightClassRecords.length}`);
+        
+        if (weightClassRecords.length > 0) {
+          const bestRecord = weightClassRecords.reduce((best, current) => 
+            current.weight > best.weight ? current : best
+          );
+          console.log('🏆 Melhor record encontrado:', bestRecord);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro na busca:', error);
+    }
+    console.log('=== FIM BUSCA ===');
+  },
+
+  // Função específica para testar o caso do usuário
+  async testUserCase(): Promise<void> {
+    console.log('🔍 === TESTE DO CASO DO USUÁRIO ===');
+    console.log('Testando: Agachamento 303.5kg vs Record 303kg (OPEN, até 105kg, Clássico)');
+    
+    // Primeiro, listar todos os records para ver o que está no banco
+    await this.debugListAllRecords();
+    
+    // Testar busca específica
+    await this.debugSearchRecord(
+      'squat',
+      'OPEN', 
+      'M',
+      'CLASSICA',
+      'até 105kg'
+    );
+    
+    // Testar com diferentes formatos de categoria de peso
+    const weightClassVariations = [
+      'até 105kg',
+      '105kg',
+      '105,0 kg',
+      '105.0 kg',
+      '105 kg'
+    ];
+    
+    for (const weightClass of weightClassVariations) {
+      console.log(`\n🔍 Testando categoria: "${weightClass}"`);
+      await this.debugSearchRecord(
+        'squat',
+        'OPEN',
+        'M', 
+        'CLASSICA',
+        weightClass
+      );
+    }
+    
+    // Testar verificação completa
+    console.log('\n🔍 Testando verificação completa:');
+    await this.debugRecordCheck(303.5, 'squat', {
+      sex: 'M',
+      age: 25,
+      weightClass: 'até 105kg',
+      division: 'OPEN',
+      equipment: 'CLASSICA'
+    });
+    
+    console.log('=== FIM TESTE DO USUÁRIO ===');
   }
 };
