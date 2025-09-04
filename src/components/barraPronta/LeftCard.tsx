@@ -127,7 +127,8 @@ const LeftCard: React.FC<LeftCardProps> = ({
           age: entry.age,
           weightClass: entry.weightClass,
           division: entry.division,
-          equipment: entry.equipment
+          equipment: entry.equipment,
+          movements: entry.movements // Adicionar tipos de competição do atleta
         },
         competitionType
       );

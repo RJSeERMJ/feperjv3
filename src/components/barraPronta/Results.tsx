@@ -571,7 +571,8 @@ const Results: React.FC = () => {
                   age: entry.age,
                   weightClass: entry.weightClass,
                   division: entry.division,
-                  equipment: entry.equipment
+                  equipment: entry.equipment,
+                  movements: entry.movements // Adicionar tipos de competição do atleta
                 },
                 competitionType
               );

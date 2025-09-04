@@ -368,6 +368,7 @@ export const recordsService = {
       weightClass: string;
       division?: string;
       equipment?: string;
+      movements?: string; // Tipos de competição do atleta (ex: "S", "AST", "S,AST")
     },
     competitionType: string
   ): Promise<{
@@ -382,6 +383,27 @@ export const recordsService = {
         athleteData,
         competitionType
       });
+
+      // Verificar se o atleta está inscrito APENAS em S (Supino)
+      const isOnlyBenchPress = this.isAthleteOnlyBenchPress(athleteData.movements);
+      console.log(`🏋️ Atleta inscrito apenas em S: ${isOnlyBenchPress}`);
+
+      // Se o atleta está apenas em S, só verificar records de supino
+      if (isOnlyBenchPress && movement !== 'bench') {
+        console.log(`⚠️ Atleta inscrito apenas em S, mas tentativa é de ${movement}. Não verificando record.`);
+        return {
+          isRecord: false,
+          recordDivisions: [],
+          currentRecords: []
+        };
+      }
+
+      // Se o atleta está apenas em S e a tentativa é de supino, usar 'bench_solo' para verificar apenas na aba "Apenas Supino"
+      let movementToCheck: string = movement;
+      if (isOnlyBenchPress && movement === 'bench') {
+        movementToCheck = 'bench_solo';
+        console.log(`🏋️ Atleta apenas em S tentando supino - verificando records na aba "Apenas Supino" (bench_solo)`);
+      }
 
       // Determinar categorias de idade baseadas na idade do atleta
       const ageDivisions = this.getAgeDivisions(athleteData.age);
@@ -408,7 +430,7 @@ export const recordsService = {
         console.log(`🔧 Equipamento normalizado: "${athleteData.equipment}" → "${normalizedEquipment}"`);
         
         const records = await this.getRecordsByFilters(
-          movement,
+          movementToCheck,
           division,
           athleteData.sex,
           normalizedEquipment
@@ -586,6 +608,31 @@ export const recordsService = {
           athleteName: 'Ana Junior',
           team: 'Equipe B',
           competition: 'Campeonato Estadual 2024',
+          date: new Date('2024-01-15')
+        },
+        // Records para teste - Supino Solo (Apenas Supino) Masculino 83kg
+        {
+          movement: 'bench_solo' as const,
+          division: 'OPEN',
+          sex: 'M' as const,
+          equipment: 'CLASSICA' as const,
+          weightClass: '83,0 kg',
+          weight: 150,
+          athleteName: 'João Solo',
+          team: 'Equipe Solo',
+          competition: 'Campeonato Solo 2024',
+          date: new Date('2024-01-15')
+        },
+        {
+          movement: 'bench_solo' as const,
+          division: 'JUNIOR',
+          sex: 'M' as const,
+          equipment: 'CLASSICA' as const,
+          weightClass: '83,0 kg',
+          weight: 130,
+          athleteName: 'Carlos Solo Junior',
+          team: 'Equipe Solo',
+          competition: 'Campeonato Solo 2024',
           date: new Date('2024-01-15')
         },
         // Records para teste - Terra Masculino 93kg
@@ -794,5 +841,147 @@ export const recordsService = {
     });
     
     console.log('=== FIM TESTE DO USUÁRIO ===');
+  },
+
+  // Função auxiliar para verificar se o atleta está inscrito apenas em S (Supino)
+  isAthleteOnlyBenchPress(movements?: string): boolean {
+    if (!movements) {
+      return false;
+    }
+
+    // Normalizar e dividir os movimentos
+    const normalizedMovements = movements.toUpperCase().replace(/\s/g, '');
+    const movementList = normalizedMovements.split(',').map(m => m.trim());
+    
+    console.log(`🔍 Movimentos do atleta: [${movementList.join(', ')}]`);
+    
+    // Verificar se tem apenas S e nenhum outro movimento
+    // S pode aparecer sozinho ou como parte de combinações como "ST", "AST", etc.
+    const hasOnlyS = movementList.length === 1 && movementList[0] === 'S';
+    
+    console.log(`🏋️ Atleta inscrito apenas em S: ${hasOnlyS}`);
+    return hasOnlyS;
+  },
+
+  // Função de teste para verificar a nova lógica
+  async testCompetitionTypeLogic(): Promise<void> {
+    console.log('🧪 === TESTANDO LÓGICA DE TIPOS DE COMPETIÇÃO ===');
+    
+    // Teste 1: Atleta inscrito apenas em S (da pesagem) - deve verificar bench_solo
+    console.log('\n📋 Teste 1: Atleta inscrito apenas em S (da pesagem) - deve verificar bench_solo');
+    const result1 = await this.checkRecordAttempt(
+      160, // Peso maior que o record de bench_solo (150kg)
+      'bench',
+      {
+        sex: 'M',
+        age: 25,
+        weightClass: '83,0 kg',
+        division: 'OPEN',
+        equipment: 'CLASSICA',
+        movements: 'S'
+      },
+      'S'
+    );
+    console.log('Resultado (supino - deve ser record na aba Apenas Supino):', result1.isRecord ? '✅ É record' : '❌ Não é record');
+    
+    const result1b = await this.checkRecordAttempt(
+      200,
+      'squat',
+      {
+        sex: 'M',
+        age: 25,
+        weightClass: '93kg',
+        division: 'OPEN',
+        equipment: 'CLASSICA',
+        movements: 'S'
+      },
+      'S'
+    );
+    console.log('Resultado (agachamento):', result1b.isRecord ? '✅ É record' : '❌ Não é record');
+    
+    // Teste 2: Atleta inscrito em S + AST (da pesagem) - deve verificar bench normal
+    console.log('\n📋 Teste 2: Atleta inscrito em S + AST (da pesagem) - deve verificar bench normal');
+    const result2 = await this.checkRecordAttempt(
+      90, // Peso maior que o record de bench normal (85kg)
+      'bench',
+      {
+        sex: 'F',
+        age: 25,
+        weightClass: '57,0 kg',
+        division: 'OPEN',
+        equipment: 'CLASSICA',
+        movements: 'S, AST'
+      },
+      'AST'
+    );
+    console.log('Resultado (supino - deve ser record na aba normal):', result2.isRecord ? '✅ É record' : '❌ Não é record');
+    
+    const result2b = await this.checkRecordAttempt(
+      200,
+      'squat',
+      {
+        sex: 'M',
+        age: 25,
+        weightClass: '93kg',
+        division: 'OPEN',
+        equipment: 'CLASSICA',
+        movements: 'S, AST'
+      },
+      'AST'
+    );
+    console.log('Resultado (agachamento):', result2b.isRecord ? '✅ É record' : '❌ Não é record');
+    
+    // Teste 3: Atleta inscrito apenas em T (da pesagem)
+    console.log('\n📋 Teste 3: Atleta inscrito apenas em T (da pesagem)');
+    const result3 = await this.checkRecordAttempt(
+      250,
+      'deadlift',
+      {
+        sex: 'M',
+        age: 25,
+        weightClass: '93kg',
+        division: 'OPEN',
+        equipment: 'CLASSICA',
+        movements: 'T'
+      },
+      'T'
+    );
+    console.log('Resultado (terra):', result3.isRecord ? '✅ É record' : '❌ Não é record');
+    
+    // Teste 4: Atleta inscrito em ST (Supino + Terra)
+    console.log('\n📋 Teste 4: Atleta inscrito em ST (Supino + Terra)');
+    const result4 = await this.checkRecordAttempt(
+      200,
+      'squat',
+      {
+        sex: 'M',
+        age: 25,
+        weightClass: '93kg',
+        division: 'OPEN',
+        equipment: 'CLASSICA',
+        movements: 'ST'
+      },
+      'ST'
+    );
+    console.log('Resultado (agachamento):', result4.isRecord ? '✅ É record' : '❌ Não é record');
+    
+    // Teste 5: Atleta inscrito em AST (todos os movimentos)
+    console.log('\n📋 Teste 5: Atleta inscrito em AST (todos os movimentos)');
+    const result5 = await this.checkRecordAttempt(
+      200,
+      'squat',
+      {
+        sex: 'M',
+        age: 25,
+        weightClass: '93kg',
+        division: 'OPEN',
+        equipment: 'CLASSICA',
+        movements: 'AST'
+      },
+      'AST'
+    );
+    console.log('Resultado (agachamento):', result5.isRecord ? '✅ É record' : '❌ Não é record');
+    
+    console.log('\n✅ === FIM DOS TESTES ===');
   }
 };
