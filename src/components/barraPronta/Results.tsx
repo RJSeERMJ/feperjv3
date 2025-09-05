@@ -1977,6 +1977,42 @@ const AttemptDisplay: React.FC<{
   );
 };
 
+    // Função auxiliar para renderizar tentativas com status
+  const renderAttemptWithStatus = (attempt: number | null, status: number | null | undefined, isRecord: boolean = false) => {
+    if (!attempt) {
+      return (
+        <span className="attempt empty">
+          - <span className="status-text">-</span>
+        </span>
+      );
+    }
+
+    let className = 'attempt ';
+    let statusText = '';
+    
+    if (status === 1) { // Good Lift
+      if (isRecord) {
+        className += 'valid-record';
+        statusText = '✓';
+      } else {
+        className += 'valid';
+        statusText = '✓';
+      }
+    } else if (status === 2) { // No Lift
+      className += 'invalid';
+      statusText = '✗';
+    } else { // No Attempt
+      className += 'empty';
+      statusText = '-';
+    }
+
+    return (
+      <span className={className}>
+        {attempt} <span className="status-text">{statusText}</span>
+      </span>
+    );
+  };
+
     // Componente para tabela de resultados completos
   const DetailedResultsTable: React.FC<{ results: CalculatedResult[], categoryName?: string }> = ({ results, categoryName }) => {
     // Determinar quais movimentos mostrar baseado no primeiro atleta (assumindo mesma categoria)
@@ -2154,9 +2190,11 @@ const AttemptDisplay: React.FC<{
                   {hasSquat && (
                     <>
                       <td>
-                        <span className={`attempt ${result.squatAttempts[0] && result.squatStatus[0] === 1 ? 'valid' : result.squatAttempts[0] && result.squatStatus[0] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.squatAttempts[0] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.squatAttempts[0], 
+                          result.squatStatus[0], 
+                          Boolean(result.squatAttempts[0] && result.squatStatus[0] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[0]}`)?.isRecord)
+                        )}
                         {result.squatAttempts[0] && result.squatStatus[0] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[0]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2169,9 +2207,11 @@ const AttemptDisplay: React.FC<{
                         )}
                       </td>
                       <td>
-                        <span className={`attempt ${result.squatAttempts[1] && result.squatStatus[1] === 1 ? 'valid' : result.squatAttempts[1] && result.squatStatus[1] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.squatAttempts[1] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.squatAttempts[1], 
+                          result.squatStatus[1], 
+                          Boolean(result.squatAttempts[1] && result.squatStatus[1] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[1]}`)?.isRecord)
+                        )}
                         {result.squatAttempts[1] && result.squatStatus[1] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[1]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2184,9 +2224,11 @@ const AttemptDisplay: React.FC<{
                         )}
                       </td>
                       <td>
-                        <span className={`attempt ${result.squatAttempts[2] && result.squatStatus[2] === 1 ? 'valid' : result.squatAttempts[2] && result.squatStatus[2] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.squatAttempts[2] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.squatAttempts[2], 
+                          result.squatStatus[2], 
+                          Boolean(result.squatAttempts[2] && result.squatStatus[2] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[2]}`)?.isRecord)
+                        )}
                         {result.squatAttempts[2] && result.squatStatus[2] === 1 && recordInfo.get(`${result.entry.id}-squat-${result.squatAttempts[2]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2207,9 +2249,11 @@ const AttemptDisplay: React.FC<{
                   {hasBench && (
                     <>
                       <td>
-                        <span className={`attempt ${result.benchAttempts[0] && result.benchStatus[0] === 1 ? 'valid' : result.benchAttempts[0] && result.benchStatus[0] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.benchAttempts[0] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.benchAttempts[0], 
+                          result.benchStatus[0], 
+                          Boolean(result.benchAttempts[0] && result.benchStatus[0] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[0]}`)?.isRecord)
+                        )}
                         {result.benchAttempts[0] && result.benchStatus[0] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[0]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2222,9 +2266,11 @@ const AttemptDisplay: React.FC<{
                         )}
                       </td>
                       <td>
-                        <span className={`attempt ${result.benchAttempts[1] && result.benchStatus[1] === 1 ? 'valid' : result.benchAttempts[1] && result.benchStatus[1] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.benchAttempts[1] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.benchAttempts[1], 
+                          result.benchStatus[1], 
+                          Boolean(result.benchAttempts[1] && result.benchStatus[1] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[1]}`)?.isRecord)
+                        )}
                         {result.benchAttempts[1] && result.benchStatus[1] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[1]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2237,9 +2283,11 @@ const AttemptDisplay: React.FC<{
                         )}
                       </td>
                       <td>
-                        <span className={`attempt ${result.benchAttempts[2] && result.benchStatus[2] === 1 ? 'valid' : result.benchAttempts[2] && result.benchStatus[2] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.benchAttempts[2] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.benchAttempts[2], 
+                          result.benchStatus[2], 
+                          Boolean(result.benchAttempts[2] && result.benchStatus[2] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[2]}`)?.isRecord)
+                        )}
                         {result.benchAttempts[2] && result.benchStatus[2] === 1 && recordInfo.get(`${result.entry.id}-bench-${result.benchAttempts[2]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2260,9 +2308,11 @@ const AttemptDisplay: React.FC<{
                   {hasDeadlift && (
                     <>
                       <td>
-                        <span className={`attempt ${result.deadliftAttempts[0] && result.deadliftStatus[0] === 1 ? 'valid' : result.deadliftAttempts[0] && result.deadliftStatus[0] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.deadliftAttempts[0] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.deadliftAttempts[0], 
+                          result.deadliftStatus[0], 
+                          Boolean(result.deadliftAttempts[0] && result.deadliftStatus[0] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[0]}`)?.isRecord)
+                        )}
                         {result.deadliftAttempts[0] && result.deadliftStatus[0] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[0]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2275,9 +2325,11 @@ const AttemptDisplay: React.FC<{
                         )}
                       </td>
                       <td>
-                        <span className={`attempt ${result.deadliftAttempts[1] && result.deadliftStatus[1] === 1 ? 'valid' : result.deadliftAttempts[1] && result.deadliftStatus[1] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.deadliftAttempts[1] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.deadliftAttempts[1], 
+                          result.deadliftStatus[1], 
+                          Boolean(result.deadliftAttempts[1] && result.deadliftStatus[1] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[1]}`)?.isRecord)
+                        )}
                         {result.deadliftAttempts[1] && result.deadliftStatus[1] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[1]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
@@ -2290,9 +2342,11 @@ const AttemptDisplay: React.FC<{
                         )}
                       </td>
                       <td>
-                        <span className={`attempt ${result.deadliftAttempts[2] && result.deadliftStatus[2] === 1 ? 'valid' : result.deadliftAttempts[2] && result.deadliftStatus[2] === 2 ? 'invalid' : 'empty'}`}>
-                          {result.deadliftAttempts[2] || '-'}
-                        </span>
+                        {renderAttemptWithStatus(
+                          result.deadliftAttempts[2], 
+                          result.deadliftStatus[2], 
+                          Boolean(result.deadliftAttempts[2] && result.deadliftStatus[2] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[2]}`)?.isRecord)
+                        )}
                         {result.deadliftAttempts[2] && result.deadliftStatus[2] === 1 && recordInfo.get(`${result.entry.id}-deadlift-${result.deadliftAttempts[2]}`)?.isRecord && (
                           <div className="record-indicator-small">
                             <small className="text-primary">🏆 RECORD</small>
