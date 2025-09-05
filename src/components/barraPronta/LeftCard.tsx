@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import { Card, Badge, Image } from 'react-bootstrap';
+import { Card, Badge } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { Lift } from '../../types/barraProntaTypes';
 import { recordsService } from '../../services/recordsService';
@@ -30,6 +30,11 @@ const LeftCard: React.FC<LeftCardProps> = ({
     isRecord: boolean;
     recordDivisions: string[];
     currentRecords: any[];
+    recordDetails: Array<{
+      division: string;
+      currentRecord: number;
+      isNewRecord: boolean;
+    }>;
   } | null>(null);
   const [isCheckingRecord, setIsCheckingRecord] = useState(false);
 
@@ -39,34 +44,8 @@ const LeftCard: React.FC<LeftCardProps> = ({
   // Encontrar o próximo atleta
   const nextEntry = nextEntryId ? entries.find((e: any) => e.id === nextEntryId) : null;
 
-  // Monitorar mudanças no estado para sincronização automática
-  useEffect(() => {
-    console.log('🔄 LeftCard - Estado mudou, atualizando...', {
-      currentEntryId, nextEntryId, lift, attemptOneIndexed,
-      day, platform, flight,
-      totalEntries: entries.length,
-      currentEntry: currentEntry?.name,
-      currentWeight: getCurrentWeight()
-    });
-    
-    // Forçar re-render se o atleta atual mudou
-    if (currentEntry) {
-      console.log('✅ LeftCard - Atleta atual atualizado:', currentEntry.name, 'peso:', getCurrentWeight());
-      
-      // Verificar se é record quando o peso muda
-      const currentWeight = getCurrentWeight();
-      if (currentWeight > 0) {
-        checkRecord(currentWeight, currentEntry);
-      } else {
-        setRecordInfo(null);
-      }
-    } else {
-      setRecordInfo(null);
-    }
-  }, [currentEntryId, nextEntryId, lift, attemptOneIndexed, day, platform, flight, entries, currentEntry]);
-
   // Obter o peso atual baseado no movimento e tentativa
-  const getCurrentWeight = (): number => {
+  const getCurrentWeight = useCallback((): number => {
     if (!currentEntry) return 0;
     
     const weightField = lift === 'S' ? `squat${attemptOneIndexed}` : 
@@ -86,7 +65,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
     });
     
     return weight;
-  };
+  }, [currentEntry, lift, attemptOneIndexed, currentEntryId]);
 
   // Obter o nome do movimento
   const getLiftName = (): string => {
@@ -99,7 +78,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
   };
 
   // Função para verificar se o peso atual é record
-  const checkRecord = async (weight: number, entry: any) => {
+  const checkRecord = useCallback(async (weight: number, entry: any) => {
     if (!weight || weight <= 0 || !entry) {
       setRecordInfo(null);
       return;
@@ -140,7 +119,33 @@ const LeftCard: React.FC<LeftCardProps> = ({
     } finally {
       setIsCheckingRecord(false);
     }
-  };
+  }, [lift, meet.allowedMovements]);
+
+  // Monitorar mudanças no estado para sincronização automática
+  useEffect(() => {
+    console.log('🔄 LeftCard - Estado mudou, atualizando...', {
+      currentEntryId, nextEntryId, lift, attemptOneIndexed,
+      day, platform, flight,
+      totalEntries: entries.length,
+      currentEntry: currentEntry?.name,
+      currentWeight: getCurrentWeight()
+    });
+    
+    // Forçar re-render se o atleta atual mudou
+    if (currentEntry) {
+      console.log('✅ LeftCard - Atleta atual atualizado:', currentEntry.name, 'peso:', getCurrentWeight());
+      
+      // Verificar se é record quando o peso muda
+      const currentWeight = getCurrentWeight();
+      if (currentWeight > 0) {
+        checkRecord(currentWeight, currentEntry);
+      } else {
+        setRecordInfo(null);
+      }
+    } else {
+      setRecordInfo(null);
+    }
+  }, [currentEntryId, nextEntryId, lift, attemptOneIndexed, day, platform, flight, entries, currentEntry, checkRecord, getCurrentWeight]);
 
   return (
     <div className="left-card-container">
@@ -198,11 +203,13 @@ const LeftCard: React.FC<LeftCardProps> = ({
                       🏆 RECORD
                     </div>
                     <div className="record-divisions">
-                      {recordInfo.recordDivisions.map((division, index) => (
-                        <span key={index} className="record-division">
-                          {division}
-                        </span>
-                      ))}
+                      {recordInfo.recordDetails
+                        .filter(detail => detail.isNewRecord)
+                        .map((detail, index) => (
+                          <span key={index} className="record-division">
+                            {detail.division}
+                          </span>
+                        ))}
                     </div>
                   </div>
                 )}

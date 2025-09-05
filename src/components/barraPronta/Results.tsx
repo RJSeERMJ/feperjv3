@@ -142,6 +142,35 @@ const getAgeCategory = (birthDate: string, sex: string): string => {
   }
 };
 
+// Função para obter classe CSS baseada no status da tentativa
+const getAttemptClass = (
+  attemptWeight: number | null, 
+  attemptStatus: number, 
+  isRecord: boolean = false
+): string => {
+  // Se não há peso, é não tentado
+  if (!attemptWeight || attemptWeight === 0) {
+    return 'attempt-not-attempted';
+  }
+
+  // Se é record válido, usar cor verde oliva
+  if (isRecord && attemptStatus === 1) {
+    return 'attempt-record';
+  }
+
+  // Baseado no status da tentativa
+  switch (attemptStatus) {
+    case 1: // Good Lift
+      return 'attempt-valid';
+    case 2: // No Lift
+      return 'attempt-invalid';
+    case 3: // No Attempt
+      return 'attempt-not-attempted';
+    default: // 0 ou qualquer outro valor
+      return 'attempt-not-attempted';
+  }
+};
+
 const Results: React.FC = () => {
   const { meet, registration } = useSelector((state: RootState) => state);
   const [selectedDay, setSelectedDay] = useState<number>(0); // 0 = todos os dias
@@ -159,6 +188,9 @@ const Results: React.FC = () => {
     isRecord: boolean;
     recordDivisions: string[];
   }>>(new Map());
+  
+  // Estado para armazenar resultados com records atualizados
+  const [resultsWithRecords, setResultsWithRecords] = useState<CalculatedResult[]>([]);
 
 
   // Função para obter tipos de competição únicos
@@ -431,33 +463,6 @@ const Results: React.FC = () => {
     }
   };
 
-  // Função para obter todas as modalidades únicas da competição
-  const getUniqueMovementCategories = () => {
-    const categoriesSet = new Set<string>();
-    
-    // Se há um filtro de tipo de competição ativo, usar apenas esse tipo
-    if (selectedCompetitionType !== 'all') {
-      categoriesSet.add(selectedCompetitionType);
-      return Array.from(categoriesSet).sort();
-    }
-    
-    calculatedResults.forEach(result => {
-      if (!result.entry.movements) return;
-      
-      // Se não há vírgula, é uma modalidade única
-      if (!result.entry.movements.includes(',')) {
-        categoriesSet.add(result.entry.movements.trim());
-      } else {
-        // Se há vírgula, separar em modalidades individuais
-        const movements = result.entry.movements.split(', ').filter(m => m.trim() !== '');
-        movements.forEach(movement => {
-          categoriesSet.add(movement.trim());
-        });
-      }
-    });
-    
-    return Array.from(categoriesSet).sort();
-  };
 
   // Função para calcular total baseado na modalidade da categoria
   const calculateTotalForCategory = (result: CalculatedResult, categoryName: string) => {
@@ -483,11 +488,43 @@ const Results: React.FC = () => {
   // Agrupar resultados por categoria
   const resultsByCategory = useMemo((): ResultsByCategory[] => {
     const grouped: { [key: string]: CalculatedResult[] } = {};
+    
+    // Função para obter todas as modalidades únicas da competição
+    const getUniqueMovementCategories = () => {
+      const categoriesSet = new Set<string>();
+      
+      // Se há um filtro de tipo de competição ativo, usar apenas esse tipo
+      if (selectedCompetitionType !== 'all') {
+        categoriesSet.add(selectedCompetitionType);
+        return Array.from(categoriesSet).sort();
+      }
+      
+      calculatedResults.forEach(result => {
+        if (!result.entry.movements) return;
+        
+        // Se não há vírgula, é uma modalidade única
+        if (!result.entry.movements.includes(',')) {
+          categoriesSet.add(result.entry.movements.trim());
+        } else {
+          // Se há vírgula, separar em modalidades individuais
+          const movements = result.entry.movements.split(', ').filter(m => m.trim() !== '');
+          movements.forEach(movement => {
+            categoriesSet.add(movement.trim());
+          });
+        }
+      });
+      
+      return Array.from(categoriesSet).sort();
+    };
+    
     const uniqueCategories = getUniqueMovementCategories();
+    
+    // Usar resultsWithRecords se disponível, senão usar calculatedResults
+    const resultsToUse = resultsWithRecords.length > 0 ? resultsWithRecords : calculatedResults;
 
     // Para cada categoria única, criar grupos por divisão, peso e equipamento
     uniqueCategories.forEach(movementCategory => {
-      calculatedResults.forEach(result => {
+      resultsToUse.forEach(result => {
         // Verificar se o atleta compete nesta modalidade específica
         let competesInThisCategory = false;
         
@@ -542,14 +579,26 @@ const Results: React.FC = () => {
       category,
       results: results.sort((a, b) => b.total - a.total)
     }));
-  }, [calculatedResults, selectedCompetitionType]);
+  }, [calculatedResults, resultsWithRecords, selectedCompetitionType]);
 
   // useEffect para verificar records após o cálculo dos resultados
   useEffect(() => {
     const checkRecordsForResults = async () => {
-      const newRecordInfo = new Map<string, { isRecord: boolean; recordDivisions: string[] }>();
+      const newRecordInfo = new Map<string, { 
+        isRecord: boolean; 
+        recordDivisions: string[];
+        recordDetails: Array<{
+          division: string;
+          currentRecord: number;
+          isNewRecord: boolean;
+        }>;
+      }>();
       
-      for (const result of calculatedResults) {
+      // Atualizar records nos resultados calculados
+      const updatedResults = [...calculatedResults];
+      
+      for (let i = 0; i < updatedResults.length; i++) {
+        const result = updatedResults[i];
         const entry = result.entry;
         
         // Verificar records para cada movimento
@@ -577,9 +626,16 @@ const Results: React.FC = () => {
                 competitionType
               );
 
+              // Atualizar o resultado com as informações de record
+              updatedResults[i].records[movement] = {
+                isRecord: recordResult.isRecord,
+                divisions: recordResult.recordDivisions
+              };
+
               newRecordInfo.set(recordKey, {
                 isRecord: recordResult.isRecord,
-                recordDivisions: recordResult.recordDivisions
+                recordDivisions: recordResult.recordDivisions,
+                recordDetails: recordResult.recordDetails
               });
             } catch (error) {
               console.error(`❌ Erro ao verificar record para ${entry.name} - ${movement}:`, error);
@@ -589,6 +645,11 @@ const Results: React.FC = () => {
       }
       
       setRecordInfo(newRecordInfo);
+      
+      // Forçar re-render dos resultados com records atualizados
+      // Nota: Como não podemos modificar calculatedResults diretamente (é um useMemo),
+      // vamos usar um estado separado para os resultados com records
+      setResultsWithRecords(updatedResults);
     };
 
     if (calculatedResults.length > 0) {
@@ -1979,6 +2040,8 @@ const AttemptDisplay: React.FC<{
 
     // Função auxiliar para renderizar tentativas com status
   const renderAttemptWithStatus = (attempt: number | null, status: number | null | undefined, isRecord: boolean = false) => {
+    console.log('renderAttemptWithStatus called:', { attempt, status, isRecord });
+    
     if (!attempt) {
       return (
         <span className="attempt empty">
@@ -2005,6 +2068,8 @@ const AttemptDisplay: React.FC<{
       className += 'empty';
       statusText = '-';
     }
+
+    console.log('renderAttemptWithStatus result:', { className, statusText });
 
     return (
       <span className={className}>
@@ -2684,13 +2749,33 @@ const AttemptDisplay: React.FC<{
               <Col>
                 <Card>
                   <Card.Header>
-                    <h5 className="mb-0">
-                      <FaTrophy className="me-2 text-warning" />
-                      {category.category}
-                      <Badge bg="info" className="ms-2">
-                        {category.results.length} atletas
-                      </Badge>
-                    </h5>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">
+                        <FaTrophy className="me-2 text-warning" />
+                        {category.category}
+                        <Badge bg="info" className="ms-2">
+                          {category.results.length} atletas
+                        </Badge>
+                      </h5>
+                      <div className="d-flex gap-2">
+                        <small className="d-flex align-items-center">
+                          <span className="attempt-valid me-1" style={{width: '12px', height: '12px', borderRadius: '2px'}}></span>
+                          Válido
+                        </small>
+                        <small className="d-flex align-items-center">
+                          <span className="attempt-invalid me-1" style={{width: '12px', height: '12px', borderRadius: '2px'}}></span>
+                          Inválido
+                        </small>
+                        <small className="d-flex align-items-center">
+                          <span className="attempt-not-attempted me-1" style={{width: '12px', height: '12px', borderRadius: '2px'}}></span>
+                          Não Tentado
+                        </small>
+                        <small className="d-flex align-items-center">
+                          <span className="attempt-record me-1" style={{width: '12px', height: '12px', borderRadius: '2px'}}></span>
+                          Record
+                        </small>
+                      </div>
+                    </div>
                   </Card.Header>
                   <Card.Body className="p-0">
                                          <div className="overflow-auto">
@@ -2803,9 +2888,24 @@ const AttemptDisplay: React.FC<{
                                 {/* Agachamento */}
                                 {hasSquat && (
                                   <>
-                                    <td className="text-center">{result.entry.squat1 || '-'}</td>
-                                    <td className="text-center">{result.entry.squat2 || '-'}</td>
-                                    <td className="text-center">{result.entry.squat3 || '-'}</td>
+                                    <AttemptCell 
+                                      weight={result.entry.squat1} 
+                                      status={result.squatStatus[0]} 
+                                      isRecord={result.records.squat.isRecord}
+                                      isBestAttempt={result.entry.squat1 === result.squat}
+                                    />
+                                    <AttemptCell 
+                                      weight={result.entry.squat2} 
+                                      status={result.squatStatus[1]} 
+                                      isRecord={result.records.squat.isRecord}
+                                      isBestAttempt={result.entry.squat2 === result.squat}
+                                    />
+                                    <AttemptCell 
+                                      weight={result.entry.squat3} 
+                                      status={result.squatStatus[2]} 
+                                      isRecord={result.records.squat.isRecord}
+                                      isBestAttempt={result.entry.squat3 === result.squat}
+                                    />
                                     <td className="fw-bold text-success">{result.squat > 0 ? `${result.squat}kg` : '-'}</td>
                                     <td className="text-center">{result.positions.squat > 0 ? `${result.positions.squat}º` : '-'}</td>
                                   </>
@@ -2814,9 +2914,24 @@ const AttemptDisplay: React.FC<{
                                 {/* Supino */}
                                 {hasBench && (
                                   <>
-                                    <td className="text-center">{result.entry.bench1 || '-'}</td>
-                                    <td className="text-center">{result.entry.bench2 || '-'}</td>
-                                    <td className="text-center">{result.entry.bench3 || '-'}</td>
+                                    <AttemptCell 
+                                      weight={result.entry.bench1} 
+                                      status={result.benchStatus[0]} 
+                                      isRecord={result.records.bench.isRecord}
+                                      isBestAttempt={result.entry.bench1 === result.bench}
+                                    />
+                                    <AttemptCell 
+                                      weight={result.entry.bench2} 
+                                      status={result.benchStatus[1]} 
+                                      isRecord={result.records.bench.isRecord}
+                                      isBestAttempt={result.entry.bench2 === result.bench}
+                                    />
+                                    <AttemptCell 
+                                      weight={result.entry.bench3} 
+                                      status={result.benchStatus[2]} 
+                                      isRecord={result.records.bench.isRecord}
+                                      isBestAttempt={result.entry.bench3 === result.bench}
+                                    />
                                     <td className="fw-bold text-success">{result.bench > 0 ? `${result.bench}kg` : '-'}</td>
                                     <td className="text-center">{result.positions.bench > 0 ? `${result.positions.bench}º` : '-'}</td>
                                   </>
@@ -2825,9 +2940,24 @@ const AttemptDisplay: React.FC<{
                                 {/* Terra */}
                                 {hasDeadlift && (
                                   <>
-                                    <td className="text-center">{result.entry.deadlift1 || '-'}</td>
-                                    <td className="text-center">{result.entry.deadlift2 || '-'}</td>
-                                    <td className="text-center">{result.entry.deadlift3 || '-'}</td>
+                                    <AttemptCell 
+                                      weight={result.entry.deadlift1} 
+                                      status={result.deadliftStatus[0]} 
+                                      isRecord={result.records.deadlift.isRecord}
+                                      isBestAttempt={result.entry.deadlift1 === result.deadlift}
+                                    />
+                                    <AttemptCell 
+                                      weight={result.entry.deadlift2} 
+                                      status={result.deadliftStatus[1]} 
+                                      isRecord={result.records.deadlift.isRecord}
+                                      isBestAttempt={result.entry.deadlift2 === result.deadlift}
+                                    />
+                                    <AttemptCell 
+                                      weight={result.entry.deadlift3} 
+                                      status={result.deadliftStatus[2]} 
+                                      isRecord={result.records.deadlift.isRecord}
+                                      isBestAttempt={result.entry.deadlift3 === result.deadlift}
+                                    />
                                     <td className="fw-bold text-success">{result.deadlift > 0 ? `${result.deadlift}kg` : '-'}</td>
                                     <td className="text-center">{result.positions.deadlift > 0 ? `${result.positions.deadlift}º` : '-'}</td>
                                   </>
@@ -2921,6 +3051,29 @@ const AttemptDisplay: React.FC<{
         </Row>
       )}
     </Container>
+  );
+};
+
+// Componente auxiliar para renderizar tentativas com cores
+interface AttemptCellProps {
+  weight: number | null;
+  status: number;
+  isRecord: boolean;
+  isBestAttempt: boolean;
+}
+
+const AttemptCell: React.FC<AttemptCellProps> = ({ weight, status, isRecord, isBestAttempt }) => {
+  const className = getAttemptClass(weight, status, isRecord && isBestAttempt);
+  
+  return (
+    <td className={`text-center ${className}`}>
+      {weight || '-'}
+      {isRecord && isBestAttempt && (
+        <div className="record-division-info">
+          <small>RECORD</small>
+        </div>
+      )}
+    </td>
   );
 };
 

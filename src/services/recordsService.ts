@@ -375,6 +375,11 @@ export const recordsService = {
     isRecord: boolean;
     recordDivisions: string[];
     currentRecords: Record[];
+    recordDetails: Array<{
+      division: string;
+      currentRecord: number;
+      isNewRecord: boolean;
+    }>;
   }> {
     try {
       console.log('🔍 Verificando tentativa de record:', {
@@ -394,7 +399,8 @@ export const recordsService = {
         return {
           isRecord: false,
           recordDivisions: [],
-          currentRecords: []
+          currentRecords: [],
+          recordDetails: []
         };
       }
 
@@ -420,6 +426,11 @@ export const recordsService = {
 
       const recordDivisions: string[] = [];
       const currentRecords: Record[] = [];
+      const recordDetails: Array<{
+        division: string;
+        currentRecord: number;
+        isNewRecord: boolean;
+      }> = [];
 
       // Verificar cada divisão
       for (const division of uniqueDivisions) {
@@ -478,8 +489,18 @@ export const recordsService = {
           if (weight > bestRecord.weight) {
             recordDivisions.push(division);
             currentRecords.push(bestRecord);
+            recordDetails.push({
+              division,
+              currentRecord: bestRecord.weight,
+              isNewRecord: true
+            });
             console.log(`🏆 NOVO RECORD! ${division}: ${bestRecord.weight}kg → ${weight}kg`);
           } else {
+            recordDetails.push({
+              division,
+              currentRecord: bestRecord.weight,
+              isNewRecord: false
+            });
             console.log(`❌ Não é record. Record atual: ${bestRecord.weight}kg, Tentativa: ${weight}kg`);
           }
         } else {
@@ -492,7 +513,8 @@ export const recordsService = {
       const result = {
         isRecord: recordDivisions.length > 0,
         recordDivisions,
-        currentRecords
+        currentRecords,
+        recordDetails
       };
 
       console.log('✅ Resultado da verificação:', result);
@@ -503,7 +525,8 @@ export const recordsService = {
       return {
         isRecord: false,
         recordDivisions: [],
-        currentRecords: []
+        currentRecords: [],
+        recordDetails: []
       };
     }
   },
