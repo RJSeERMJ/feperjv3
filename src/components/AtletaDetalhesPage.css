@@ -1,0 +1,290 @@
+/* Estilos para a página de detalhes do atleta */
+.atleta-detalhes-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+/* Cabeçalho do atleta */
+.atleta-header {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  border-radius: 10px 10px 0 0 !important;
+  border: none;
+}
+
+.atleta-header h2 {
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Informações pessoais */
+.atleta-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row strong {
+  color: #495057;
+  font-weight: 600;
+}
+
+.info-row span {
+  color: #6c757d;
+  text-align: right;
+}
+
+/* Melhores resultados */
+.melhores-resultados {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resultado-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+  transition: all 0.3s ease;
+}
+
+.resultado-item:hover {
+  background-color: #e9ecef;
+  transform: translateX(4px);
+}
+
+.resultado-item.total {
+  background-color: #e3f2fd;
+  border-left-color: #1976d2;
+  font-weight: 600;
+}
+
+.resultado-item.total:hover {
+  background-color: #bbdefb;
+}
+
+.resultado-item .movimento {
+  font-weight: 500;
+  color: #495057;
+}
+
+.resultado-item .peso {
+  font-weight: 600;
+  color: #007bff;
+  font-size: 1.1rem;
+}
+
+.resultado-item.total .peso {
+  color: #1976d2;
+  font-size: 1.2rem;
+}
+
+/* Tabelas */
+.atleta-detalhes-page .table {
+  margin-bottom: 0;
+}
+
+.atleta-detalhes-page .table thead th {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  padding: 12px 8px;
+  font-size: 0.9rem;
+}
+
+.atleta-detalhes-page .table tbody td {
+  padding: 10px 8px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f3f4;
+  font-size: 0.9rem;
+}
+
+.atleta-detalhes-page .table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Cards */
+.atleta-detalhes-page .card {
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+
+.atleta-detalhes-page .card-header {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  border-radius: 10px 10px 0 0 !important;
+  border: none;
+  padding: 15px 20px;
+}
+
+.atleta-detalhes-page .card-header h5 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.atleta-detalhes-page .card-body {
+  padding: 20px;
+}
+
+/* Badges e medalhas */
+.atleta-detalhes-page .badge {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+}
+
+/* Botões */
+.atleta-detalhes-page .btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.atleta-detalhes-page .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Alerts */
+.atleta-detalhes-page .alert {
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .atleta-detalhes-page .container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  
+  .atleta-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .atleta-info .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .atleta-info .info-row span {
+    text-align: left;
+  }
+  
+  .resultado-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .resultado-item .peso {
+    font-size: 1rem;
+  }
+  
+  .atleta-detalhes-page .table-responsive {
+    font-size: 0.8rem;
+  }
+  
+  .atleta-detalhes-page .table thead th,
+  .atleta-detalhes-page .table tbody td {
+    padding: 6px 4px;
+  }
+}
+
+@media (max-width: 576px) {
+  .atleta-header {
+    text-align: center;
+  }
+  
+  .atleta-header .row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .atleta-detalhes-page .card-body {
+    padding: 15px;
+  }
+  
+  .melhores-resultados {
+    gap: 8px;
+  }
+  
+  .resultado-item {
+    padding: 10px 12px;
+  }
+}
+
+/* Animações */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.atleta-detalhes-page .card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.atleta-detalhes-page .card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.atleta-detalhes-page .card:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Estilos para ícones de medalha */
+.fa-medal {
+  font-size: 1.2rem;
+}
+
+.text-warning {
+  color: #ffc107 !important;
+}
+
+.text-secondary {
+  color: #6c757d !important;
+}
+
+/* Estilos para tabela de resultados */
+.atleta-detalhes-page .table tbody tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.atleta-detalhes-page .table tbody tr:nth-child(odd) {
+  background-color: white;
+}
+
+.atleta-detalhes-page .table tbody tr:hover {
+  background-color: #e3f2fd !important;
+}
+
+/* Estilos para o spinner de loading */
+.atleta-detalhes-page .spinner-border {
+  width: 3rem;
+  height: 3rem;
+}

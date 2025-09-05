@@ -1,0 +1,201 @@
+/* Estilos para a página pública */
+.public-page {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.public-navbar {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 0;
+}
+
+.public-navbar .navbar-brand {
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.public-navbar .nav-link {
+  color: rgba(255, 255, 255, 0.9) !important;
+  transition: color 0.3s ease;
+}
+
+.public-navbar .nav-link:hover {
+  color: white !important;
+}
+
+/* Estilos para as tabs */
+.public-tabs .nav-link {
+  color: #495057;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 12px 20px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.public-tabs .nav-link:hover {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background-color: transparent;
+}
+
+.public-tabs .nav-link.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background-color: transparent;
+  font-weight: 600;
+}
+
+/* Estilos para os cards */
+.public-page .card {
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+
+.public-page .card-header {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  border-radius: 10px 10px 0 0 !important;
+  border: none;
+}
+
+.public-page .card-header h4 {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Estilos para as tabelas */
+.public-page .table {
+  margin-bottom: 0;
+}
+
+.public-page .table thead th {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  color: #495057;
+  padding: 15px 12px;
+}
+
+.public-page .table tbody td {
+  padding: 12px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.public-page .table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Estilos para badges */
+.badge.bg-pink {
+  background-color: #e91e63 !important;
+  color: white;
+}
+
+/* Estilos para botões */
+.public-page .btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.public-page .btn-outline-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,123,255,0.3);
+}
+
+/* Estilos para alerts */
+.public-page .alert {
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .public-navbar .navbar-brand {
+    font-size: 1.1rem;
+  }
+  
+  .public-tabs .nav-link {
+    padding: 10px 15px;
+    font-size: 0.9rem;
+  }
+  
+  .public-page .table-responsive {
+    font-size: 0.9rem;
+  }
+  
+  .public-page .table thead th,
+  .public-page .table tbody td {
+    padding: 8px 6px;
+  }
+}
+
+@media (max-width: 576px) {
+  .public-page .container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  
+  .public-tabs .nav-link {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+  
+  .public-page .card-header h4 {
+    font-size: 1.1rem;
+  }
+  
+  .public-page .table thead th,
+  .public-page .table tbody td {
+    padding: 6px 4px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.public-page .card {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Estilos para o spinner de loading */
+.public-page .spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* Estilos para links de navegação */
+.public-navbar .nav-link {
+  cursor: pointer;
+}
+
+.public-navbar .nav-link:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Estilos para link do atleta */
+.atleta-link {
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.atleta-link:hover {
+  color: #0056b3 !important;
+  text-decoration: underline;
+  transform: translateY(-1px);
+}

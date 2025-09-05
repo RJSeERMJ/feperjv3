@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Card, Form, Button, Alert, Spinner, Image } from 'react-bootstrap';
-import { FaSignInAlt } from 'react-icons/fa';
+import { FaSignInAlt, FaUsers } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import './Login.css';
@@ -140,7 +140,17 @@ const Login: React.FC = () => {
             </Form>
 
             <div className="text-center mt-4">
-             
+              <hr className="my-3" />
+              <p className="text-muted mb-2">Acesso público:</p>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => navigate('/publico')}
+                className="w-100"
+              >
+                <FaUsers className="me-2" />
+                Ver Atletas e Prestação de Contas
+              </Button>
             </div>
           </Card.Body>
         </Card>

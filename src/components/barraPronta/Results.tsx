@@ -893,46 +893,40 @@ const Results: React.FC = () => {
             fillColor: [245, 245, 245]
           },
           didDrawCell: (data: any) => {
-            // Aplicar cores apenas nas colunas de tentativas
+            // Aplicar cores apenas nas células de dados (não cabeçalhos) das colunas de tentativas
             const { row, column, cell } = data;
+            
+            // Só aplicar cores se for uma linha de dados (não cabeçalho)
+            if (row.index === -1) return;
+            
+            // Verificar se a linha existe nos resultados
+            if (row.index >= category.results.length) return;
+            
             const { hasSquat, hasBench, hasDeadlift } = getAthleteMovements(category.results[0]?.entry.movements || '');
             
-            // Determinar se é uma coluna de tentativa
+            // Determinar se é uma coluna de tentativa baseado no nome do cabeçalho
+            const headerName = headers1[column.index];
             let isAttemptColumn = false;
             let attemptIndex = -1;
             let movementType = '';
             
-            // Calcular índice da coluna baseado nos movimentos
-            let currentColIndex = 6; // Após POS, Atleta, UF, Equipe, Nascimento, Peso
-            
-            if (hasSquat) {
-              if (column.index >= currentColIndex && column.index < currentColIndex + 3) {
-                isAttemptColumn = true;
-                attemptIndex = column.index - currentColIndex;
-                movementType = 'squat';
-              }
-              currentColIndex += 5; // A1, A2, A3, Melhor, Pos
+            // Verificar se é coluna de tentativa pelo nome do cabeçalho
+            if (hasSquat && (headerName === 'A1' || headerName === 'A2' || headerName === 'A3')) {
+              isAttemptColumn = true;
+              attemptIndex = headerName === 'A1' ? 0 : headerName === 'A2' ? 1 : 2;
+              movementType = 'squat';
+            } else if (hasBench && (headerName === 'S1' || headerName === 'S2' || headerName === 'S3')) {
+              isAttemptColumn = true;
+              attemptIndex = headerName === 'S1' ? 0 : headerName === 'S2' ? 1 : 2;
+              movementType = 'bench';
+            } else if (hasDeadlift && (headerName === 'T1' || headerName === 'T2' || headerName === 'T3')) {
+              isAttemptColumn = true;
+              attemptIndex = headerName === 'T1' ? 0 : headerName === 'T2' ? 1 : 2;
+              movementType = 'deadlift';
             }
             
-            if (hasBench && !isAttemptColumn) {
-              if (column.index >= currentColIndex && column.index < currentColIndex + 3) {
-                isAttemptColumn = true;
-                attemptIndex = column.index - currentColIndex;
-                movementType = 'bench';
-              }
-              currentColIndex += 5; // S1, S2, S3, Melhor, Pos
-            }
-            
-            if (hasDeadlift && !isAttemptColumn) {
-              if (column.index >= currentColIndex && column.index < currentColIndex + 3) {
-                isAttemptColumn = true;
-                attemptIndex = column.index - currentColIndex;
-                movementType = 'deadlift';
-              }
-            }
-            
-            // Aplicar cor se for coluna de tentativa
-            if (isAttemptColumn && row.index < category.results.length) {
+            // Aplicar cor APENAS se for coluna de tentativa E for uma célula de dados
+            if (isAttemptColumn) {
               const result = category.results[row.index];
               let attemptWeight: number | null = null;
               let attemptStatus = 0;

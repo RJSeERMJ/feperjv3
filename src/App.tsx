@@ -7,6 +7,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
+import PublicPage from './components/PublicPage';
+import AtletaDetalhesPage from './components/AtletaDetalhesPage';
 import Dashboard from './components/Dashboard';
 import AtletasPage from './pages/AtletasPage';
 import EquipesPage from './pages/EquipesPage';
@@ -65,6 +67,8 @@ const App: React.FC = () => {
       <Router>
         <div className="App">
           <Routes>
+            <Route path="/publico" element={<PublicPage />} />
+            <Route path="/atleta/:id" element={<AtletaDetalhesPage />} />
             <Route path="/login" element={<Login />} />
             
             <Route path="/" element={
