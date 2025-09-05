@@ -891,6 +891,81 @@ const Results: React.FC = () => {
           },
           alternateRowStyles: {
             fillColor: [245, 245, 245]
+          },
+          didDrawCell: (data: any) => {
+            // Aplicar cores apenas nas colunas de tentativas
+            const { row, column, cell } = data;
+            const { hasSquat, hasBench, hasDeadlift } = getAthleteMovements(category.results[0]?.entry.movements || '');
+            
+            // Determinar se é uma coluna de tentativa
+            let isAttemptColumn = false;
+            let attemptIndex = -1;
+            let movementType = '';
+            
+            // Calcular índice da coluna baseado nos movimentos
+            let currentColIndex = 6; // Após POS, Atleta, UF, Equipe, Nascimento, Peso
+            
+            if (hasSquat) {
+              if (column.index >= currentColIndex && column.index < currentColIndex + 3) {
+                isAttemptColumn = true;
+                attemptIndex = column.index - currentColIndex;
+                movementType = 'squat';
+              }
+              currentColIndex += 5; // A1, A2, A3, Melhor, Pos
+            }
+            
+            if (hasBench && !isAttemptColumn) {
+              if (column.index >= currentColIndex && column.index < currentColIndex + 3) {
+                isAttemptColumn = true;
+                attemptIndex = column.index - currentColIndex;
+                movementType = 'bench';
+              }
+              currentColIndex += 5; // S1, S2, S3, Melhor, Pos
+            }
+            
+            if (hasDeadlift && !isAttemptColumn) {
+              if (column.index >= currentColIndex && column.index < currentColIndex + 3) {
+                isAttemptColumn = true;
+                attemptIndex = column.index - currentColIndex;
+                movementType = 'deadlift';
+              }
+            }
+            
+            // Aplicar cor se for coluna de tentativa
+            if (isAttemptColumn && row.index < category.results.length) {
+              const result = category.results[row.index];
+              let attemptWeight: number | null = null;
+              let attemptStatus = 0;
+              let isRecord = false;
+              
+              if (movementType === 'squat') {
+                attemptWeight = result.squatAttempts[attemptIndex];
+                attemptStatus = result.squatStatus[attemptIndex] || 0;
+                isRecord = result.records.squat.isRecord && attemptWeight === result.squat;
+              } else if (movementType === 'bench') {
+                attemptWeight = result.benchAttempts[attemptIndex];
+                attemptStatus = result.benchStatus[attemptIndex] || 0;
+                isRecord = result.records.bench.isRecord && attemptWeight === result.bench;
+              } else if (movementType === 'deadlift') {
+                attemptWeight = result.deadliftAttempts[attemptIndex];
+                attemptStatus = result.deadliftStatus[attemptIndex] || 0;
+                isRecord = result.records.deadlift.isRecord && attemptWeight === result.deadlift;
+              }
+              
+              const color = getAttemptCellColor(attemptWeight, attemptStatus, isRecord);
+              doc.setFillColor(color[0], color[1], color[2]);
+              doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+              
+              // Redesenhar o texto
+              doc.setTextColor(255, 255, 255);
+              doc.setFontSize(6);
+              doc.setFont('helvetica', 'bold');
+              const text = cell.text[0] || '-';
+              const textWidth = doc.getTextWidth(text);
+              const textX = cell.x + (cell.width - textWidth) / 2;
+              const textY = cell.y + cell.height / 2 + 2;
+              doc.text(text, textX, textY);
+            }
           }
         });
         
@@ -1234,6 +1309,35 @@ const Results: React.FC = () => {
     return headers;
   };
 
+  // Função para obter cor da célula baseada no status da tentativa
+  const getAttemptCellColor = (
+    attemptWeight: number | null, 
+    attemptStatus: number, 
+    isRecord: boolean = false
+  ): number[] => {
+    // Se não há peso, é não tentado
+    if (!attemptWeight || attemptWeight === 0) {
+      return [220, 220, 220]; // Cinza claro (RGB)
+    }
+
+    // Se é record válido, usar cor verde oliva
+    if (isRecord && attemptStatus === 1) {
+      return [38, 155, 12]; // Verde oliva (RGB)
+    }
+
+    // Baseado no status da tentativa
+    switch (attemptStatus) {
+      case 1: // Good Lift
+        return [65, 218, 101]; // Verde claro (RGB)
+      case 2: // No Lift
+        return [220, 53, 69]; // Vermelho (RGB)
+      case 3: // No Attempt
+        return [220, 220, 220]; // Cinza claro (RGB)
+      default: // 0 ou qualquer outro valor
+        return [220, 220, 220]; // Cinza claro (RGB)
+    }
+  };
+
   // Função para gerar dados dinâmicos baseados nos movimentos
   const getDynamicRowData = (result: CalculatedResult, index: number) => {
     const { hasSquat, hasBench, hasDeadlift } = getAthleteMovements(result.entry.movements || '');
@@ -1277,6 +1381,71 @@ const Results: React.FC = () => {
     
     rowData.push(result.total, result.points.toFixed(2));
     return rowData;
+  };
+
+  // Função para gerar estilos de células baseados nos movimentos e status
+  const getDynamicCellStyles = (result: CalculatedResult, headers: string[]) => {
+    const { hasSquat, hasBench, hasDeadlift } = getAthleteMovements(result.entry.movements || '');
+    const cellStyles: { [key: string]: any } = {};
+    
+    let currentColIndex = 6; // Começar após POS, Atleta, UF, Equipe, Nascimento, Peso
+    
+    // Estilos para tentativas de Squat
+    if (hasSquat) {
+      const squatAttempts = ['A1', 'A2', 'A3'];
+      squatAttempts.forEach((attempt, attemptIndex) => {
+        const attemptWeight = result.squatAttempts[attemptIndex];
+        const attemptStatus = result.squatStatus[attemptIndex] || 0;
+        const isRecord = result.records.squat.isRecord && attemptWeight === result.squat;
+        
+        cellStyles[currentColIndex] = {
+          fillColor: getAttemptCellColor(attemptWeight, attemptStatus, isRecord),
+          textColor: [255, 255, 255], // Texto branco
+          fontStyle: 'bold'
+        };
+        currentColIndex++;
+      });
+      // Pular colunas "Melhor" e "Pos" do squat
+      currentColIndex += 2;
+    }
+    
+    // Estilos para tentativas de Bench
+    if (hasBench) {
+      const benchAttempts = ['S1', 'S2', 'S3'];
+      benchAttempts.forEach((attempt, attemptIndex) => {
+        const attemptWeight = result.benchAttempts[attemptIndex];
+        const attemptStatus = result.benchStatus[attemptIndex] || 0;
+        const isRecord = result.records.bench.isRecord && attemptWeight === result.bench;
+        
+        cellStyles[currentColIndex] = {
+          fillColor: getAttemptCellColor(attemptWeight, attemptStatus, isRecord),
+          textColor: [255, 255, 255], // Texto branco
+          fontStyle: 'bold'
+        };
+        currentColIndex++;
+      });
+      // Pular colunas "Melhor" e "Pos" do bench
+      currentColIndex += 2;
+    }
+    
+    // Estilos para tentativas de Deadlift
+    if (hasDeadlift) {
+      const deadliftAttempts = ['T1', 'T2', 'T3'];
+      deadliftAttempts.forEach((attempt, attemptIndex) => {
+        const attemptWeight = result.deadliftAttempts[attemptIndex];
+        const attemptStatus = result.deadliftStatus[attemptIndex] || 0;
+        const isRecord = result.records.deadlift.isRecord && attemptWeight === result.deadlift;
+        
+        cellStyles[currentColIndex] = {
+          fillColor: getAttemptCellColor(attemptWeight, attemptStatus, isRecord),
+          textColor: [255, 255, 255], // Texto branco
+          fontStyle: 'bold'
+        };
+        currentColIndex++;
+      });
+    }
+    
+    return cellStyles;
   };
 
   // Função para calcular pontos de equipe baseado na posição
