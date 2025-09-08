@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Nav, Navbar, Tab, Tabs, Row, Col, Card, Table, Button, Spinner, Alert } from 'react-bootstrap';
-import { FaUsers, FaFileDownload, FaSignInAlt, FaHome } from 'react-icons/fa';
+import { Container, Nav, Navbar, Tab, Tabs, Row, Col, Card, Table, Button, Spinner, Alert, Modal, Badge } from 'react-bootstrap';
+import { FaUsers, FaFileDownload, FaSignInAlt, FaHome, FaTrophy, FaTimes } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { atletaService } from '../services/firebaseService';
 import { documentosContabeisService, DocumentoContabil } from '../services/documentosContabeisService';
+import { nominacaoService, NominacaoData } from '../services/nominacaoService';
 import { Atleta } from '../types';
 import './PublicPage.css';
 
@@ -11,8 +12,11 @@ const PublicPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('atletas');
   const [atletas, setAtletas] = useState<Atleta[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoContabil[]>([]);
+  const [nominacoes, setNominacoes] = useState<NominacaoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showNominacaoModal, setShowNominacaoModal] = useState(false);
+  const [nominacaoSelecionada, setNominacaoSelecionada] = useState<NominacaoData | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,15 +28,17 @@ const PublicPage: React.FC = () => {
       setLoading(true);
       setError('');
 
-      // Carregar atletas e documentos em paralelo
-      const [atletasData, documentosData] = await Promise.all([
+      // Carregar atletas, documentos e nominações em paralelo
+      const [atletasData, documentosData, nominacoesData] = await Promise.all([
         atletaService.getAll(),
-        documentosContabeisService.listarDocumentos()
+        documentosContabeisService.listarDocumentos(),
+        nominacaoService.getAllNominacoes()
       ]);
 
       // Mostrar TODOS os atletas cadastrados no sistema
       setAtletas(atletasData);
       setDocumentos(documentosData);
+      setNominacoes(nominacoesData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       setError('Erro ao carregar dados. Tente novamente mais tarde.');
@@ -61,6 +67,33 @@ const PublicPage: React.FC = () => {
 
   const formatarSexo = (sexo: 'M' | 'F') => {
     return sexo === 'M' ? 'Masculino' : 'Feminino';
+  };
+
+  const formatarData = (data: Date) => {
+    return new Date(data).toLocaleDateString('pt-BR');
+  };
+
+  const formatarStatusCompeticao = (status: string) => {
+    switch (status) {
+      case 'AGENDADA':
+        return { text: 'Agendada', variant: 'primary' };
+      case 'REALIZADA':
+        return { text: 'Realizada', variant: 'success' };
+      case 'CANCELADA':
+        return { text: 'Cancelada', variant: 'danger' };
+      default:
+        return { text: status, variant: 'secondary' };
+    }
+  };
+
+  const handleVerCompeticao = (nominacao: NominacaoData) => {
+    setNominacaoSelecionada(nominacao);
+    setShowNominacaoModal(true);
+  };
+
+  const handleFecharModal = () => {
+    setShowNominacaoModal(false);
+    setNominacaoSelecionada(null);
   };
 
   if (loading) {
@@ -281,8 +314,207 @@ const PublicPage: React.FC = () => {
               </Card.Body>
             </Card>
           </Tab>
+
+          <Tab eventKey="nominacao" title={
+            <span>
+              <FaTrophy className="me-2" />
+              Nominação
+            </span>
+          }>
+            <Card>
+              <Card.Header>
+                <h4 className="mb-0">
+                  <FaTrophy className="me-2" />
+                  Competições Agendadas e Nominações
+                </h4>
+                <small className="text-muted">
+                  Clique em uma competição para ver detalhes e atletas organizados por categoria de peso
+                </small>
+              </Card.Header>
+              <Card.Body>
+                {nominacoes.length === 0 ? (
+                  <Alert variant="info">
+                    Nenhuma competição agendada encontrada no momento.
+                  </Alert>
+                ) : (
+                  <div className="table-responsive">
+                    <Table striped hover>
+                      <thead>
+                        <tr>
+                          <th>Competição</th>
+                          <th>Data</th>
+                          <th>Local</th>
+                          <th>Status</th>
+                          <th>Modalidade</th>
+                          <th>Inscritos</th>
+                          <th>Aprovados</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {nominacoes.map((nominacao) => {
+                          const statusInfo = formatarStatusCompeticao(nominacao.competicao.status);
+                          
+                          return (
+                            <tr 
+                              key={nominacao.competicao.id}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => handleVerCompeticao(nominacao)}
+                              className="table-row-hover"
+                            >
+                              <td>
+                                <strong style={{ color: '#007bff' }}>
+                                  {nominacao.competicao.nomeCompeticao}
+                                </strong>
+                              </td>
+                              <td>{formatarData(nominacao.competicao.dataCompeticao)}</td>
+                              <td>{nominacao.competicao.local || 'N/A'}</td>
+                              <td>
+                                <Badge bg={statusInfo.variant}>
+                                  {statusInfo.text}
+                                </Badge>
+                              </td>
+                              <td>{nominacao.competicao.modalidade || 'N/A'}</td>
+                              <td>
+                                <Badge bg="info">
+                                  {nominacao.totalInscritos}
+                                </Badge>
+                              </td>
+                              <td>
+                                <Badge bg="success">
+                                  {nominacao.totalAprovados}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </Table>
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
         </Tabs>
       </Container>
+
+      {/* Modal de Detalhes da Competição */}
+      <Modal show={showNominacaoModal} onHide={handleFecharModal} size="xl">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaTrophy className="me-2" />
+            {nominacaoSelecionada?.competicao.nomeCompeticao}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {nominacaoSelecionada && (
+            <div>
+              {/* Informações da Competição */}
+              <Card className="mb-4">
+                <Card.Header>
+                  <h5 className="mb-0">Informações da Competição</h5>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col md={6}>
+                      <p><strong>Data:</strong> {formatarData(nominacaoSelecionada.competicao.dataCompeticao)}</p>
+                      <p><strong>Local:</strong> {nominacaoSelecionada.competicao.local || 'N/A'}</p>
+                      <p><strong>Modalidade:</strong> {nominacaoSelecionada.competicao.modalidade || 'N/A'}</p>
+                    </Col>
+                    <Col md={6}>
+                      <p><strong>Status:</strong> 
+                        <Badge bg={formatarStatusCompeticao(nominacaoSelecionada.competicao.status).variant} className="ms-2">
+                          {formatarStatusCompeticao(nominacaoSelecionada.competicao.status).text}
+                        </Badge>
+                      </p>
+                      <p><strong>Total de Inscritos:</strong> {nominacaoSelecionada.totalInscritos}</p>
+                      <p><strong>Total Aprovados:</strong> {nominacaoSelecionada.totalAprovados}</p>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+
+              {/* Lista de Atletas por Categoria de Peso */}
+              <Card>
+                <Card.Header>
+                  <h5 className="mb-0">
+                    Atletas Nominados por Categoria de Peso ({nominacaoSelecionada.totalAprovados})
+                  </h5>
+                </Card.Header>
+                <Card.Body>
+                  {nominacaoSelecionada.atletasPorCategoria.length === 0 ? (
+                    <Alert variant="info">
+                      Nenhum atleta inscrito para esta competição ainda.
+                    </Alert>
+                  ) : (
+                    <div>
+                      {nominacaoSelecionada.atletasPorCategoria.map((categoria, index) => (
+                        <div key={index} className="mb-4">
+                          <h6 className="text-primary mb-3">
+                            <Badge bg="primary" className="me-2">
+                              {categoria.categoriaPeso}
+                            </Badge>
+                            ({categoria.atletas.length} atletas)
+                          </h6>
+                          <div className="table-responsive">
+                            <Table striped hover size="sm">
+                              <thead>
+                                <tr>
+                                  <th>Nome</th>
+                                  <th>Equipe</th>
+                                  <th>Categoria Idade</th>
+                                  <th>Modalidade</th>
+                                  <th>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {categoria.atletas.map((inscricao) => (
+                                  <tr key={inscricao.id}>
+                                    <td>
+                                      <strong>{inscricao.atleta?.nome || 'N/A'}</strong>
+                                    </td>
+                                    <td>{inscricao.atleta?.equipe?.nomeEquipe || 'N/A'}</td>
+                                    <td>
+                                      <Badge bg="info">
+                                        {inscricao.categoriaIdade?.nome || 'N/A'}
+                                      </Badge>
+                                    </td>
+                                    <td>
+                                      <Badge bg="success">
+                                        {inscricao.modalidade || 'N/A'}
+                                      </Badge>
+                                    </td>
+                                    <td>
+                                      <Badge bg={
+                                        inscricao.statusInscricao === 'INSCRITO' 
+                                          ? 'success' 
+                                          : inscricao.statusInscricao === 'CANCELADO' 
+                                          ? 'danger' 
+                                          : 'secondary'
+                                      }>
+                                        {inscricao.statusInscricao || 'N/A'}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </Table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card.Body>
+              </Card>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleFecharModal}>
+            <FaTimes className="me-1" />
+            Fechar
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
