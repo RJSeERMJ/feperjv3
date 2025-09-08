@@ -9,6 +9,14 @@ import { resultadoImportadoService, ResultadoImportado } from '../services/resul
 import { Atleta } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { 
+  calculateBestLifterResults,
+  getAgeDivisionDisplayName,
+  getEquipmentDisplayNameForBestLifter,
+  getEventTypeDisplayName,
+  type BestLifterCategory,
+  type BestLifterResult
+} from '../logic/ipfGLPoints';
 import './PublicPage.css';
 
 const PublicPage: React.FC = () => {
@@ -173,19 +181,21 @@ const PublicPage: React.FC = () => {
           doc.text(category.category, 14, yPosition);
           yPosition += 10;
           
-          // Tabela de resultados da categoria
+          // Tabela de resultados da categoria com tentativas individuais
           const tableData = category.results.map((result: any, pos: number) => {
-            const bestSquat = Math.max(result.entry.squat1 || 0, result.entry.squat2 || 0, result.entry.squat3 || 0);
-            const bestBench = Math.max(result.entry.bench1 || 0, result.entry.bench2 || 0, result.entry.bench3 || 0);
-            const bestDeadlift = Math.max(result.entry.deadlift1 || 0, result.entry.deadlift2 || 0, result.entry.deadlift3 || 0);
-            
             return [
               pos + 1,
               result.entry.name,
               result.entry.team || '-',
-              bestSquat > 0 ? `${bestSquat} kg` : '-',
-              bestBench > 0 ? `${bestBench} kg` : '-',
-              bestDeadlift > 0 ? `${bestDeadlift} kg` : '-',
+              result.entry.squat1 || '-',
+              result.entry.squat2 || '-',
+              result.entry.squat3 || '-',
+              result.entry.bench1 || '-',
+              result.entry.bench2 || '-',
+              result.entry.bench3 || '-',
+              result.entry.deadlift1 || '-',
+              result.entry.deadlift2 || '-',
+              result.entry.deadlift3 || '-',
               result.total,
               result.points.toFixed(2)
             ];
@@ -193,11 +203,27 @@ const PublicPage: React.FC = () => {
           
           autoTable(doc, {
             startY: yPosition,
-            head: [['Pos', 'Atleta', 'Equipe', 'Agachamento', 'Supino', 'Terra', 'Total (kg)', 'Pontos IPF GL']],
+            head: [['Pos', 'Atleta', 'Equipe', 'A1', 'A2', 'A3', 'S1', 'S2', 'S3', 'T1', 'T2', 'T3', 'Total (kg)', 'Pontos IPF GL']],
             body: tableData,
             theme: 'grid',
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [66, 139, 202] }
+            styles: { fontSize: 7 },
+            headStyles: { fillColor: [66, 139, 202] },
+            columnStyles: {
+              0: { cellWidth: 15 }, // Pos
+              1: { cellWidth: 40 }, // Atleta
+              2: { cellWidth: 30 }, // Equipe
+              3: { cellWidth: 15 }, // A1
+              4: { cellWidth: 15 }, // A2
+              5: { cellWidth: 15 }, // A3
+              6: { cellWidth: 15 }, // S1
+              7: { cellWidth: 15 }, // S2
+              8: { cellWidth: 15 }, // S3
+              9: { cellWidth: 15 }, // T1
+              10: { cellWidth: 15 }, // T2
+              11: { cellWidth: 15 }, // T3
+              12: { cellWidth: 20 }, // Total
+              13: { cellWidth: 20 }  // Pontos
+            }
           });
           
           yPosition = (doc as any).lastAutoTable.finalY + 15;
@@ -938,14 +964,25 @@ const PublicPage: React.FC = () => {
                               <Table striped hover size="sm">
                                 <thead>
                                   <tr>
-                                    <th>Pos</th>
-                                    <th>Atleta</th>
-                                    <th>Equipe</th>
-                                    <th>Agachamento</th>
-                                    <th>Supino</th>
-                                    <th>Terra</th>
-                                    <th>Total (kg)</th>
-                                    <th>Pontos IPF GL</th>
+                                    <th rowSpan={2}>Pos</th>
+                                    <th rowSpan={2}>Atleta</th>
+                                    <th rowSpan={2}>Equipe</th>
+                                    <th colSpan={3}>Agachamento</th>
+                                    <th colSpan={3}>Supino</th>
+                                    <th colSpan={3}>Terra</th>
+                                    <th rowSpan={2}>Total (kg)</th>
+                                    <th rowSpan={2}>Pontos IPF GL</th>
+                                  </tr>
+                                  <tr>
+                                    <th>A1</th>
+                                    <th>A2</th>
+                                    <th>A3</th>
+                                    <th>S1</th>
+                                    <th>S2</th>
+                                    <th>S3</th>
+                                    <th>T1</th>
+                                    <th>T2</th>
+                                    <th>T3</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -955,16 +992,18 @@ const PublicPage: React.FC = () => {
                                     const bestBench = Math.max(result.entry.bench1 || 0, result.entry.bench2 || 0, result.entry.bench3 || 0);
                                     const bestDeadlift = Math.max(result.entry.deadlift1 || 0, result.entry.deadlift2 || 0, result.entry.deadlift3 || 0);
                                     
-                                    // Verificar se é a melhor tentativa da categoria
-                                    const isBestSquat = bestSquat > 0 && category.results.every((r: any) => 
-                                      Math.max(r.entry.squat1 || 0, r.entry.squat2 || 0, r.entry.squat3 || 0) <= bestSquat
-                                    );
-                                    const isBestBench = bestBench > 0 && category.results.every((r: any) => 
-                                      Math.max(r.entry.bench1 || 0, r.entry.bench2 || 0, r.entry.bench3 || 0) <= bestBench
-                                    );
-                                    const isBestDeadlift = bestDeadlift > 0 && category.results.every((r: any) => 
-                                      Math.max(r.entry.deadlift1 || 0, r.entry.deadlift2 || 0, r.entry.deadlift3 || 0) <= bestDeadlift
-                                    );
+                                    // Função para renderizar tentativa individual
+                                    const renderAttempt = (attempt: number, isBest: boolean) => {
+                                      if (attempt > 0) {
+                                        return (
+                                          <span className={isBest ? 'text-success fw-bold' : ''}>
+                                            {attempt}
+                                            {isBest && <FaMedal className="ms-1 text-warning" />}
+                                          </span>
+                                        );
+                                      }
+                                      return <span className="text-muted">-</span>;
+                                    };
 
                                     return (
                                       <tr key={pos}>
@@ -977,36 +1016,18 @@ const PublicPage: React.FC = () => {
                                           <strong>{result.entry.name}</strong>
                                         </td>
                                         <td>{result.entry.team || '-'}</td>
-                                        <td>
-                                          {bestSquat > 0 ? (
-                                            <span className={isBestSquat ? 'text-success fw-bold' : ''}>
-                                              {bestSquat} kg
-                                              {isBestSquat && <FaMedal className="ms-1 text-warning" />}
-                                            </span>
-                                          ) : (
-                                            <span className="text-muted">-</span>
-                                          )}
-                                        </td>
-                                        <td>
-                                          {bestBench > 0 ? (
-                                            <span className={isBestBench ? 'text-success fw-bold' : ''}>
-                                              {bestBench} kg
-                                              {isBestBench && <FaMedal className="ms-1 text-warning" />}
-                                            </span>
-                                          ) : (
-                                            <span className="text-muted">-</span>
-                                          )}
-                                        </td>
-                                        <td>
-                                          {bestDeadlift > 0 ? (
-                                            <span className={isBestDeadlift ? 'text-success fw-bold' : ''}>
-                                              {bestDeadlift} kg
-                                              {isBestDeadlift && <FaMedal className="ms-1 text-warning" />}
-                                            </span>
-                                          ) : (
-                                            <span className="text-muted">-</span>
-                                          )}
-                                        </td>
+                                        {/* Tentativas de Agachamento */}
+                                        <td>{renderAttempt(result.entry.squat1 || 0, result.entry.squat1 === bestSquat && bestSquat > 0)}</td>
+                                        <td>{renderAttempt(result.entry.squat2 || 0, result.entry.squat2 === bestSquat && bestSquat > 0)}</td>
+                                        <td>{renderAttempt(result.entry.squat3 || 0, result.entry.squat3 === bestSquat && bestSquat > 0)}</td>
+                                        {/* Tentativas de Supino */}
+                                        <td>{renderAttempt(result.entry.bench1 || 0, result.entry.bench1 === bestBench && bestBench > 0)}</td>
+                                        <td>{renderAttempt(result.entry.bench2 || 0, result.entry.bench2 === bestBench && bestBench > 0)}</td>
+                                        <td>{renderAttempt(result.entry.bench3 || 0, result.entry.bench3 === bestBench && bestBench > 0)}</td>
+                                        {/* Tentativas de Terra */}
+                                        <td>{renderAttempt(result.entry.deadlift1 || 0, result.entry.deadlift1 === bestDeadlift && bestDeadlift > 0)}</td>
+                                        <td>{renderAttempt(result.entry.deadlift2 || 0, result.entry.deadlift2 === bestDeadlift && bestDeadlift > 0)}</td>
+                                        <td>{renderAttempt(result.entry.deadlift3 || 0, result.entry.deadlift3 === bestDeadlift && bestDeadlift > 0)}</td>
                                         <td>
                                           <strong>{result.total} kg</strong>
                                         </td>
@@ -1139,41 +1160,44 @@ const PublicPage: React.FC = () => {
 
 
               {activeResultadoTab === 'estatisticas' && (
-                <div className="mt-3">
-                  <Row>
-                    <Col md={6}>
-                      <Card>
-                        <Card.Header>
-                          <h6 className="mb-0">Estatísticas Gerais</h6>
-                        </Card.Header>
-                        <Card.Body>
-                          <p><strong>Total de Atletas:</strong> {resultadoSelecionado.totalAthletes}</p>
-                          <p><strong>Data da Competição:</strong> {formatarData(resultadoSelecionado.competitionDate)}</p>
-                          <p><strong>Local:</strong> {resultadoSelecionado.competitionCity}, {resultadoSelecionado.competitionCountry}</p>
-                          <p><strong>Status:</strong> 
-                            <Badge bg={resultadoSelecionado.status === 'COMPLETO' ? 'success' : 'warning'} className="ms-2">
-                              {resultadoSelecionado.status}
-                            </Badge>
-                          </p>
-                        </Card.Body>
-                      </Card>
-                    </Col>
-                    <Col md={6}>
-                      <Card>
-                        <Card.Header>
-                          <h6 className="mb-0">Informações de Importação</h6>
-                        </Card.Header>
-                        <Card.Body>
-                          <p><strong>Data de Importação:</strong> {formatarData(resultadoSelecionado.importDate)}</p>
-                          <p><strong>Fonte:</strong> Sistema Barra Pronta</p>
-                          <p><strong>Dados:</strong> 
-                            {resultadoSelecionado.results?.complete ? 'Completos' : 'Parciais'}
-                          </p>
-                        </Card.Body>
-                      </Card>
-                    </Col>
-                  </Row>
-                </div>
+                <>
+                  {/* Estatísticas Gerais */}
+                  <Card className="mb-4">
+                    <Card.Header className="bg-info text-white">
+                      <h5 className="mb-0">
+                        <FaChartBar className="me-2" />
+                        Estatísticas da Competição
+                      </h5>
+                    </Card.Header>
+                    <Card.Body>
+                      <Row>
+                        <Col md={6}>
+                          <h6>Resumo Geral</h6>
+                          <ul>
+                            <li><strong>Total de Atletas:</strong> {resultadoSelecionado.totalAthletes}</li>
+                            <li><strong>Categorias:</strong> {resultadoSelecionado.results?.complete?.length || 0}</li>
+                            <li><strong>Modalidades:</strong> Clássica e Equipado</li>
+                            <li><strong>Movimentos:</strong> AST, S, T</li>
+                          </ul>
+                        </Col>
+                        <Col md={6}>
+                          <h6>Distribuição por Modalidade</h6>
+                          {resultadoSelecionado.results?.simplified ? (
+                            <ul>
+                              <li><strong>Resultados Simplificados:</strong> {resultadoSelecionado.results.simplified.length}</li>
+                              <li><strong>Rankings de Equipes:</strong> {resultadoSelecionado.results.teams ? Object.keys(resultadoSelecionado.results.teams).length : 0}</li>
+                            </ul>
+                          ) : (
+                            <p className="text-muted">Nenhuma estatística disponível</p>
+                          )}
+                        </Col>
+                      </Row>
+                    </Card.Body>
+                  </Card>
+
+                  {/* Best Lifter - Melhores Atletas */}
+                  <BestLifterStatsPublic resultado={resultadoSelecionado} />
+                </>
               )}
             </div>
           )}
@@ -1187,6 +1211,319 @@ const PublicPage: React.FC = () => {
       </Modal>
 
     </div>
+  );
+};
+
+// Componente para exibir Best Lifter - Melhores Atletas na página pública
+const BestLifterStatsPublic: React.FC<{ resultado: ResultadoImportado | null }> = ({ resultado }) => {
+  if (!resultado?.results?.complete) {
+    return (
+      <Card>
+        <Card.Header className="bg-warning text-dark">
+          <h5 className="mb-0">
+            <FaTrophy className="me-2" />
+            Best Lifter - Melhores Atletas
+          </h5>
+        </Card.Header>
+        <Card.Body>
+          <Alert variant="info" className="text-center">
+            <FaTrophy size={48} className="mb-3" />
+            <h4>Nenhum resultado disponível</h4>
+            <p>Não há dados suficientes para calcular o Best Lifter.</p>
+          </Alert>
+        </Card.Body>
+      </Card>
+    );
+  }
+
+  // Converter dados do resultado importado para o formato esperado pela função calculateBestLifterResults
+  const entries = resultado.results.complete.flatMap(category => 
+    category.results.map((result: any) => ({
+      id: result.entry.id || Math.random().toString(),
+      name: result.entry.name,
+      sex: result.entry.sex || 'M',
+      age: result.entry.age || 25,
+      division: result.entry.division || 'OP',
+      weightClass: result.entry.weightClass || '0',
+      bodyweightKg: result.entry.bodyweightKg || 0,
+      equipment: result.entry.equipment || 'Raw',
+      movements: result.entry.movements || 'AST',
+      squat1: result.entry.squat1 || 0,
+      squat2: result.entry.squat2 || 0,
+      squat3: result.entry.squat3 || 0,
+      bench1: result.entry.bench1 || 0,
+      bench2: result.entry.bench2 || 0,
+      bench3: result.entry.bench3 || 0,
+      deadlift1: result.entry.deadlift1 || 0,
+      deadlift2: result.entry.deadlift2 || 0,
+      deadlift3: result.entry.deadlift3 || 0,
+      team: result.entry.team || ''
+    }))
+  );
+
+  // Calcular resultados de Best Lifter
+  const bestLifterCategories = calculateBestLifterResults(entries);
+
+  // Estatísticas gerais
+  const totalAthletes = entries.length;
+  const totalCategories = bestLifterCategories.length;
+  const totalMedals = bestLifterCategories.reduce((sum: number, category: BestLifterCategory) => sum + category.results.length, 0);
+
+  // Função para obter ícone de medalha
+  const getMedalIcon = (position: number) => {
+    switch (position) {
+      case 1: return <FaMedal className="text-warning" />;
+      case 2: return <FaMedal className="text-secondary" />;
+      case 3: return <FaMedal className="text-danger" />;
+      default: return null;
+    }
+  };
+
+  return (
+    <Card>
+      <Card.Header className="bg-primary text-white">
+        <h5 className="mb-0">
+          <FaTrophy className="me-2" />
+          Best Lifter - Melhor Atleta IPF
+        </h5>
+      </Card.Header>
+      <Card.Body>
+        <div className="mb-4">
+          <p className="text-muted text-center">
+            Resultados baseados na fórmula oficial IPF GL Points, seguindo as regras oficiais da Federação
+          </p>
+        </div>
+
+        {/* Estatísticas gerais */}
+        <Row className="mb-4">
+          <Col>
+            <Card className="bg-light">
+              <Card.Body className="text-center">
+                <h6 className="text-primary mb-3">Estatísticas do Best Lifter</h6>
+                <Row>
+                  <Col md={3}>
+                    <div className="border-end">
+                      <h4 className="text-success">{totalAthletes}</h4>
+                      <small className="text-muted">Total de Atletas</small>
+                    </div>
+                  </Col>
+                  <Col md={3}>
+                    <div className="border-end">
+                      <h4 className="text-info">{totalCategories}</h4>
+                      <small className="text-muted">Categorias Válidas</small>
+                    </div>
+                  </Col>
+                  <Col md={3}>
+                    <div className="border-end">
+                      <h4 className="text-warning">{totalMedals}</h4>
+                      <small className="text-muted">Medalhas Atribuídas</small>
+                    </div>
+                  </Col>
+                  <Col md={3}>
+                    <div>
+                      <h4 className="text-danger">
+                        {Math.max(...entries.map(entry => {
+                          const bestSquat = Math.max(entry.squat1 || 0, entry.squat2 || 0, entry.squat3 || 0);
+                          const bestBench = Math.max(entry.bench1 || 0, entry.bench2 || 0, entry.bench3 || 0);
+                          const bestDeadlift = Math.max(entry.deadlift1 || 0, entry.deadlift2 || 0, entry.deadlift3 || 0);
+                          return bestSquat + bestBench + bestDeadlift;
+                        }))}kg
+                      </h4>
+                      <small className="text-muted">Maior Total</small>
+                    </div>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Explicação das regras */}
+        <Row className="mb-4">
+          <Col>
+            <Card className="bg-info text-white">
+              <Card.Body>
+                <h6 className="mb-2">
+                  <FaTrophy className="me-2" />
+                  Regras do Best Lifter IPF
+                </h6>
+                <ul className="mb-0 small">
+                  <li>Prêmios são atribuídos apenas para categorias com 3+ atletas</li>
+                  <li>Ordenação: 1º IPF GL Points, 2º Peso corporal (mais leve), 3º Ordem de inscrição</li>
+                  <li>Divisões: Sub-Junior (SJ), Junior (JR), Open (OP), Master I-IV (M1-M4)</li>
+                  <li>Equipamentos: Clássico (Raw) e Equipado separadamente</li>
+                  <li>Eventos: Powerlifting (SBD) e Supino (B) com parâmetros específicos</li>
+                </ul>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Categorias de Best Lifter */}
+        {bestLifterCategories.length > 0 ? (
+          bestLifterCategories.map((category: BestLifterCategory, categoryIndex: number) => (
+            <Row key={categoryIndex} className="mb-4">
+              <Col>
+                <Card>
+                  <Card.Header className={`text-white ${
+                    category.sex === 'M' 
+                      ? (category.equipment === 'Classico' ? 'bg-success' : 'bg-primary')
+                      : (category.equipment === 'Classico' ? 'bg-warning' : 'bg-danger')
+                  }`}>
+                    <h6 className="mb-0">
+                      <FaTrophy className="me-2" />
+                      {category.sex === 'M' ? 'Masculino' : 'Feminino'} {' '}
+                      {getEquipmentDisplayNameForBestLifter(category.equipment)} {' '}
+                      {getAgeDivisionDisplayName(category.ageDivision)} {' '}
+                      ({getEventTypeDisplayName(category.eventType)})
+                    </h6>
+                  </Card.Header>
+                  <Card.Body className="p-0">
+                    <Table responsive className="mb-0">
+                      <thead className="table-dark">
+                        <tr>
+                          <th className="text-center">Pos</th>
+                          <th>Atleta</th>
+                          <th>Equipe</th>
+                          <th>Peso (kg)</th>
+                          {category.eventType === 'SBD' && (
+                            <>
+                              <th>Agachamento</th>
+                              <th>Supino</th>
+                              <th>Terra</th>
+                            </>
+                          )}
+                          {category.eventType === 'B' && (
+                            <th>Supino</th>
+                          )}
+                          <th>Total</th>
+                          <th>IPF GL Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {category.results.map((result: BestLifterResult) => (
+                          <tr key={result.entry.id}>
+                            <td className="text-center">
+                              <div className="d-flex align-items-center justify-content-center">
+                                {getMedalIcon(result.position)}
+                                <span className="ms-2 fw-bold">{result.position}º</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div>
+                                <strong>{result.entry.name}</strong>
+                                <br />
+                                <small className="text-muted">
+                                  {result.entry.team || 'Sem equipe'}
+                                </small>
+                              </div>
+                            </td>
+                            <td>{result.entry.team || '-'}</td>
+                            <td className="text-center">
+                              <span className="fw-bold">{result.bodyweight}kg</span>
+                            </td>
+                            {category.eventType === 'SBD' && (
+                              <>
+                                <td className="text-center">
+                                  <span className="fw-bold">
+                                    {Math.max(result.entry.squat1 || 0, result.entry.squat2 || 0, result.entry.squat3 || 0)}kg
+                                  </span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="fw-bold">
+                                    {Math.max(result.entry.bench1 || 0, result.entry.bench2 || 0, result.entry.bench3 || 0)}kg
+                                  </span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="fw-bold">
+                                    {Math.max(result.entry.deadlift1 || 0, result.entry.deadlift2 || 0, result.entry.deadlift3 || 0)}kg
+                                  </span>
+                                </td>
+                              </>
+                            )}
+                            {category.eventType === 'B' && (
+                              <td className="text-center">
+                                <span className="fw-bold">
+                                  {Math.max(result.entry.bench1 || 0, result.entry.bench2 || 0, result.entry.bench3 || 0)}kg
+                                </span>
+                              </td>
+                            )}
+                            <td className="text-center">
+                              <span className="fw-bold text-primary fs-5">
+                                {result.total}kg
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <span className="fw-bold text-success fs-5">
+                                {result.points.toFixed(2)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+          ))
+        ) : (
+          <Row>
+            <Col>
+              <Alert variant="warning" className="text-center">
+                <FaTrophy size={48} className="mb-3" />
+                <h4>Nenhuma categoria válida para Best Lifter</h4>
+                <p>
+                  Para atribuir prêmios de Best Lifter, é necessário que cada categoria tenha pelo menos 3 atletas.
+                  <br />
+                  Categorias com menos de 3 atletas não recebem prêmios conforme as regras oficiais da IPF.
+                </p>
+              </Alert>
+            </Col>
+          </Row>
+        )}
+
+        {/* Categorias sem prêmios (menos de 3 atletas) */}
+        {(() => {
+          const invalidCategories = bestLifterCategories
+            .filter((category: BestLifterCategory) => !category.hasMinimumAthletes);
+          
+          if (invalidCategories.length > 0) {
+            return (
+              <Row className="mb-4">
+                <Col>
+                  <Card className="bg-warning">
+                    <Card.Header className="bg-warning text-dark">
+                      <h6 className="mb-0">
+                        <FaTrophy className="me-2" />
+                        Categorias sem Prêmios (Menos de 3 Atletas)
+                      </h6>
+                    </Card.Header>
+                    <Card.Body>
+                      <p className="mb-2 small">
+                        As seguintes categorias não recebem prêmios de Best Lifter por não atenderem ao mínimo de 3 atletas:
+                      </p>
+                      <ul className="mb-0 small">
+                        {invalidCategories.map((category: BestLifterCategory, index: number) => (
+                          <li key={index}>
+                            {category.sex === 'M' ? 'Masculino' : 'Feminino'} {' '}
+                            {getEquipmentDisplayNameForBestLifter(category.equipment)} {' '}
+                            {getAgeDivisionDisplayName(category.ageDivision)} {' '}
+                            ({getEventTypeDisplayName(category.eventType)}) - 
+                            {category.results.length} atleta{category.results.length !== 1 ? 's' : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+            );
+          }
+          return null;
+        })()}
+      </Card.Body>
+    </Card>
   );
 };
 
