@@ -172,6 +172,39 @@ const AtletaDetalhesPage: React.FC = () => {
           </Card.Header>
         </Card>
 
+        {/* Melhores Resultados - Seção Principal */}
+        <Card className="mb-4">
+          <Card.Header>
+            <h5 className="mb-0">
+              <FaWeight className="me-2" />
+              Melhores Resultados
+            </h5>
+          </Card.Header>
+          <Card.Body>
+            <div className="table-responsive">
+              <table className="table table-bordered">
+                <tbody>
+                  <tr className="melhores">
+                    <th colSpan={4} style={{textAlign: 'center'}}>Melhores Marcas</th>
+                  </tr>
+                  <tr>
+                    <td style={{textAlign: 'center', width: '25%'}}>&nbsp;Agachamento&nbsp;</td>
+                    <td style={{textAlign: 'center', width: '25%'}}>&nbsp;Supino&nbsp;</td>
+                    <td style={{textAlign: 'center', width: '25%'}}>&nbsp;Terra&nbsp;</td>
+                    <td style={{textAlign: 'center', width: '25%'}}>&nbsp;Total&nbsp;</td>
+                  </tr>
+                  <tr>
+                    <td style={{textAlign: 'center', backgroundColor: '#FFFFFF'}}>&nbsp;{melhoresResultados.melhorAgachamento}&nbsp;</td>
+                    <td style={{textAlign: 'center', backgroundColor: '#FFFFFF'}}>&nbsp;{melhoresResultados.melhorSupino}&nbsp;</td>
+                    <td style={{textAlign: 'center', backgroundColor: '#FFFFFF'}}>&nbsp;{melhoresResultados.melhorTerra}&nbsp;</td>
+                    <td style={{textAlign: 'center', backgroundColor: '#FFFFFF'}}>&nbsp;{melhoresResultados.melhorTotal}&nbsp;</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Card.Body>
+        </Card>
+
         <Row>
           {/* Coluna Esquerda - Informações Pessoais */}
           <Col md={4}>
@@ -193,47 +226,10 @@ const AtletaDetalhesPage: React.FC = () => {
                     <strong>Equipe:</strong>
                     <span>{atleta.equipe?.nomeEquipe || 'N/A'}</span>
                   </div>
-                  <div className="info-row">
-                    <strong>Email:</strong>
-                    <span>{atleta.email || 'N/A'}</span>
-                  </div>
-                  <div className="info-row">
-                    <strong>Telefone:</strong>
-                    <span>{atleta.telefone || 'N/A'}</span>
-                  </div>
                 </div>
               </Card.Body>
             </Card>
 
-            {/* Melhores Resultados */}
-            <Card className="mb-4">
-              <Card.Header>
-                <h5 className="mb-0">
-                  <FaWeight className="me-2" />
-                  Melhores Resultados
-                </h5>
-              </Card.Header>
-              <Card.Body>
-                <div className="melhores-resultados">
-                  <div className="resultado-item">
-                    <span className="movimento">Agachamento</span>
-                    <span className="peso">{melhoresResultados.melhorAgachamento} kg</span>
-                  </div>
-                  <div className="resultado-item">
-                    <span className="movimento">Supino</span>
-                    <span className="peso">{melhoresResultados.melhorSupino} kg</span>
-                  </div>
-                  <div className="resultado-item">
-                    <span className="movimento">Terra</span>
-                    <span className="peso">{melhoresResultados.melhorTerra} kg</span>
-                  </div>
-                  <div className="resultado-item total">
-                    <span className="movimento">Total</span>
-                    <span className="peso">{melhoresResultados.melhorTotal} kg</span>
-                  </div>
-                </div>
-              </Card.Body>
-            </Card>
           </Col>
 
           {/* Coluna Direita - Resultados */}
