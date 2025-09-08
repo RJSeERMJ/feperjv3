@@ -28,11 +28,15 @@ export const nominacaoService = {
     
     inscricoesAtivas.forEach(inscricao => {
       const categoriaPeso = inscricao.categoriaPeso?.nome || 'Sem Categoria';
+      const sexo = inscricao.atleta?.sexo || 'Não informado';
       
-      if (!categoriasMap.has(categoriaPeso)) {
-        categoriasMap.set(categoriaPeso, []);
+      // Criar chave combinando sexo e categoria de peso
+      const categoriaCompleta = `${sexo} - ${categoriaPeso}`;
+      
+      if (!categoriasMap.has(categoriaCompleta)) {
+        categoriasMap.set(categoriaCompleta, []);
       }
-      categoriasMap.get(categoriaPeso)!.push(inscricao);
+      categoriasMap.get(categoriaCompleta)!.push(inscricao);
     });
     
     // Converter para array e ordenar por nome da categoria
