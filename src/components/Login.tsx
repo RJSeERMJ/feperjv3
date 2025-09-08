@@ -149,7 +149,7 @@ const Login: React.FC = () => {
                 className="w-100"
               >
                 <FaUsers className="me-2" />
-                Ver Atletas e Prestação de Contas
+                Atletas, nominações e prestação de contas
               </Button>
             </div>
           </Card.Body>
