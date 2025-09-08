@@ -1268,6 +1268,26 @@ const CompeticoesPage: React.FC = () => {
     return categoryMap[key] || key;
   };
 
+  // Função para excluir resultado importado
+  const handleExcluirResultado = async (resultado: ResultadoImportado) => {
+    try {
+      const confirmacao = window.confirm(
+        `⚠️ ATENÇÃO: Tem certeza que deseja excluir os resultados importados da competição "${resultado.competitionName}"?\n\nEsta ação não pode ser desfeita e todos os dados serão perdidos permanentemente.`
+      );
+      
+      if (!confirmacao) return;
+
+      await resultadoImportadoService.delete(resultado.id!);
+      toast.success(`✅ Resultados da competição "${resultado.competitionName}" excluídos com sucesso!`);
+      
+      // Recarregar a lista
+      await loadResultadosImportados();
+    } catch (error) {
+      console.error('❌ Erro ao excluir resultado importado:', error);
+      toast.error('Erro ao excluir resultado importado. Tente novamente.');
+    }
+  };
+
   // Função para exportar resultado para PDF
   const handleExportarResultadoPDF = async (resultado: ResultadoImportado) => {
     try {
@@ -1737,6 +1757,15 @@ const CompeticoesPage: React.FC = () => {
                                >
                                  <FaFileExport className="me-1" />
                                  PDF
+                               </Button>
+                               <Button
+                                 variant="outline-danger"
+                                 size="sm"
+                                 onClick={() => handleExcluirResultado(resultado)}
+                                 title="Excluir resultados importados"
+                               >
+                                 <FaTrash className="me-1" />
+                                 Excluir
                                </Button>
                              </div>
                            </td>

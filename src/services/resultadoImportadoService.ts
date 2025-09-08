@@ -4,6 +4,7 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  deleteDoc,
   query,
   orderBy,
   Timestamp
@@ -87,6 +88,17 @@ export const resultadoImportadoService = {
       return docRef.id;
     } catch (error) {
       console.error('❌ Erro ao criar resultado importado:', error);
+      throw error;
+    }
+  },
+
+  async delete(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, 'resultados_importados', id);
+      await deleteDoc(docRef);
+      console.log('✅ Resultado importado excluído com sucesso:', id);
+    } catch (error) {
+      console.error('❌ Erro ao excluir resultado importado:', error);
       throw error;
     }
   }
