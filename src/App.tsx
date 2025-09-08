@@ -122,11 +122,7 @@ const App: React.FC = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/detalhes-resultado/:id" element={
-              <ProtectedRoute>
-                <DetalhesResultadoPage />
-              </ProtectedRoute>
-            } />
+            <Route path="/detalhes-resultado/:id" element={<DetalhesResultadoPage />} />
             
 
             

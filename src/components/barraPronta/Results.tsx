@@ -11,19 +11,15 @@ import {
   Badge, 
   Alert,
   ButtonGroup,
-  Nav,
-  Navbar,
-  NavDropdown
+  Nav
 } from 'react-bootstrap';
 import { 
   FaTrophy, 
   FaMedal, 
-  FaDownload, 
   FaSortUp,
   FaSortDown,
   FaFileCsv, 
   FaFilePdf,
-  FaTable,
   FaUsers,
   FaCloudUploadAlt
 } from 'react-icons/fa';
@@ -35,10 +31,6 @@ import { Entry } from '../../types/barraProntaTypes';
 import { resultadoImportadoService } from '../../services/resultadoImportadoService';
 import { recordsService } from '../../services/recordsService';
 import { 
-  calculateIPFGLPointsTotal, 
-  calculateIPFGLPointsBench, 
-  calculateIPFGLPointsSquat, 
-  calculateIPFGLPointsDeadlift,
   calculateIPFGLPointsByCompetitionType,
   calculateBestLifterResults,
   getAgeDivisionDisplayName,
