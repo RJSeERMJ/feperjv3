@@ -845,21 +845,6 @@ const WeighIns: React.FC = () => {
         </Card>
       )}
 
-             {/* Instruções */}
-       <Alert variant="info" className="mt-3">
-         <h6>📋 Instruções de Uso:</h6>
-         <ul className="mb-0">
-           <li><strong>Peso Corporal:</strong> Digite o peso diretamente no campo. O sistema valida se está dentro da categoria do atleta.</li>
-                       <li><strong>Número do Lote:</strong> Clique no botão "Atribuir Números de Lote" para gerar automaticamente números únicos de 1 a N atletas.</li>
-                      <li><strong>Dia:</strong> {shouldAutoOverflow().singleDay ? 'Auto-preenchido (1 dia configurado)' : 'Selecione manualmente o dia da competição'}.</li>
-           <li><strong>Plataforma:</strong> {shouldAutoOverflow().singlePlatform ? 'Auto-preenchida (1 plataforma configurada)' : 'Selecione manualmente a plataforma'}.</li>
-           <li><strong>Movimentos:</strong> Preenchido automaticamente se apenas 1 movimento estiver permitido na competição. Caso contrário, configure manualmente (A=Agachamento, S=Supino, T=Terra).</li>
-            <li><strong>Alturas:</strong> Configure livremente a altura da barra no agachamento e supino (aceita números, letras e combinações).</li>
-           <li><strong>Primeiras Tentativas:</strong> Defina os pesos iniciais para cada movimento (Agachamento, Supino, Terra).</li>
-           <li><strong>Validação:</strong> O sistema verifica se o peso corporal está dentro da categoria do atleta.</li>
-           <li><strong>Dica:</strong> Use Tab para navegar rapidamente entre os campos.</li>
-         </ul>
-            </Alert>
     </Container>
   );
 };

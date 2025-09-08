@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   FaUsers, 
   FaTrophy, 
-  FaChartBar, 
   FaUserCog, 
   FaSignOutAlt,
   FaHome,
@@ -47,7 +46,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     ...(user?.tipo === 'admin' ? [
       { path: '/barra-pronta', label: 'Barra Pronta', icon: <FaWeightHanging /> }
     ] : []),
-    { path: '/relatorios', label: 'Relatórios', icon: <FaChartBar /> },
     ...(user?.tipo === 'admin' ? [
       { path: '/usuarios', label: 'Usuários', icon: <FaUserCog /> },
       { path: '/log', label: 'Log de Atividades', icon: <FaHistory /> }

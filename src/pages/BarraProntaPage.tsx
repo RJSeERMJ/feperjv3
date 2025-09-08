@@ -3,16 +3,17 @@ import { Container, Row, Col, Card, Nav, Tab, Button, Alert, Modal, Table, Spinn
 import { FaWeightHanging, FaUsers, FaTrophy, FaChartBar, FaCog, FaHome, FaSave, FaFolderOpen, FaPlus, FaDownload, FaUpload, FaTrash } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store/barraProntaStore';
-import { LiftStatus } from '../types/barraProntaTypes';
 import { createNewMeet, loadSavedMeetData, saveMeetData, updateMeet, addEntry, updateEntry, saveMeetToFile, loadMeetFromFile } from '../actions/barraProntaActions';
 import { competicaoService, inscricaoService } from '../services/firebaseService';
+import { barraProntaStateService } from '../services/barraProntaStateService';
+import { usePageUnload } from '../hooks/usePageUnload';
+import { useNavigationGuard } from '../hooks/useNavigationGuard';
 import { Competicao } from '../types';
 import { CATEGORIAS_PESO_MASCULINO, CATEGORIAS_PESO_FEMININO, CATEGORIAS_IDADE } from '../config/categorias';
 import MeetSetup from '../components/barraPronta/MeetSetup';
 import Registration from '../components/barraPronta/Registration';
 import WeighIns from '../components/barraPronta/WeighIns';
 import FlightOrder from '../components/barraPronta/FlightOrder';
-import Lifting from '../components/barraPronta/Lifting';
 import Results from '../components/barraPronta/Results';
 import LiftingPage from './LiftingPage';
 
@@ -28,11 +29,74 @@ const BarraProntaContent: React.FC = () => {
   const registration = useSelector((state: RootState) => state.registration);
   const [competicoesCarregadas, setCompeticoesCarregadas] = useState<Competicao[]>([]);
   const [nomeCompeticaoCombinado, setNomeCompeticaoCombinado] = useState<string | null>(null);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   useEffect(() => {
     // Tentar carregar dados salvos ao iniciar
     dispatch(loadSavedMeetData() as any);
+    
+    // Aguardar um pouco e verificar se o estado foi restaurado
+    const checkRestoration = setTimeout(() => {
+      const restoredState = barraProntaStateService.forceRestoreState();
+      if (restoredState && restoredState.meet?.name) {
+        console.log('✅ [BARRA PRONTA] Estado restaurado com sucesso:', restoredState.meet.name);
+      } else {
+        console.log('ℹ️ [BARRA PRONTA] Nenhum estado anterior encontrado');
+      }
+    }, 1000);
+
+    return () => clearTimeout(checkRestoration);
   }, [dispatch]);
+
+  // Configurar persistência do estado
+  useEffect(() => {
+    // Configurar salvamento automático a cada 30 segundos
+    const clearAutoSave = barraProntaStateService.setupAutoSave(30000);
+    
+    // Configurar salvamento antes de sair da página
+    const clearBeforeUnload = barraProntaStateService.saveBeforeUnload();
+
+    // Cleanup
+    return () => {
+      clearAutoSave();
+      clearBeforeUnload();
+    };
+  }, []);
+
+  // Salvar estado sempre que houver mudanças
+  useEffect(() => {
+    if (meet.name && meet.name.trim() !== '') {
+      // Pequeno delay para evitar salvamentos excessivos
+      const timeoutId = setTimeout(() => {
+        barraProntaStateService.forceSaveState();
+      }, 500); // Reduzido para 500ms para salvar mais rapidamente
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [meet, registration]);
+
+  // Verificar se há competição ativa para mostrar confirmação
+  const hasActiveMeet = Boolean(meet.name && meet.name.trim() !== '');
+  const confirmationMessage = `⚠️ ATENÇÃO: Você tem uma competição ativa "${meet.name}".\n\nSe você sair agora, a competição será salva automaticamente, mas é recomendado que você salve manualmente antes de sair.\n\nDeseja continuar e sair do Sistema Barra Pronta?`;
+
+  // Usar hook para detectar saída da página
+  usePageUnload(() => {
+    if (hasActiveMeet) {
+      console.log('🚪 [BARRA PRONTA] Salvando estado antes de sair da página...');
+      barraProntaStateService.forceSaveState();
+    }
+  }, Boolean(hasActiveMeet));
+
+  // Usar hook para interceptar navegação
+  useNavigationGuard(
+    hasActiveMeet,
+    () => {
+      console.log('💾 [BARRA PRONTA] Salvando competição antes de navegar...');
+      barraProntaStateService.forceSaveState();
+    },
+    confirmationMessage
+  );
 
   const handleNewMeet = () => {
     if (window.confirm('Tem certeza que deseja criar uma nova competição? Isso apagará todos os dados atuais.')) {
@@ -322,28 +386,55 @@ const BarraProntaContent: React.FC = () => {
     }
   };
 
-  const formatDate = (date: Date) => {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
 
   const formatDateForDisplay = (date: Date) => {
     return new Date(date).toLocaleDateString('pt-BR');
+  };
+
+  // Funções para lidar com o modal de confirmação
+  const handleConfirmExit = () => {
+    if (hasActiveMeet) {
+      console.log('💾 [BARRA PRONTA] Salvando competição antes de sair...');
+      barraProntaStateService.forceSaveState();
+    }
+    setShowExitModal(false);
+    if (pendingNavigation) {
+      // Aqui você pode implementar a navegação se necessário
+      console.log('🚀 [BARRA PRONTA] Navegando para:', pendingNavigation);
+    }
+    setPendingNavigation(null);
+  };
+
+  const handleCancelExit = () => {
+    setShowExitModal(false);
+    setPendingNavigation(null);
   };
 
   return (
     <Container fluid>
       <Row className="mb-4">
         <Col>
-          <div className="d-flex align-items-center">
-            <FaWeightHanging className="me-3" size={32} />
-            <div>
-              <h2 className="mb-0">Sistema Barra Pronta</h2>
-              <p className="text-muted mb-0">Gerenciamento de Competições de Powerlifting</p>
+          <div className="d-flex align-items-center justify-content-between">
+            <div className="d-flex align-items-center">
+              <FaWeightHanging className="me-3" size={32} />
+              <div>
+                <h2 className="mb-0">Sistema Barra Pronta</h2>
+                <p className="text-muted mb-0">Gerenciamento de Competições de Powerlifting</p>
+              </div>
             </div>
+            
+            {/* Indicador de competição ativa */}
+            {barraProntaStateService.hasActiveMeet() && (
+              <div className="d-flex align-items-center">
+                <Badge bg="success" className="me-2">
+                  <FaTrophy className="me-1" />
+                  Competição Ativa
+                </Badge>
+                <small className="text-muted">
+                  {meet.name} - {meet.date}
+                </small>
+              </div>
+            )}
           </div>
         </Col>
       </Row>
@@ -627,6 +718,44 @@ const BarraProntaContent: React.FC = () => {
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowLoadModal(false)}>
             Fechar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Confirmação de Saída */}
+      <Modal show={showExitModal} onHide={handleCancelExit} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaWeightHanging className="me-2 text-warning" />
+            Confirmar Saída do Sistema Barra Pronta
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="text-center">
+            <div className="mb-3">
+              <FaWeightHanging size={48} className="text-warning" />
+            </div>
+            <h5 className="text-warning mb-3">⚠️ ATENÇÃO</h5>
+            <p className="mb-3">
+              Você tem uma competição ativa: <strong>"{meet.name}"</strong>
+            </p>
+            <p className="mb-3">
+              Se você sair agora, a competição será salva automaticamente, mas é recomendado que você salve manualmente antes de sair.
+            </p>
+            <div className="alert alert-info">
+              <small>
+                <strong>Dica:</strong> Use o botão "Salvar Competição" antes de sair para garantir que todos os dados sejam preservados.
+              </small>
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCancelExit}>
+            Cancelar
+          </Button>
+          <Button variant="warning" onClick={handleConfirmExit}>
+            <FaSave className="me-2" />
+            Salvar e Sair
           </Button>
         </Modal.Footer>
       </Modal>

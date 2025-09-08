@@ -16,7 +16,6 @@ import CompeticoesPage from './pages/CompeticoesPage';
 import InscricoesPage from './pages/InscricoesPage';
 import FinanceiroPage from './pages/FinanceiroPage';
 
-import RelatoriosPage from './pages/RelatoriosPage';
 import UsuariosPage from './pages/UsuariosPage';
 import LogPage from './pages/LogPage';
 import BarraProntaPage from './pages/BarraProntaPage';
@@ -131,11 +130,6 @@ const App: React.FC = () => {
             
 
             
-            <Route path="/relatorios" element={
-              <ProtectedRoute>
-                <RelatoriosPage />
-              </ProtectedRoute>
-            } />
             
             <Route path="/usuarios" element={
               <ProtectedRoute>
