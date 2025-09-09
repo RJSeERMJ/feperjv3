@@ -1495,14 +1495,6 @@ const CompeticoesPage: React.FC = () => {
                 Tipos de Competição
               </Button>
               <Button 
-                variant="outline-success" 
-                onClick={handleExportCSV}
-                title="Exportar lista de competições em CSV"
-              >
-                <FaFileExport className="me-2" />
-                Exportar CSV
-              </Button>
-              <Button 
                 variant="primary" 
                 onClick={() => {
                   setEditingCompeticao(null);
@@ -1758,15 +1750,17 @@ const CompeticoesPage: React.FC = () => {
                                  <FaFileExport className="me-1" />
                                  PDF
                                </Button>
-                               <Button
-                                 variant="outline-danger"
-                                 size="sm"
-                                 onClick={() => handleExcluirResultado(resultado)}
-                                 title="Excluir resultados importados"
-                               >
-                                 <FaTrash className="me-1" />
-                                 Excluir
-                               </Button>
+                               {isAdmin && (
+                                 <Button
+                                   variant="outline-danger"
+                                   size="sm"
+                                   onClick={() => handleExcluirResultado(resultado)}
+                                   title="Excluir resultados importados"
+                                 >
+                                   <FaTrash className="me-1" />
+                                   Excluir
+                                 </Button>
+                               )}
                              </div>
                            </td>
                          </tr>

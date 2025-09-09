@@ -44,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/financeiro', label: 'Financeiro', icon: <FaMoneyBillWave /> },
     // Barra Pronta apenas para administradores
     ...(user?.tipo === 'admin' ? [
-      { path: '/barra-pronta', label: 'Barra Pronta', icon: <FaWeightHanging /> }
+      { path: '/barra-pronta-standalone', label: 'Barra Pronta', icon: <FaWeightHanging /> }
     ] : []),
     ...(user?.tipo === 'admin' ? [
       { path: '/usuarios', label: 'Usuários', icon: <FaUserCog /> },
@@ -71,6 +71,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   as={Link}
                   to={item.path}
                   className={`nav-link ${location.pathname === item.path ? 'active' : ''}`}
+                  {...(item.path === '/barra-pronta-standalone' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 >
                   {item.icon}
                   <span className="ms-1">{item.label}</span>

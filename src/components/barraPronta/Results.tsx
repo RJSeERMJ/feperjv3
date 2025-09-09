@@ -18,12 +18,10 @@ import {
   FaMedal, 
   FaSortUp,
   FaSortDown,
-  FaFileCsv, 
   FaFilePdf,
   FaUsers,
   FaCloudUploadAlt
 } from 'react-icons/fa';
-import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RootState } from '../../store/barraProntaStore';
@@ -725,112 +723,6 @@ const Results: React.FC = () => {
     }
   };
 
-  // Função para exportar resultados como CSV
-  const exportToCSV = () => {
-    let csvContent = '';
-    
-    // Cabeçalho do arquivo
-    csvContent += `"${meet.name || 'Resultados da Competição'}"\n`;
-    csvContent += `"${meet.city} - ${meet.date}"\n\n`;
-    
-    // Exportar baseado na aba ativa
-    if (activeTab === 'complete') {
-      // Exportar cada categoria separadamente (Resultados Completos)
-      resultsByCategory.forEach((category, categoryIndex) => {
-        csvContent += `"${category.category}"\n`;
-        
-        // Usar cabeçalhos dinâmicos baseados nos movimentos do primeiro atleta da categoria
-        const firstAthleteMovements = category.results[0]?.entry.movements || '';
-        const headers = getDynamicHeaders(firstAthleteMovements);
-        
-        csvContent += headers.map(header => `"${header}"`).join(',') + '\n';
-        
-        // Dados dos atletas
-        category.results.forEach((result, index) => {
-          const row = getDynamicRowData(result, index);
-          csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-        });
-        
-        // Espaço entre categorias
-        csvContent += '\n';
-      });
-    } else if (activeTab === 'simplified') {
-      // Exportar Melhores Atletas
-      csvContent += `"Melhores Atletas da Competição"\n\n`;
-      
-      // Masculino Clássico
-      const maleClassicResults = calculatedResults
-        .filter(result => result.entry.sex === 'M' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
-        .sort((a, b) => b.points - a.points);
-      
-      csvContent += `"Masculino Clássico"\n`;
-      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
-      maleClassicResults.forEach((result, index) => {
-        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Clássica","${result.total}","${result.points.toFixed(2)}"\n`;
-      });
-      csvContent += '\n';
-      
-      // Masculino Equipado
-      const maleEquippedResults = calculatedResults
-        .filter(result => result.entry.sex === 'M' && result.entry.equipment === 'Equipped')
-        .sort((a, b) => b.points - a.points);
-      
-      csvContent += `"Masculino Equipado"\n`;
-      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
-      maleEquippedResults.forEach((result, index) => {
-        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Equipado","${result.total}","${result.points.toFixed(2)}"\n`;
-      });
-      csvContent += '\n';
-      
-      // Feminino Clássico
-      const femaleClassicResults = calculatedResults
-        .filter(result => result.entry.sex === 'F' && (result.entry.equipment === 'Raw' || result.entry.equipment === 'CLASSICA'))
-        .sort((a, b) => b.points - a.points);
-      
-      csvContent += `"Feminino Clássico"\n`;
-      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
-      femaleClassicResults.forEach((result, index) => {
-        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Clássica","${result.total}","${result.points.toFixed(2)}"\n`;
-      });
-      csvContent += '\n';
-      
-      // Feminino Equipado
-      const femaleEquippedResults = calculatedResults
-        .filter(result => result.entry.sex === 'F' && result.entry.equipment === 'Equipped')
-        .sort((a, b) => b.points - a.points);
-      
-      csvContent += `"Feminino Equipado"\n`;
-      csvContent += `"Pos","Atleta","Equipe","Modalidade","Total","Pontos IPF GL"\n`;
-      femaleEquippedResults.forEach((result, index) => {
-        csvContent += `"${index + 1}","${result.entry.name}","${result.entry.team || '-'}","Equipado","${result.total}","${result.points.toFixed(2)}"\n`;
-      });
-      
-    } else if (activeTab === 'teams') {
-      // Exportar Melhores Equipes
-      csvContent += `"Ranking das Equipes - Categoria OPEN"\n\n`;
-      
-      // Equipes Clássicas
-      const classicTeamRanking = calculateTeamRanking('Raw');
-      csvContent += `"Equipes Clássicas"\n`;
-      csvContent += `"Pos","Equipe","Total Pontos","1ºs Lugares","2ºs Lugares","3ºs Lugares","Total IPF GL"\n`;
-      classicTeamRanking.forEach((team, index) => {
-        csvContent += `"${index + 1}","${team.name}","${team.totalPoints}","${team.firstPlaces}","${team.secondPlaces}","${team.thirdPlaces}","${team.totalIPFPoints.toFixed(2)}"\n`;
-      });
-      csvContent += '\n';
-      
-      // Equipes Equipadas
-      const equippedTeamRanking = calculateTeamRanking('Equipped');
-      csvContent += `"Equipes Equipadas"\n`;
-      csvContent += `"Pos","Equipe","Total Pontos","1ºs Lugares","2ºs Lugares","3ºs Lugares","Total IPF GL"\n`;
-      equippedTeamRanking.forEach((team, index) => {
-        csvContent += `"${index + 1}","${team.name}","${team.totalPoints}","${team.firstPlaces}","${team.secondPlaces}","${team.thirdPlaces}","${team.totalIPFPoints.toFixed(2)}"\n`;
-      });
-    }
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const fileName = `${meet.name || 'Resultados'}_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
-    saveAs(blob, fileName);
-  };
 
 
 
@@ -2615,10 +2507,6 @@ const AttemptDisplay: React.FC<{
               )}
             </div>
             <ButtonGroup>
-              <Button variant="outline-primary" onClick={exportToCSV}>
-                <FaFileCsv className="me-2" />
-                Exportar CSV
-              </Button>
               <Button variant="outline-primary" onClick={exportToPDF}>
                 <FaFilePdf className="me-2" />
                 Exportar PDF

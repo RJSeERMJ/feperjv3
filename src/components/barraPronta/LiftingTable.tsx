@@ -566,16 +566,6 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
           <h5 className="mb-0">
             🏋️ Tabela de Levantamentos - {lift === 'S' ? 'Agachamento' : lift === 'B' ? 'Supino' : 'Terra'}
           </h5>
-          {onOpenPopup && (
-            <Button 
-              variant="outline-primary" 
-              size="sm"
-              onClick={onOpenPopup}
-            >
-              <span className="me-2">🪟</span>
-              Tela Flutuante
-            </Button>
-          )}
         </div>
       </div>
 

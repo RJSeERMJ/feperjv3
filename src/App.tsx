@@ -60,6 +60,27 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+// Componente para rotas protegidas sem Layout (standalone)
+const ProtectedRouteStandalone: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+        <div className="spinner-border" role="status">
+          <span className="visually-hidden">Carregando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -112,6 +133,15 @@ const App: React.FC = () => {
                   <BarraProntaPage />
                 </AdminRoute>
               </ProtectedRoute>
+            } />
+            
+            {/* Rota standalone para Barra Pronta sem menu de navegação */}
+            <Route path="/barra-pronta-standalone" element={
+              <ProtectedRouteStandalone>
+                <AdminRoute>
+                  <BarraProntaPage />
+                </AdminRoute>
+              </ProtectedRouteStandalone>
             } />
             
             <Route path="/lifting-popup" element={
