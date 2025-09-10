@@ -46,6 +46,7 @@ interface CalculatedResult {
   deadlift: number;
   total: number;
   points: number;
+  isDisqualified: boolean;
   validAttempts: {
     squat: number;
     bench: number;
@@ -302,6 +303,29 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
         const bestBench = getBestValidAttempt(benchAttempts, benchStatus);
         const bestDeadlift = getBestValidAttempt(deadliftAttempts, deadliftStatus);
 
+        // Função para verificar desclassificação por modalidade específica
+        const isDisqualifiedForModalidade = (competitionType: string): boolean => {
+          switch (competitionType) {
+            case 'AST': // Powerlifting: Agachamento + Supino + Terra
+              return bestSquat === 0 || bestBench === 0 || bestDeadlift === 0;
+            case 'AS': // Agachamento + Supino
+              return bestSquat === 0 || bestBench === 0;
+            case 'ST': // Supino + Terra
+              return bestBench === 0 || bestDeadlift === 0;
+            case 'AT': // Agachamento + Terra
+              return bestSquat === 0 || bestDeadlift === 0;
+            case 'A': // Apenas Agachamento
+              return bestSquat === 0;
+            case 'S': // Apenas Supino
+              return bestBench === 0;
+            case 'T': // Apenas Terra
+              return bestDeadlift === 0;
+            default:
+              // Para modalidades não reconhecidas, usar critério AST
+              return bestSquat === 0 || bestBench === 0 || bestDeadlift === 0;
+          }
+        };
+
         // Contar tentativas válidas
         const validSquat = squatStatus.filter((s: number) => s === 1).length;
         const validBench = benchStatus.filter((s: number) => s === 1).length;
@@ -350,8 +374,12 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
 
         // Função para criar resultado baseado na modalidade
         const createResultForModalidade = (competitionType: string) => {
-          const total = calculateTotalForModalidade(competitionType, bestSquat, bestBench, bestDeadlift);
-          const points = calculateDynamicIPFGLPoints(competitionType, bestSquat, bestBench, bestDeadlift);
+          // Verificar desclassificação específica para esta modalidade
+          const isDisqualified = isDisqualifiedForModalidade(competitionType);
+          
+          // Se desclassificado nesta modalidade, total e pontos são 0
+          const total = isDisqualified ? 0 : calculateTotalForModalidade(competitionType, bestSquat, bestBench, bestDeadlift);
+          const points = isDisqualified ? 0 : calculateDynamicIPFGLPoints(competitionType, bestSquat, bestBench, bestDeadlift);
           
           // Criar uma cópia do entry com a modalidade específica
           const entryCopy = {
@@ -366,6 +394,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
             deadlift: bestDeadlift,
             total,
             points,
+            isDisqualified,
             validAttempts: {
               squat: validSquat,
               bench: validBench,
@@ -559,25 +588,48 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
 
     // Calcular posições dentro de cada categoria
     Object.values(grouped).forEach(categoryResults => {
-      // Ordenar por total para calcular posições
-      categoryResults.sort((a, b) => b.total - a.total);
+      // Separar atletas classificados e desclassificados
+      const qualifiedAthletes = categoryResults.filter(result => !result.isDisqualified);
+      const disqualifiedAthletes = categoryResults.filter(result => result.isDisqualified);
       
-      // Calcular posições por movimento
-      const squatResults = [...categoryResults].sort((a, b) => b.squat - a.squat);
-      const benchResults = [...categoryResults].sort((a, b) => b.bench - a.bench);
-      const deadliftResults = [...categoryResults].sort((a, b) => b.deadlift - a.deadlift);
+      // Ordenar atletas classificados por total (descendente)
+      qualifiedAthletes.sort((a, b) => b.total - a.total);
+      
+      // Ordenar atletas desclassificados por total (descendente) - todos terão total 0
+      disqualifiedAthletes.sort((a, b) => b.total - a.total);
+      
+      // Reunir: classificados primeiro, depois desclassificados
+      const sortedResults = [...qualifiedAthletes, ...disqualifiedAthletes];
+      
+      // Atualizar a referência do array
+      categoryResults.length = 0;
+      categoryResults.push(...sortedResults);
+      
+      // Calcular posições por movimento (apenas entre atletas classificados)
+      const qualifiedSquatResults = [...qualifiedAthletes].sort((a, b) => b.squat - a.squat);
+      const qualifiedBenchResults = [...qualifiedAthletes].sort((a, b) => b.bench - a.bench);
+      const qualifiedDeadliftResults = [...qualifiedAthletes].sort((a, b) => b.deadlift - a.deadlift);
       
       categoryResults.forEach(result => {
-        result.positions.squat = squatResults.findIndex(r => r.entry.id === result.entry.id) + 1;
-        result.positions.bench = benchResults.findIndex(r => r.entry.id === result.entry.id) + 1;
-        result.positions.deadlift = deadliftResults.findIndex(r => r.entry.id === result.entry.id) + 1;
-        result.positions.total = categoryResults.findIndex(r => r.entry.id === result.entry.id) + 1;
+        if (result.isDisqualified) {
+          // Atletas desclassificados não têm posições válidas
+          result.positions.squat = 0;
+          result.positions.bench = 0;
+          result.positions.deadlift = 0;
+          result.positions.total = 0;
+        } else {
+          // Calcular posições apenas entre atletas classificados
+          result.positions.squat = qualifiedSquatResults.findIndex(r => r.entry.id === result.entry.id) + 1;
+          result.positions.bench = qualifiedBenchResults.findIndex(r => r.entry.id === result.entry.id) + 1;
+          result.positions.deadlift = qualifiedDeadliftResults.findIndex(r => r.entry.id === result.entry.id) + 1;
+          result.positions.total = qualifiedAthletes.findIndex(r => r.entry.id === result.entry.id) + 1;
+        }
       });
     });
 
     return Object.entries(grouped).map(([category, results]) => ({
       category,
-      results: results.sort((a, b) => b.total - a.total)
+      results: results // Já ordenados com classificados primeiro, depois desclassificados
     }));
   }, [calculatedResults, resultsWithRecords, selectedCompetitionType]);
 
@@ -1425,14 +1477,25 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
       });
       
 
-      // Ordenar por total (posição na categoria)
-      openAthletes.sort((a, b) => b.total - a.total);
+      // Separar atletas classificados e desclassificados
+      const qualifiedOpenAthletes = openAthletes.filter(result => !result.isDisqualified);
+      const disqualifiedOpenAthletes = openAthletes.filter(result => result.isDisqualified);
+      
+      // Ordenar atletas classificados por total (descendente)
+      qualifiedOpenAthletes.sort((a, b) => b.total - a.total);
+      
+      // Ordenar atletas desclassificados por total (descendente)
+      disqualifiedOpenAthletes.sort((a, b) => b.total - a.total);
+      
+      // Reunir: classificados primeiro, depois desclassificados
+      const sortedOpenAthletes = [...qualifiedOpenAthletes, ...disqualifiedOpenAthletes];
 
       // Atribuir posições e pontos
-      openAthletes.forEach((result, index) => {
+      sortedOpenAthletes.forEach((result, index) => {
         const teamName = result.entry.team || 'Sem Equipe';
-        const position = index + 1;
-        const teamPoints = getTeamPoints(position);
+        // Atletas desclassificados não recebem posição válida
+        const position = result.isDisqualified ? 0 : index + 1;
+        const teamPoints = result.isDisqualified ? 0 : getTeamPoints(position);
 
         if (!teamsMap.has(teamName)) {
           teamsMap.set(teamName, {
