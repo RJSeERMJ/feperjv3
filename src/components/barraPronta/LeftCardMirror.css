@@ -1,0 +1,71 @@
+.leftcard-mirror-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mirror-controls {
+  margin-bottom: 15px;
+}
+
+.mirror-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mirror-window {
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  min-height: 100vh;
+}
+
+.mirror-header {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.mirror-window .left-card-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .mirror-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .mirror-actions {
+    justify-content: center;
+    margin-top: 10px;
+  }
+  
+  .mirror-window {
+    padding: 15px;
+  }
+  
+  .mirror-header {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 576px) {
+  .mirror-window {
+    padding: 10px;
+  }
+  
+  .mirror-header {
+    padding: 10px;
+  }
+  
+  .mirror-window .left-card-container {
+    padding: 15px;
+  }
+}

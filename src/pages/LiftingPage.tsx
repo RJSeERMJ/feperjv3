@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store/barraProntaStore';
 import { getLiftingOrder } from '../logic/liftingOrder';
 
-import LeftCard from '../components/barraPronta/LeftCard';
+import LeftCardMirror from '../components/barraPronta/LeftCardMirror';
 import LiftingTableMirror from '../components/barraPronta/LiftingTableMirror';
 import LiftingFooter from '../components/barraPronta/LiftingFooter';
 import FloatingLiftingWindow from '../components/barraPronta/FloatingLiftingWindow';
@@ -154,7 +154,7 @@ const LiftingPage: React.FC = () => {
             <>
               {/* Card da esquerda com informações do atleta atual */}
               <div className="left-panel">
-                <LeftCard
+                <LeftCardMirror
                   currentEntryId={selectedEntryId || liftingOrder.currentEntryId}
                   nextEntryId={liftingOrder.nextEntryId}
                   lift={lift}

@@ -18,6 +18,7 @@ O sistema de janela espelhada permite "destacar" as seções de **Resultados** e
 
 1. **Results (Resultados)**: Seção de resultados da competição
 2. **LiftingTable (Tabela de Levantamentos)**: Tabela principal de levantamentos
+3. **LeftCard (Painel do Atleta)**: Painel lateral com informações do atleta atual e próximo
 
 ## Como Usar
 
@@ -32,10 +33,18 @@ O sistema de janela espelhada permite "destacar" as seções de **Resultados** e
 ### Para Levantamentos
 
 1. Navegue para a aba **"Levantamentos"** no sistema Barra Pronta
-2. Clique no botão **"Abrir em Janela Separada"**
+2. Clique no botão **"Abrir em Janela Separada"** na tabela de levantamentos
 3. Uma nova janela será aberta com a tabela de levantamentos
 4. Arraste a janela para outro monitor
 5. Todas as atualizações de peso, status e seleções aparecerão em tempo real
+
+### Para Painel do Atleta
+
+1. Navegue para a aba **"Levantamentos"** no sistema Barra Pronta
+2. Clique no botão **"Abrir em Janela Separada"** no painel do atleta (lado esquerdo)
+3. Uma nova janela será aberta com as informações do atleta atual e próximo
+4. Arraste a janela para outro monitor
+5. Todas as mudanças de atleta, peso e informações aparecerão em tempo real
 
 ## Indicadores Visuais
 
