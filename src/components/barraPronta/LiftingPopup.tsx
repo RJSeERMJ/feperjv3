@@ -4,7 +4,7 @@ import { Button, Row, Col, Form } from 'react-bootstrap';
 import { RootState } from '../../store/barraProntaStore';
 import { markAttempt } from '../../actions/barraProntaActions';
 import { Lift } from '../../types/barraProntaTypes';
-import LiftingTable from './LiftingTable';
+import LiftingTableMirror from './LiftingTableMirror';
 import './LiftingPopup.css';
 
 const LiftingPopup: React.FC = () => {
@@ -378,7 +378,7 @@ const LiftingPopup: React.FC = () => {
             </div>
           </div>
         ) : (
-          <LiftingTable
+          <LiftingTableMirror
             orderedEntries={entriesInFlight}
             currentEntryId={selectedEntryId}
             attemptOneIndexed={selectedAttempt}

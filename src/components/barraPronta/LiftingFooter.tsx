@@ -13,6 +13,9 @@ const LiftingFooter: React.FC = () => {
   const { day, platform, flight, lift, attemptOneIndexed, selectedEntryId, selectedAttempt, isAttemptActive } = useSelector((state: RootState) => state.lifting);
   const { entries } = useSelector((state: RootState) => state.registration);
   const meet = useSelector((state: RootState) => state.meet);
+  
+  // Verificar se estamos na janela espelhada
+  const isMirrorWindow = window.location.search.includes('mirror=true');
 
   // Filtrar atletas pelo dia, plataforma e grupo atual
   const entriesInFlight = entries.filter((entry: any) => 
@@ -1042,32 +1045,36 @@ const LiftingFooter: React.FC = () => {
         <Col md={4}>
           <div className="right-controls">
             <div className="btn-group me-2" role="group">
-              {/* Múltiplos Timers */}
-              {activeTimers.size > 0 ? (
-                <div className="multiple-timers-container">
-                  {Array.from(activeTimers.entries()).map(([timerKey, timerData]) => {
-                    const getTimerClass = () => {
-                      if (timerData.timeLeft <= 10) return "timer-urgent";
-                      if (timerData.timeLeft <= 30) return "timer-warning";
-                      return "timer-normal";
-                    };
-                    
-                    return (
-                      <div key={timerKey} className={`timer-display-btn ${getTimerClass()}`}>
-                        <span className="timer-text">
-                          ⏰ {timerData.timeLeft}s
-                        </span>
-                        <span className="timer-athlete-name">
-                          {timerData.athleteName}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="timer-display-btn timer-inactive">
-                  <span className="timer-text">⏰ --</span>
-                </div>
+              {/* Múltiplos Timers - apenas na janela principal */}
+              {!isMirrorWindow && (
+                <>
+                  {activeTimers.size > 0 ? (
+                    <div className="multiple-timers-container">
+                      {Array.from(activeTimers.entries()).map(([timerKey, timerData]) => {
+                        const getTimerClass = () => {
+                          if (timerData.timeLeft <= 10) return "timer-urgent";
+                          if (timerData.timeLeft <= 30) return "timer-warning";
+                          return "timer-normal";
+                        };
+                        
+                        return (
+                          <div key={timerKey} className={`timer-display-btn ${getTimerClass()}`}>
+                            <span className="timer-text">
+                              ⏰ {timerData.timeLeft}s
+                            </span>
+                            <span className="timer-athlete-name">
+                              {timerData.athleteName}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="timer-display-btn timer-inactive">
+                      <span className="timer-text">⏰ --</span>
+                    </div>
+                  )}
+                </>
               )}
               <Button
                 variant="outline-secondary"
@@ -1078,23 +1085,27 @@ const LiftingFooter: React.FC = () => {
               </Button>
 
             </div>
-            <Button
-              variant="danger"
-              size="sm"
-              className="me-2"
-              onClick={handleNoLift}
-              disabled={!isAttemptActive || !selectedEntryId}
-            >
-              ❌ Inválido
-            </Button>
-            <Button
-              variant="success"
-              size="sm"
-              onClick={handleGoodLift}
-              disabled={!isAttemptActive || !selectedEntryId}
-            >
-              ✅ Válido
-            </Button>
+            {!isMirrorWindow && (
+              <Button
+                variant="danger"
+                size="sm"
+                className="me-2"
+                onClick={handleNoLift}
+                disabled={!isAttemptActive || !selectedEntryId}
+              >
+                ❌ Inválido
+              </Button>
+            )}
+            {!isMirrorWindow && (
+              <Button
+                variant="success"
+                size="sm"
+                onClick={handleGoodLift}
+                disabled={!isAttemptActive || !selectedEntryId}
+              >
+                ✅ Válido
+              </Button>
+            )}
           </div>
         </Col>
       </Row>

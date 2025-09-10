@@ -161,8 +161,18 @@ const getAttemptClass = (
   }
 };
 
-const Results: React.FC = () => {
-  const { meet, registration } = useSelector((state: RootState) => state);
+interface ResultsProps {
+  // Props opcionais para sobrescrever dados do Redux (usado no espelhamento)
+  meet?: any;
+  registration?: any;
+}
+
+const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propRegistration }) => {
+  const reduxState = useSelector((state: RootState) => state);
+  
+  // Usar props se fornecidas, senão usar dados do Redux
+  const meet = propMeet || reduxState.meet;
+  const registration = propRegistration || reduxState.registration;
   const [selectedDay, setSelectedDay] = useState<number>(0); // 0 = todos os dias
   const [selectedDivision, setSelectedDivision] = useState<string>('all');
   const [selectedSex, setSelectedSex] = useState<'M' | 'F' | 'all'>('all');
@@ -187,15 +197,15 @@ const Results: React.FC = () => {
   const getUniqueCompetitionTypes = () => {
     const typesSet = new Set<string>();
     
-    registration.entries.forEach(entry => {
+    registration.entries.forEach((entry: any) => {
       if (entry.movements) {
         // Se não há vírgula, é uma modalidade única
         if (!entry.movements.includes(',')) {
           typesSet.add(entry.movements.trim());
         } else {
           // Se há vírgula, separar em modalidades individuais
-          const movements = entry.movements.split(', ').filter(m => m.trim() !== '');
-          movements.forEach(movement => {
+          const movements = entry.movements.split(', ').filter((m: string) => m.trim() !== '');
+          movements.forEach((movement: string) => {
             typesSet.add(movement.trim());
           });
         }
@@ -209,7 +219,7 @@ const Results: React.FC = () => {
   const getUniqueTeams = () => {
     const teamsSet = new Set<string>();
     
-    registration.entries.forEach(entry => {
+    registration.entries.forEach((entry: any) => {
       if (entry.team && entry.team.trim() !== '') {
         teamsSet.add(entry.team.trim());
       }
@@ -241,7 +251,7 @@ const Results: React.FC = () => {
     
     // Verificar se há apenas 1 plataforma em todos os dias
     const singlePlatform = meet.platformsOnDays && meet.platformsOnDays.length > 0 && 
-                          meet.platformsOnDays.every(platforms => platforms === 1);
+                          meet.platformsOnDays.every((platforms: number) => platforms === 1);
     
     return { singleDay, singlePlatform };
   };
@@ -251,7 +261,7 @@ const Results: React.FC = () => {
     const results: CalculatedResult[] = [];
     
     registration.entries
-      .filter(entry => {
+      .filter((entry: any) => {
         // Filtrar por dia se selecionado
         if (selectedDay > 0 && entry.day !== selectedDay) return false;
         // Filtrar por divisão se selecionado
@@ -266,7 +276,7 @@ const Results: React.FC = () => {
         if (selectedTeam !== 'all' && entry.team !== selectedTeam) return false;
         return true;
       })
-      .forEach(entry => {
+      .forEach((entry: any) => {
         // Calcular melhores tentativas para cada movimento
         const squatAttempts = [entry.squat1, entry.squat2, entry.squat3];
         const benchAttempts = [entry.bench1, entry.bench2, entry.bench3];
@@ -293,9 +303,9 @@ const Results: React.FC = () => {
         const bestDeadlift = getBestValidAttempt(deadliftAttempts, deadliftStatus);
 
         // Contar tentativas válidas
-        const validSquat = squatStatus.filter(s => s === 1).length;
-        const validBench = benchStatus.filter(s => s === 1).length;
-        const validDeadlift = deadliftStatus.filter(s => s === 1).length;
+        const validSquat = squatStatus.filter((s: number) => s === 1).length;
+        const validBench = benchStatus.filter((s: number) => s === 1).length;
+        const validDeadlift = deadliftStatus.filter((s: number) => s === 1).length;
 
         // Função para calcular pontos IPF GL baseado no tipo de competição
         const calculateDynamicIPFGLPoints = (competitionType: string, bestSquat: number, bestBench: number, bestDeadlift: number): number => {
@@ -400,8 +410,8 @@ const Results: React.FC = () => {
           }
         } else {
           // Se há vírgula, separar em modalidades individuais
-          const movementList = movements.split(', ').filter(m => m.trim() !== '');
-          movementList.forEach(movement => {
+          const movementList = movements.split(', ').filter((m: string) => m.trim() !== '');
+          movementList.forEach((movement: string) => {
             const competitionType = movement.trim();
             if (competitionType) {
               const result = createResultForModalidade(competitionType);
@@ -2606,7 +2616,7 @@ const AttemptDisplay: React.FC<{
                       onChange={(e) => setSelectedDivision(e.target.value)}
                     >
                       <option value="all">Todas as divisões</option>
-                      {meet.divisions.map(div => (
+                      {meet.divisions.map((div: string) => (
                         <option key={div} value={div}>{div}</option>
                       ))}
                     </Form.Select>

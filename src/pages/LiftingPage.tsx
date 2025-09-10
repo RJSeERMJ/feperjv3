@@ -4,7 +4,7 @@ import { RootState } from '../store/barraProntaStore';
 import { getLiftingOrder } from '../logic/liftingOrder';
 
 import LeftCard from '../components/barraPronta/LeftCard';
-import LiftingTable from '../components/barraPronta/LiftingTable';
+import LiftingTableMirror from '../components/barraPronta/LiftingTableMirror';
 import LiftingFooter from '../components/barraPronta/LiftingFooter';
 import FloatingLiftingWindow from '../components/barraPronta/FloatingLiftingWindow';
 import './LiftingPage.css';
@@ -165,7 +165,7 @@ const LiftingPage: React.FC = () => {
 
               {/* Tabela principal de levantamentos */}
               <div className="right-panel">
-                <LiftingTable
+                <LiftingTableMirror
                   orderedEntries={liftingOrder.orderedEntries}
                   currentEntryId={liftingOrder.currentEntryId}
                   attemptOneIndexed={attemptOneIndexed}

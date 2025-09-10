@@ -14,7 +14,7 @@ import MeetSetup from '../components/barraPronta/MeetSetup';
 import Registration from '../components/barraPronta/Registration';
 import WeighIns from '../components/barraPronta/WeighIns';
 import FlightOrder from '../components/barraPronta/FlightOrder';
-import Results from '../components/barraPronta/Results';
+import ResultsMirror from '../components/barraPronta/ResultsMirror';
 import LiftingPage from './LiftingPage';
 
 const BarraProntaContent: React.FC = () => {
@@ -660,7 +660,7 @@ const BarraProntaContent: React.FC = () => {
                 </Tab.Pane>
                 
                 <Tab.Pane active={activeTab === 'results'}>
-                  <Results />
+                  <ResultsMirror />
                 </Tab.Pane>
                 
                 <Tab.Pane active={activeTab === 'lifting'}>
