@@ -41,6 +41,14 @@ export const STORAGE_CONFIG = {
   }
 };
 
+// Configurações para modelos de carteirinhas (bucket feperj-2025)
+export const MODELO_CARTEIRINHA_CONFIG = {
+  BUCKET_NAME: 'feperj-2025',
+  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB em bytes
+  ALLOWED_EXTENSIONS: ['.pdf'],
+  ALLOWED_MIME_TYPES: ['application/pdf']
+};
+
 // Função para validar extensão do arquivo financeiro
 export const validateContabilFileExtension = (fileName: string): boolean => {
   const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
@@ -220,7 +228,7 @@ export const diagnoseSupabaseIssues = async () => {
     
     // 1. Testar conexão básica
     try {
-      const { data: buckets, error } = await supabase.storage.listBuckets();
+      const { error } = await supabase.storage.listBuckets();
       if (error) {
         diagnosis.errors.push(`Erro de conexão: ${error.message}`);
       } else {

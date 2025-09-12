@@ -23,6 +23,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCPFValidation } from '../hooks/useCPFValidation';
 import DocumentosModal from '../components/DocumentosModal';
 import MatriculaModal from '../components/MatriculaModal';
+import ModeloCarteirinhaModal from '../components/ModeloCarteirinhaModal';
+import { carteirinhaService, CarteirinhaData } from '../services/carteirinhaService';
 
 // Função para gerar matrícula baseada no CPF e ano atual
 const gerarMatricula = (cpf: string): string => {
@@ -41,9 +43,12 @@ const AtletasPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showDocumentosModal, setShowDocumentosModal] = useState(false);
   const [showMatriculaModal, setShowMatriculaModal] = useState(false);
+  const [showModeloCarteirinhaModal, setShowModeloCarteirinhaModal] = useState(false);
   const [selectedAtleta, setSelectedAtleta] = useState<Atleta | null>(null);
   const [editingAtleta, setEditingAtleta] = useState<Atleta | null>(null);
   const [atletasComMatricula, setAtletasComMatricula] = useState<Set<string>>(new Set());
+  const [atletasComDocumentos, setAtletasComDocumentos] = useState<Set<string>>(new Set());
+  const [refreshDocumentos, setRefreshDocumentos] = useState(0);
   const [formData, setFormData] = useState({
     nome: '',
     cpf: '',
@@ -73,6 +78,13 @@ const AtletasPage: React.FC = () => {
       setFormData(prev => ({ ...prev, matricula: novaMatricula }));
     }
   }, [formData.cpf]);
+
+  // Recarregar verificação de documentos quando houver mudanças
+  useEffect(() => {
+    if (refreshDocumentos > 0 && atletas.length > 0) {
+      verificarDocumentosCarteirinha(atletas);
+    }
+  }, [refreshDocumentos, atletas]);
 
   const loadData = async () => {
     try {
@@ -113,8 +125,11 @@ const AtletasPage: React.FC = () => {
       setEquipes(equipesData);
       setCategorias(categoriasData);
       
-      // Verificar quais atletas têm documentos de matrícula
-      await verificarDocumentosMatricula(atletasData);
+      // Verificar quais atletas têm documentos de matrícula e carteirinha
+      await Promise.all([
+        verificarDocumentosMatricula(atletasData),
+        verificarDocumentosCarteirinha(atletasData)
+      ]);
     } catch (error) {
       toast.error('Erro ao carregar dados');
       console.error(error);
@@ -152,6 +167,39 @@ const AtletasPage: React.FC = () => {
       setAtletasComMatricula(atletasComMatriculaSet);
     } catch (error) {
       console.error('Erro ao verificar documentos de matrícula:', error);
+    }
+  };
+
+  const verificarDocumentosCarteirinha = async (atletas: Atleta[]) => {
+    try {
+      const atletasComDocumentosSet = new Set<string>();
+      
+      // Verificar apenas atletas que têm ID
+      const atletasComId = atletas.filter(atleta => atleta.id);
+      
+      // Processar em paralelo para melhor performance
+      const verificacoes = atletasComId.map(async (atleta) => {
+        try {
+          const documentos = await documentService.listDocuments(atleta.id!);
+          const temFoto3x4 = documentos.some(doc => doc.tipo === 'foto-3x4');
+          const temComprovanteResidencia = documentos.some(doc => doc.tipo === 'comprovante-residencia');
+          return (temFoto3x4 && temComprovanteResidencia) ? atleta.id! : null;
+        } catch (error) {
+          console.warn(`Erro ao verificar documentos do atleta ${atleta.id}:`, error);
+          return null;
+        }
+      });
+      
+      const resultados = await Promise.all(verificacoes);
+      resultados.forEach(id => {
+        if (id) {
+          atletasComDocumentosSet.add(id);
+        }
+      });
+      
+      setAtletasComDocumentos(atletasComDocumentosSet);
+    } catch (error) {
+      console.error('Erro ao verificar documentos para carteirinha:', error);
     }
   };
 
@@ -272,6 +320,11 @@ const AtletasPage: React.FC = () => {
     setShowDocumentosModal(true);
   };
 
+  const handleDocumentosChanged = () => {
+    // Incrementar contador para triggerar recarregamento
+    setRefreshDocumentos(prev => prev + 1);
+  };
+
   const handleMatricula = (atleta: Atleta) => {
     // Verificação de segurança para usuários não-admin
     if (user?.tipo !== 'admin' && atleta.idEquipe !== user?.idEquipe) {
@@ -281,6 +334,80 @@ const AtletasPage: React.FC = () => {
     
     setSelectedAtleta(atleta);
     setShowMatriculaModal(true);
+  };
+
+  const handleGerarCarteirinha = async (atleta: Atleta) => {
+    try {
+      // Verificação de segurança para usuários não-admin
+      if (user?.tipo !== 'admin' && atleta.idEquipe !== user?.idEquipe) {
+        toast.error('Você só pode gerar carteirinhas de atletas da sua equipe');
+        return;
+      }
+
+      // Verificar se o atleta tem os documentos necessários
+      if (!atletasComDocumentos.has(atleta.id!)) {
+        toast.error('Atleta deve ter foto 3x4 e comprovante de residência cadastrados');
+        return;
+      }
+
+      // Buscar equipe do atleta
+      const equipe = equipes.find(e => e.id === atleta.idEquipe);
+      if (!equipe) {
+        toast.error('Equipe do atleta não encontrada');
+        return;
+      }
+
+      // Buscar foto 3x4 do atleta no Supabase
+      let foto3x4Url: string | undefined;
+      try {
+        const documentos = await documentService.listDocuments(atleta.id!);
+        const foto3x4Doc = documentos.find((doc: any) => doc.tipo === 'foto-3x4');
+        
+        if (foto3x4Doc?.url) {
+          // Gerar URL temporária se necessário
+          if (foto3x4Doc.urlTemporaria) {
+            foto3x4Url = foto3x4Doc.urlTemporaria;
+          } else {
+            // Gerar URL temporária válida por 1 hora
+            foto3x4Url = await documentService.generateTemporaryUrl(
+              `${atleta.id}/foto-3x4/${foto3x4Doc.nomeArquivoSalvo}`,
+              3600
+            );
+          }
+          console.log('📸 Foto 3x4 encontrada:', foto3x4Url);
+        } else {
+          console.log('⚠️ Foto 3x4 não encontrada para o atleta');
+        }
+      } catch (error) {
+        console.error('Erro ao buscar foto 3x4:', error);
+      }
+
+      // Preparar dados para carteirinha
+      const dadosCarteirinha: CarteirinhaData = {
+        atleta,
+        equipe,
+        foto3x4: foto3x4Url
+      };
+
+      // Gerar carteirinha
+      const pdfBytes = await carteirinhaService.gerarCarteirinha(dadosCarteirinha);
+      const nomeArquivo = `carteirinha_${atleta.nome.replace(/\s+/g, '_')}.pdf`;
+      
+      await carteirinhaService.baixarCarteirinha(pdfBytes, nomeArquivo);
+      toast.success(`Carteirinha de ${atleta.nome} gerada com sucesso!`);
+
+      // Registrar log
+      await logService.create({
+        dataHora: new Date(),
+        usuario: user?.nome || 'Sistema',
+        acao: 'Gerou carteirinha',
+        detalhes: `Gerou carteirinha do atleta: ${atleta.nome}`,
+        tipoUsuario: user?.tipo || 'usuario'
+      });
+    } catch (error) {
+      console.error('Erro ao gerar carteirinha:', error);
+      toast.error(`Erro ao gerar carteirinha: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
   };
 
   const handleDelete = async (atleta: Atleta) => {
@@ -419,14 +546,24 @@ const AtletasPage: React.FC = () => {
         </div>
         <div className="d-flex gap-2">
           {user?.tipo === 'admin' && (
-            <Button 
-              variant="outline-success" 
-              onClick={handleExportCSV}
-              title="Exportar lista de atletas em CSV"
-            >
-              <FaFileExport className="me-2" />
-              Exportar CSV
-            </Button>
+            <>
+              <Button 
+                variant="outline-info" 
+                onClick={() => setShowModeloCarteirinhaModal(true)}
+                title="Importar modelo de carteirinha"
+              >
+                <FaIdCard className="me-2" />
+                Importar Modelo
+              </Button>
+              <Button 
+                variant="outline-success" 
+                onClick={handleExportCSV}
+                title="Exportar lista de atletas em CSV"
+              >
+                <FaFileExport className="me-2" />
+                Exportar CSV
+              </Button>
+            </>
           )}
           <Button 
             variant="primary" 
@@ -471,6 +608,7 @@ const AtletasPage: React.FC = () => {
                 <th>Equipe</th>
                 <th>Status</th>
                 <th>Maior Total</th>
+                <th>Carteirinha</th>
                 <th>Ações</th>
               </tr>
             </thead>
@@ -511,6 +649,23 @@ const AtletasPage: React.FC = () => {
                     </Badge>
                   </td>
                   <td>{atleta.maiorTotal ? `${atleta.maiorTotal}kg` : '-'}</td>
+                  <td>
+                    {atletasComDocumentos.has(atleta.id!) ? (
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => handleGerarCarteirinha(atleta)}
+                        title="Gerar carteirinha"
+                      >
+                        <FaIdCard className="me-1" />
+                        Gerar
+                      </Button>
+                    ) : (
+                      <Badge bg="warning">
+                        Documentos incompletos
+                      </Badge>
+                    )}
+                  </td>
                   <td>
                     <Dropdown>
                       <Dropdown.Toggle variant="outline-secondary" size="sm">
@@ -777,6 +932,7 @@ const AtletasPage: React.FC = () => {
           setSelectedAtleta(null);
         }}
         atleta={selectedAtleta}
+        onDocumentosChanged={handleDocumentosChanged}
       />
 
       {/* Modal da Matrícula */}
@@ -788,6 +944,16 @@ const AtletasPage: React.FC = () => {
         }}
         atleta={selectedAtleta}
       />
+
+      {/* Modal de Importar Modelo de Carteirinha */}
+      <ModeloCarteirinhaModal
+        show={showModeloCarteirinhaModal}
+        onHide={() => setShowModeloCarteirinhaModal(false)}
+        onModeloImportado={() => {
+          toast.success('Modelo de carteirinha atualizado! As próximas carteirinhas usarão o novo modelo.');
+        }}
+      />
+
     </div>
   );
 };

@@ -31,9 +31,10 @@ interface DocumentosModalProps {
   show: boolean;
   onHide: () => void;
   atleta: Atleta | null;
+  onDocumentosChanged?: () => void; // Callback para notificar mudanças
 }
 
-const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta }) => {
+const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta, onDocumentosChanged }) => {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -85,6 +86,11 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
       setSelectedFile(null);
       setSelectedDocumentType('comprovante-residencia');
       loadDocumentos();
+      
+      // Notificar mudança para atualizar verificação de carteirinha
+      if (onDocumentosChanged) {
+        onDocumentosChanged();
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erro ao enviar documento');
     } finally {
@@ -120,6 +126,11 @@ const DocumentosModal: React.FC<DocumentosModalProps> = ({ show, onHide, atleta 
       await documentService.deleteDocument(filePath);
       toast.success('Documento excluído com sucesso!');
       loadDocumentos();
+      
+      // Notificar mudança para atualizar verificação de carteirinha
+      if (onDocumentosChanged) {
+        onDocumentosChanged();
+      }
     } catch (error) {
       toast.error('Erro ao excluir documento');
     }
