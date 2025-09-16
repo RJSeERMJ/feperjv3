@@ -1,4 +1,3 @@
-S
 import { supabase, COMPROVANTES_CONFIG } from '../config/supabase';
 import { atletaService, equipeService, pagamentoService, anuidadeService } from './firebaseService';
 import { notificacoesService } from './notificacoesService';
