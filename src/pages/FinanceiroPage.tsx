@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Row, 
   Col, 
@@ -36,12 +36,15 @@ import {
   inscricaoService,
   anuidadeService,
   pagamentoService,
-  renovacaoAnualService
+  renovacaoAnualService,
+  anuidadeEquipeService,
+  equipeStatusService
 } from '../services/firebaseService';
 import { documentosContabeisService, DocumentoContabil } from '../services/documentosContabeisService';
 import { comprovantesAnuidadeService, ComprovanteAnuidade } from '../services/comprovantesAnuidadeService';
 import { comprovantesInscricaoService, ComprovanteInscricao } from '../services/comprovantesInscricaoService';
-import { Equipe, Atleta, Competicao, InscricaoCompeticao } from '../types';
+import { comprovantesAnuidadeEquipeService } from '../services/comprovantesAnuidadeEquipeService';
+import { Equipe, Atleta, Competicao, InscricaoCompeticao, ComprovanteAnuidadeEquipe, AnuidadeEquipe } from '../types';
 
 interface Anuidade {
   id?: string;
@@ -74,6 +77,8 @@ const FinanceiroPage: React.FC = () => {
   const [documentosContabeis, setDocumentosContabeis] = useState<DocumentoContabil[]>([]);
   const [comprovantes, setComprovantes] = useState<ComprovanteAnuidade[]>([]);
   const [comprovantesInscricao, setComprovantesInscricao] = useState<ComprovanteInscricao[]>([]);
+  const [comprovantesAnuidadeEquipe, setComprovantesAnuidadeEquipe] = useState<ComprovanteAnuidadeEquipe[]>([]);
+  const [anuidadeEquipe, setAnuidadeEquipe] = useState<AnuidadeEquipe | null>(null);
   
   // Estados para modais
   const [showConfigAnuidadeModal, setShowConfigAnuidadeModal] = useState(false);
@@ -83,6 +88,11 @@ const FinanceiroPage: React.FC = () => {
   const [showAprovacaoModal, setShowAprovacaoModal] = useState(false);
   const [showInscricaoModal, setShowInscricaoModal] = useState(false);
   const [showAprovacaoInscricaoModal, setShowAprovacaoInscricaoModal] = useState(false);
+  const [showConfigAnuidadeEquipeModal, setShowConfigAnuidadeEquipeModal] = useState(false);
+  const [showStatusEquipeModal, setShowStatusEquipeModal] = useState(false);
+  const [showComprovanteEquipeModal, setShowComprovanteEquipeModal] = useState(false);
+  const [showAprovacaoEquipeModal, setShowAprovacaoEquipeModal] = useState(false);
+  const [showGerenciarComprovantesEquipeModal, setShowGerenciarComprovantesEquipeModal] = useState(false);
   const [selectedEquipe, setSelectedEquipe] = useState<Equipe | null>(null);
   const [selectedAtleta, setSelectedAtleta] = useState<Atleta | null>(null);
   const [selectedComprovante, setSelectedComprovante] = useState<ComprovanteAnuidade | null>(null);
@@ -106,17 +116,25 @@ const FinanceiroPage: React.FC = () => {
   const [observacoesAprovacaoInscricao, setObservacoesAprovacaoInscricao] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
+  // Estados para anuidade de equipe
+  const [valorAnuidadeEquipe, setValorAnuidadeEquipe] = useState('');
+  const [novoStatusEquipe, setNovoStatusEquipe] = useState<'ATIVA' | 'INATIVA'>('ATIVA');
+  const [comprovanteEquipeFile, setComprovanteEquipeFile] = useState<File | null>(null);
+  const [dataPagamentoEquipe, setDataPagamentoEquipe] = useState('');
+  const [valorPagamentoEquipe, setValorPagamentoEquipe] = useState('');
+  const [observacoesComprovanteEquipe, setObservacoesComprovanteEquipe] = useState('');
+  const [observacoesAprovacaoEquipe, setObservacoesAprovacaoEquipe] = useState('');
+  const [selectedComprovanteEquipe, setSelectedComprovanteEquipe] = useState<ComprovanteAnuidadeEquipe | null>(null);
+  
+  // Estados para filtros da aba de atletas
+  const [filtroAtletas, setFiltroAtletas] = useState('');
+  const [filtroStatusAtletas, setFiltroStatusAtletas] = useState<'TODOS' | 'PAGO' | 'PENDENTE' | 'SEM_COMPROVANTE'>('TODOS');
+  
   // Estados para download com progresso
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   
   const { user } = useAuth();
-
-  useEffect(() => {
-    loadData();
-    // Verificar renovação anual automaticamente
-    verificarRenovacaoAnual();
-  }, []);
 
   const verificarRenovacaoAnual = async () => {
     try {
@@ -128,7 +146,7 @@ const FinanceiroPage: React.FC = () => {
     }
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -188,15 +206,30 @@ const FinanceiroPage: React.FC = () => {
       setInscricoes(inscricoesData);
 
       // Carregar dados financeiros do Firebase e Supabase
-      const [anuidadeData, pagamentosData, documentosData] = await Promise.all([
+      const [anuidadeData, pagamentosData, documentosData, anuidadeEquipeData] = await Promise.all([
         anuidadeService.getAtivo(),
         pagamentoService.getAll(),
-        documentosContabeisService.listarDocumentos()
+        documentosContabeisService.listarDocumentos(),
+        anuidadeEquipeService.getAtivo()
       ]);
 
       setAnuidade(anuidadeData);
       setPagamentosAnuidade(pagamentosData);
       setDocumentosContabeis(documentosData);
+      setAnuidadeEquipe(anuidadeEquipeData);
+
+      // Carregar comprovantes de anuidade de equipe
+      if (user?.tipo === 'admin') {
+        try {
+          const comprovantesEquipeData = await comprovantesAnuidadeEquipeService.listarTodosComprovantes();
+          setComprovantesAnuidadeEquipe(comprovantesEquipeData);
+          
+          // Inicializar valor de anuidade em equipes existentes (se necessário)
+          await anuidadeEquipeService.inicializarValorAnuidadeEmEquipesExistentes();
+        } catch (error) {
+          console.warn('Erro ao carregar comprovantes de anuidade de equipe:', error);
+        }
+      }
 
     } catch (error) {
       toast.error('Erro ao carregar dados financeiros');
@@ -204,7 +237,13 @@ const FinanceiroPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadData();
+    // Verificar renovação anual automaticamente
+    verificarRenovacaoAnual();
+  }, [loadData]);
 
   // Funções para Dashboard Financeiro
   const calcularValorTotalCompeticoes = () => {
@@ -227,6 +266,21 @@ const FinanceiroPage: React.FC = () => {
 
   const calcularValorPendenteAnuidades = () => {
     return calcularValorTotalAnuidades() - calcularValorPagoAnuidades();
+  };
+
+  const calcularValorTotalAnuidadesEquipe = () => {
+    if (!anuidadeEquipe) return 0;
+    return equipes.length * anuidadeEquipe.valor;
+  };
+
+  const calcularValorPagoAnuidadesEquipe = () => {
+    return comprovantesAnuidadeEquipe
+      .filter(comp => comp.status === 'APROVADO')
+      .reduce((total, comp) => total + comp.valor, 0);
+  };
+
+  const calcularValorPendenteAnuidadesEquipe = () => {
+    return calcularValorTotalAnuidadesEquipe() - calcularValorPagoAnuidadesEquipe();
   };
 
   // Funções para Configuração de Anuidade
@@ -339,7 +393,17 @@ const FinanceiroPage: React.FC = () => {
         user!.nome || user!.login,
         observacoesAprovacao
       );
-      toast.success(`Comprovante de ${selectedComprovante.nomeAtleta} (${selectedComprovante.nomeEquipe}) aprovado com sucesso!`);
+      
+      // Feedback detalhado sobre a aprovação
+      toast.success(
+        `✅ Comprovante aprovado com sucesso!
+        
+        👤 Atleta: ${selectedComprovante.nomeAtleta}
+        🏆 Equipe: ${selectedComprovante.nomeEquipe}
+        🔄 Status do atleta atualizado para ATIVO
+        💰 Anuidade marcada como PAGA`
+      );
+      
       setShowAprovacaoModal(false);
       setObservacoesAprovacao('');
       setSelectedComprovante(null);
@@ -523,6 +587,201 @@ const FinanceiroPage: React.FC = () => {
     setShowAprovacaoInscricaoModal(true);
   };
 
+  // Funções para Anuidade de Equipe
+  const handleSalvarAnuidadeEquipe = async () => {
+    if (!valorAnuidadeEquipe || parseFloat(valorAnuidadeEquipe) <= 0) {
+      toast.error('Valor da anuidade de equipe deve ser maior que zero');
+      return;
+    }
+
+    try {
+      const novaAnuidadeEquipe = {
+        valor: parseFloat(valorAnuidadeEquipe),
+        ativo: true
+      };
+
+      // Mostrar loading
+      toast.info('Configurando anuidade de equipe e atualizando todas as equipes...');
+      
+      await anuidadeEquipeService.create(novaAnuidadeEquipe);
+      
+      toast.success(`Valor da anuidade de equipe configurado com sucesso! Todas as ${equipes.length} equipes foram atualizadas automaticamente.`);
+      setShowConfigAnuidadeEquipeModal(false);
+      setValorAnuidadeEquipe('');
+      loadData();
+    } catch (error) {
+      toast.error('Erro ao configurar anuidade de equipe');
+      console.error(error);
+    }
+  };
+
+  const handleAtualizarStatusEquipe = async () => {
+    if (!selectedEquipe) return;
+
+    try {
+      await equipeStatusService.atualizarStatusEquipe(
+        selectedEquipe.id!,
+        novoStatusEquipe,
+        user!.nome || user!.login
+      );
+      
+      toast.success(`Status da equipe ${selectedEquipe.nomeEquipe} atualizado para ${novoStatusEquipe}!`);
+      setShowStatusEquipeModal(false);
+      setSelectedEquipe(null);
+      loadData();
+    } catch (error) {
+      toast.error('Erro ao atualizar status da equipe');
+      console.error(error);
+    }
+  };
+
+
+  const handleUploadComprovanteEquipe = async () => {
+    if (!selectedEquipe || !comprovanteEquipeFile || !dataPagamentoEquipe || !valorPagamentoEquipe) {
+      toast.error('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      console.log('📁 Iniciando upload do comprovante de anuidade de equipe...');
+      
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+
+      const valor = parseFloat(valorPagamentoEquipe);
+      const dataPag = new Date(dataPagamentoEquipe);
+
+      await comprovantesAnuidadeEquipeService.uploadComprovante(
+        comprovanteEquipeFile,
+        selectedEquipe.id!,
+        selectedEquipe.nomeEquipe,
+        dataPag,
+        valor,
+        observacoesComprovanteEquipe,
+        user?.nome || 'Usuário'
+      );
+
+      console.log('✅ Upload do comprovante de anuidade de equipe concluído com sucesso');
+      toast.success(`Comprovante de anuidade enviado com sucesso! Aguarde a aprovação do administrador.`);
+      setShowComprovanteEquipeModal(false);
+      limparFormularioComprovanteEquipe();
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro no upload do comprovante de anuidade de equipe:', error);
+      toast.error(`Erro ao enviar comprovante: ${errorMessage}`);
+    }
+  };
+
+
+  const handleAprovarComprovanteEquipe = async () => {
+    if (!selectedComprovanteEquipe) return;
+
+    try {
+      await comprovantesAnuidadeEquipeService.aprovarComprovante(
+        selectedComprovanteEquipe,
+        user!.nome || user!.login,
+        observacoesAprovacaoEquipe
+      );
+      toast.success(`Comprovante de ${selectedComprovanteEquipe.nomeEquipe} aprovado com sucesso!`);
+      setShowAprovacaoEquipeModal(false);
+      setObservacoesAprovacaoEquipe('');
+      setSelectedComprovanteEquipe(null);
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao aprovar comprovante de anuidade de equipe:', error);
+      toast.error(`Erro ao aprovar comprovante: ${errorMessage}`);
+    }
+  };
+
+  const handleRejeitarComprovanteEquipe = async () => {
+    if (!selectedComprovanteEquipe) return;
+
+    try {
+      await comprovantesAnuidadeEquipeService.rejeitarComprovante(
+        selectedComprovanteEquipe,
+        user!.nome || user!.login,
+        observacoesAprovacaoEquipe
+      );
+      toast.success(`Comprovante de ${selectedComprovanteEquipe.nomeEquipe} rejeitado com sucesso!`);
+      setShowAprovacaoEquipeModal(false);
+      setObservacoesAprovacaoEquipe('');
+      setSelectedComprovanteEquipe(null);
+      loadData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao rejeitar comprovante de anuidade de equipe:', error);
+      toast.error(`Erro ao rejeitar comprovante: ${errorMessage}`);
+    }
+  };
+
+  const limparFormularioComprovanteEquipe = () => {
+    setComprovanteEquipeFile(null);
+    setDataPagamentoEquipe('');
+    setValorPagamentoEquipe('');
+    setObservacoesComprovanteEquipe('');
+    setSelectedEquipe(null);
+  };
+
+  const abrirModalComprovanteEquipe = (equipe: Equipe) => {
+    setSelectedEquipe(equipe);
+    setShowComprovanteEquipeModal(true);
+  };
+
+  const abrirModalGerenciarComprovantesEquipe = (equipe: Equipe) => {
+    setSelectedEquipe(equipe);
+    setShowGerenciarComprovantesEquipeModal(true);
+  };
+
+
+  const abrirModalStatusEquipe = (equipe: Equipe) => {
+    setSelectedEquipe(equipe);
+    setNovoStatusEquipe(equipe.status === 'ATIVA' ? 'INATIVA' : 'ATIVA');
+    setShowStatusEquipeModal(true);
+  };
+
+  // Funções para filtros da aba de atletas
+  const getAtletasFiltrados = () => {
+    let atletasFiltrados = atletas;
+
+    // Filtro por texto (nome, CPF, equipe)
+    if (filtroAtletas) {
+      atletasFiltrados = atletasFiltrados.filter(atleta => {
+        const equipe = equipes.find(e => e.id === atleta.idEquipe);
+        const textoBusca = filtroAtletas.toLowerCase();
+        return (
+          atleta.nome.toLowerCase().includes(textoBusca) ||
+          atleta.cpf.includes(textoBusca) ||
+          (equipe && equipe.nomeEquipe.toLowerCase().includes(textoBusca))
+        );
+      });
+    }
+
+    // Filtro por status
+    if (filtroStatusAtletas !== 'TODOS') {
+      atletasFiltrados = atletasFiltrados.filter(atleta => {
+        const statusAnuidade = getStatusAnuidadeAtleta(atleta.id!);
+        const comprovante = comprovantes.find(comp => comp.atletaId === atleta.id);
+        
+        switch (filtroStatusAtletas) {
+          case 'PAGO':
+            return statusAnuidade === 'PAGO';
+          case 'PENDENTE':
+            return statusAnuidade === 'PENDENTE';
+          case 'SEM_COMPROVANTE':
+            return !comprovante;
+          default:
+            return true;
+        }
+      });
+    }
+
+    return atletasFiltrados;
+  };
+
   // Funções para navegação hierárquica
   const voltarParaCompeticoes = () => {
     setViewMode('competicoes');
@@ -688,6 +947,13 @@ const FinanceiroPage: React.FC = () => {
               <FaCog className="me-2" />
               Configurar Anuidade
             </Button>
+            <Button 
+              variant="outline-info" 
+              onClick={() => setShowConfigAnuidadeEquipeModal(true)}
+            >
+              <FaCog className="me-2" />
+              Configurar Anuidade Equipe
+            </Button>
                          <Button 
                variant="outline-success" 
                onClick={() => setShowPrestacaoContasModal(true)}
@@ -740,6 +1006,45 @@ const FinanceiroPage: React.FC = () => {
             </Col>
           </Row>
 
+          <Row className="mb-4">
+            <Col md={3}>
+              <Card className="text-center">
+                <Card.Body>
+                  <FaUsers className="text-info mb-2" size={24} />
+                  <h3>R$ {calcularValorTotalAnuidadesEquipe().toFixed(2)}</h3>
+                  <p className="text-muted">Total Anuidades Equipe</p>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center">
+                <Card.Body>
+                  <FaCheckCircle className="text-success mb-2" size={24} />
+                  <h3>R$ {calcularValorPagoAnuidadesEquipe().toFixed(2)}</h3>
+                  <p className="text-muted">Anuidades Equipe Pagas</p>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center">
+                <Card.Body>
+                  <FaTimesCircle className="text-warning mb-2" size={24} />
+                  <h3>R$ {calcularValorPendenteAnuidadesEquipe().toFixed(2)}</h3>
+                  <p className="text-muted">Anuidades Equipe Pendentes</p>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={3}>
+              <Card className="text-center">
+                <Card.Body>
+                  <FaUsers className="text-primary mb-2" size={24} />
+                  <h3>{equipes.length}</h3>
+                  <p className="text-muted">Total de Equipes</p>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+
           {user?.tipo === 'admin' && (
             <Card>
               <Card.Header>
@@ -750,10 +1055,11 @@ const FinanceiroPage: React.FC = () => {
                   <thead>
                     <tr>
                       <th>Equipe</th>
+                      <th>Status</th>
                       <th>Total Atletas</th>
                       <th>Valor Competições</th>
-                      <th>Anuidades Pagas</th>
-                      <th>Anuidades Pendentes</th>
+                      <th>Anuidades Atletas</th>
+                      <th>Anuidade Equipe</th>
                       <th>Total Devido</th>
                       <th>Ações</th>
                     </tr>
@@ -768,7 +1074,8 @@ const FinanceiroPage: React.FC = () => {
                       const anuidadesPendentes = atletasEquipe.filter(atleta => 
                         getStatusAnuidadeAtleta(atleta.id!) === 'PENDENTE'
                       ).length * (anuidade?.valor || 0);
-                      const totalDevido = valorCompeticoes + anuidadesPendentes;
+                      const valorAnuidadeEquipe = equipe.valorAnuidadeEquipe || 0;
+                      const totalDevido = valorCompeticoes + anuidadesPendentes + valorAnuidadeEquipe;
 
                       return (
                         <tr key={equipe.id}>
@@ -777,22 +1084,40 @@ const FinanceiroPage: React.FC = () => {
                             <br />
                             <small className="text-muted">{equipe.cidade}</small>
                           </td>
+                          <td>
+                            <Badge bg={
+                              equipe.status === 'ATIVA' ? 'success' : 
+                              equipe.status === 'INATIVA' ? 'danger' : 'warning'
+                            }>
+                              {equipe.status || 'PENDENTE'}
+                            </Badge>
+                          </td>
                           <td>{atletasEquipe.length}</td>
                           <td>R$ {valorCompeticoes.toFixed(2)}</td>
-                          <td>R$ {anuidadesPagas.toFixed(2)}</td>
-                          <td>R$ {anuidadesPendentes.toFixed(2)}</td>
+                          <td>R$ {(anuidadesPagas + anuidadesPendentes).toFixed(2)}</td>
+                          <td>R$ {valorAnuidadeEquipe.toFixed(2)}</td>
                           <td>
                             <strong>R$ {totalDevido.toFixed(2)}</strong>
                           </td>
                           <td>
+                            <div className="d-flex gap-1">
                             <Button 
                               variant="outline-primary" 
                               size="sm"
                               onClick={() => handleDetalhesEquipe(equipe)}
+                                title="Ver detalhes"
                             >
-                              <FaEye className="me-1" />
-                              Detalhes
+                                <FaEye />
                             </Button>
+                              <Button 
+                                variant="outline-success" 
+                                size="sm"
+                                onClick={() => abrirModalStatusEquipe(equipe)}
+                                title="Alterar status"
+                              >
+                                <FaCog />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -928,6 +1253,210 @@ const FinanceiroPage: React.FC = () => {
                         })}
                       </tbody>
                     </Table>
+
+                    {/* Card para Comprovantes de Anuidade de Equipe */}
+                    <Card className="mt-4">
+                      <Card.Header>
+                        <h6 className="mb-0">🏆 Comprovantes de Anuidade de Equipe</h6>
+                      </Card.Header>
+                      <Card.Body>
+                        <Alert variant="info" className="mb-3">
+                          <strong>ℹ️ Informação:</strong> Envie o comprovante de pagamento da anuidade da sua equipe para aprovação do administrador. 
+                          O valor da anuidade de equipe é de <strong>R$ {anuidadeEquipe?.valor?.toFixed(2) || '0.00'}</strong>.
+                          <br />
+                          <strong>📋 Status:</strong> Seu comprovante será analisado e aprovado/rejeitado por um administrador.
+                        </Alert>
+
+                        {/* Estatísticas dos comprovantes da equipe */}
+                        {(() => {
+                          const comprovantesEquipe = comprovantesAnuidadeEquipe.filter(comp => comp.idEquipe === user?.idEquipe);
+                          const comprovantesPendentes = comprovantesEquipe.filter(comp => comp.status === 'PENDENTE');
+                          const comprovantesAprovados = comprovantesEquipe.filter(comp => comp.status === 'APROVADO');
+                          const comprovantesRejeitados = comprovantesEquipe.filter(comp => comp.status === 'REJEITADO');
+                          
+                          return (
+                            <Row className="mb-3">
+                              <Col md={3}>
+                                <Card className="text-center">
+                                  <Card.Body className="py-2">
+                                    <h6 className="text-primary mb-1">{comprovantesEquipe.length}</h6>
+                                    <small className="text-muted">Total Enviados</small>
+                                  </Card.Body>
+                                </Card>
+                              </Col>
+                              <Col md={3}>
+                                <Card className="text-center">
+                                  <Card.Body className="py-2">
+                                    <h6 className="text-warning mb-1">{comprovantesPendentes.length}</h6>
+                                    <small className="text-muted">Pendentes</small>
+                                  </Card.Body>
+                                </Card>
+                              </Col>
+                              <Col md={3}>
+                                <Card className="text-center">
+                                  <Card.Body className="py-2">
+                                    <h6 className="text-success mb-1">{comprovantesAprovados.length}</h6>
+                                    <small className="text-muted">Aprovados</small>
+                                  </Card.Body>
+                                </Card>
+                              </Col>
+                              <Col md={3}>
+                                <Card className="text-center">
+                                  <Card.Body className="py-2">
+                                    <h6 className="text-danger mb-1">{comprovantesRejeitados.length}</h6>
+                                    <small className="text-muted">Rejeitados</small>
+                                  </Card.Body>
+                                </Card>
+                              </Col>
+                            </Row>
+                          );
+                        })()}
+
+                        {/* Botão para enviar comprovante */}
+                        <div className="text-center mb-3">
+                          <Button
+                            variant="primary"
+                            onClick={() => {
+                              const minhaEquipe = equipes.find(eq => eq.id === user?.idEquipe);
+                              if (minhaEquipe) {
+                                abrirModalComprovanteEquipe(minhaEquipe);
+                              }
+                            }}
+                            className="me-2"
+                          >
+                            <FaUpload className="me-2" />
+                            Enviar Comprovante de Anuidade
+                          </Button>
+                        </div>
+
+                        {/* Lista de comprovantes enviados */}
+                        {(() => {
+                          const comprovantesEquipe = comprovantesAnuidadeEquipe.filter(comp => comp.idEquipe === user?.idEquipe);
+                          
+                          if (comprovantesEquipe.length === 0) {
+                            return (
+                              <Alert variant="info" className="text-center">
+                                <FaEye className="me-2" />
+                                Nenhum comprovante de anuidade enviado ainda.
+                              </Alert>
+                            );
+                          }
+
+                          return (
+                            <Table responsive striped hover>
+                            <thead>
+                              <tr>
+                                <th>Comprovante</th>
+                                <th>Valor</th>
+                                <th>Data Pagamento</th>
+                                <th>Data Envio</th>
+                                <th>Enviado Por</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                              </tr>
+                            </thead>
+                              <tbody>
+                                {comprovantesEquipe.map(comprovante => (
+                                  <tr key={comprovante.id}>
+                                    <td>
+                                      <div>
+                                        <strong>{comprovante.nome}</strong>
+                                        <br />
+                                        <small className="text-muted">
+                                          {(comprovante.tamanho / 1024 / 1024).toFixed(2)} MB
+                                        </small>
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <strong>R$ {comprovante.valor.toFixed(2)}</strong>
+                                    </td>
+                                    <td>
+                                      {comprovante.dataPagamento.toLocaleDateString('pt-BR')}
+                                    </td>
+                                    <td>
+                                      {comprovante.dataUpload.toLocaleDateString('pt-BR')}
+                                    </td>
+                                    <td>
+                                      <strong>{comprovante.enviadoPor || 'Usuário'}</strong>
+                                    </td>
+                                    <td>
+                                      <Badge bg={
+                                        comprovante.status === 'APROVADO' ? 'success' :
+                                        comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
+                                      }>
+                                        {comprovante.status}
+                                      </Badge>
+                                      {comprovante.aprovadoPor && (
+                                        <div>
+                                          <small className="text-muted">
+                                            Por: {comprovante.aprovadoPor}
+                                          </small>
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td>
+                                      <div className="d-flex gap-1">
+                                        <Button
+                                          variant="outline-primary"
+                                          size="sm"
+                                          onClick={async () => {
+                                            try {
+                                              await comprovantesAnuidadeEquipeService.downloadComprovante(comprovante);
+                                              toast.success('Download iniciado com sucesso!');
+                                            } catch (error) {
+                                              const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+                                              console.error('❌ Erro no download:', error);
+                                              toast.error(`Erro ao baixar comprovante: ${errorMessage}`);
+                                            }
+                                          }}
+                                          title="Download"
+                                        >
+                                          <FaDownload />
+                                        </Button>
+                                        {comprovante.status === 'PENDENTE' && (
+                                          <Button
+                                            variant="outline-danger"
+                                            size="sm"
+                                            onClick={() => {
+                                              if (window.confirm('Tem certeza que deseja excluir este comprovante?')) {
+                                                comprovantesAnuidadeEquipeService.deletarComprovante(
+                                                  comprovante,
+                                                  false,
+                                                  user?.idEquipe
+                                                ).then(() => {
+                                                  toast.success('Comprovante excluído com sucesso!');
+                                                  loadData();
+                                                }).catch(error => {
+                                                  toast.error('Erro ao excluir comprovante: ' + error.message);
+                                                });
+                                              }
+                                            }}
+                                            title="Excluir comprovante"
+                                          >
+                                            <FaTimesCircle />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </Table>
+                          );
+                        })()}
+
+                        <Alert variant="success" className="mt-3">
+                          <strong>✅ Status da Equipe:</strong> Sua equipe está atualmente 
+                          <Badge bg={equipes.find(eq => eq.id === user?.idEquipe)?.status === 'ATIVA' ? 'success' : 'danger'} className="ms-2">
+                            {equipes.find(eq => eq.id === user?.idEquipe)?.status || 'PENDENTE'}
+                          </Badge>
+                          {equipes.find(eq => eq.id === user?.idEquipe)?.status === 'ATIVA' ? 
+                            ' - Parabéns! Sua equipe está ativa e pode participar de competições.' : 
+                            ' - Envie um comprovante de anuidade para aprovação e ativação da sua equipe.'
+                          }
+                        </Alert>
+                      </Card.Body>
+                    </Card>
                   </div>
                 ) : (
                   <Alert variant="warning" className="text-center">
@@ -1092,57 +1621,203 @@ const FinanceiroPage: React.FC = () => {
                 <h5 className="mb-0">💰 Comprovantes de Pagamento de Anuidade</h5>
               </Card.Header>
               <Card.Body>
-                {comprovantes.length === 0 ? (
+                <Tabs defaultActiveKey="atletas" className="mb-4">
+                  <Tab eventKey="atletas" title="Atletas">
+                    <div className="mb-3">
+                      <Alert variant="info">
+                        <strong>ℹ️ Informação:</strong> Lista de todos os atletas com status de anuidade e comprovantes.
+                        {user?.tipo === 'admin' ? ' Você pode gerenciar comprovantes e aprovar pagamentos.' : ' Você pode enviar comprovantes de pagamento.'}
+                      </Alert>
+                      
+                      {user?.tipo === 'admin' && (
+                        <Alert variant="success" className="mt-2">
+                          <strong>🔄 Atualização Automática de Status:</strong> Quando você aprova um comprovante de anuidade, o status do atleta é automaticamente atualizado para <strong>ATIVO</strong> na seção "Gestão de Atletas". Isso garante que atletas com anuidade paga tenham acesso completo ao sistema.
+                        </Alert>
+                      )}
+                    </div>
+
+                    {/* Estatísticas resumidas */}
+                    <Row className="mb-3">
+                      <Col md={3}>
+                        <Card className="text-center">
+                          <Card.Body className="py-2">
+                            <h6 className="text-primary mb-1">{atletas.length}</h6>
+                            <small className="text-muted">Total Atletas</small>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col md={3}>
+                        <Card className="text-center">
+                          <Card.Body className="py-2">
+                            <h6 className="text-success mb-1">
+                              {atletas.filter(atleta => getStatusAnuidadeAtleta(atleta.id!) === 'PAGO').length}
+                            </h6>
+                            <small className="text-muted">Anuidades Pagas</small>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col md={3}>
+                        <Card className="text-center">
+                          <Card.Body className="py-2">
+                            <h6 className="text-warning mb-1">
+                              {atletas.filter(atleta => getStatusAnuidadeAtleta(atleta.id!) === 'PENDENTE').length}
+                            </h6>
+                            <small className="text-muted">Anuidades Pendentes</small>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col md={3}>
+                        <Card className="text-center">
+                          <Card.Body className="py-2">
+                            <h6 className="text-secondary mb-1">
+                              {atletas.filter(atleta => !comprovantes.find(comp => comp.atletaId === atleta.id)).length}
+                            </h6>
+                            <small className="text-muted">Sem Comprovante</small>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    </Row>
+
+                    {/* Filtros */}
+                    <Row className="mb-3">
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label>Buscar Atleta</Form.Label>
+                          <Form.Control
+                            type="text"
+                            placeholder="Nome, CPF ou equipe..."
+                            value={filtroAtletas}
+                            onChange={(e) => setFiltroAtletas(e.target.value)}
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={3}>
+                        <Form.Group>
+                          <Form.Label>Status</Form.Label>
+                          <Form.Select
+                            value={filtroStatusAtletas}
+                            onChange={(e) => setFiltroStatusAtletas(e.target.value as any)}
+                          >
+                            <option value="TODOS">Todos</option>
+                            <option value="PAGO">Pago</option>
+                            <option value="PENDENTE">Pendente</option>
+                            <option value="SEM_COMPROVANTE">Sem Comprovante</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={3} className="d-flex align-items-end">
+                        <Button
+                          variant="outline-secondary"
+                          onClick={() => {
+                            setFiltroAtletas('');
+                            setFiltroStatusAtletas('TODOS');
+                          }}
+                        >
+                          Limpar Filtros
+                        </Button>
+                      </Col>
+                    </Row>
+
+                    {/* Contador de resultados */}
+                    <div className="mb-3">
+                      <small className="text-muted">
+                        Mostrando {getAtletasFiltrados().length} de {atletas.length} atletas
+                        {filtroAtletas && ` (filtrado por: "${filtroAtletas}")`}
+                        {filtroStatusAtletas !== 'TODOS' && ` (status: ${filtroStatusAtletas})`}
+                      </small>
+                    </div>
+                    
+                    {atletas.length === 0 ? (
                   <Alert variant="info" className="text-center">
-                    Nenhum comprovante de anuidade encontrado.
+                        Nenhum atleta encontrado.
                   </Alert>
                 ) : (
                   <Table responsive striped>
                     <thead>
                       <tr>
                         <th>Atleta</th>
+                            <th>CPF</th>
                         <th>Equipe</th>
-                        <th>Arquivo</th>
-                        <th>Valor</th>
-                        <th>Data de Aprovação</th>
-                        <th>Status</th>
-                        <th>Data Upload</th>
+                            <th>Status Anuidade</th>
+                            <th>Valor Anuidade</th>
+                            <th>Data Pagamento</th>
+                            <th>Comprovante</th>
                         <th>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {comprovantes.map(comprovante => (
-                        <tr key={comprovante.id}>
-                          <td>
-                            <strong>{comprovante.nomeAtleta}</strong>
+                          {getAtletasFiltrados().map(atleta => {
+                            const statusAnuidade = getStatusAnuidadeAtleta(atleta.id!);
+                            const pagamento = pagamentosAnuidade.find(pag => pag.idAtleta === atleta.id);
+                            const comprovante = comprovantes.find(comp => comp.atletaId === atleta.id);
+                            const equipe = equipes.find(e => e.id === atleta.idEquipe);
+                            
+                            return (
+                              <tr key={atleta.id}>
+                                <td>
+                                  <strong>{atleta.nome}</strong>
+                                  <br />
+                                  <small className="text-muted">ID: {atleta.id}</small>
                           </td>
-                          <td>{comprovante.nomeEquipe}</td>
+                                <td>{atleta.cpf}</td>
                           <td>
-                            <small>{comprovante.nome}</small>
+                                  {equipe ? (
+                                    <div>
+                                      <strong>{equipe.nomeEquipe}</strong>
                             <br />
-                            <small className="text-muted">
-                              {comprovante.tamanho ? (comprovante.tamanho / 1024 / 1024).toFixed(2) : '0.00'} MB
+                                      <small className="text-muted">{equipe.cidade}</small>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted">Sem equipe</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <div className="d-flex flex-column gap-1">
+                                    <Badge bg={
+                                      statusAnuidade === 'PAGO' ? 'success' : 
+                                      statusAnuidade === 'PENDENTE' ? 'warning' : 'secondary'
+                                    }>
+                                      {statusAnuidade === 'PAGO' ? 'PAGO' : 
+                                       statusAnuidade === 'PENDENTE' ? 'PENDENTE' : 'NÃO INFORMADO'}
+                                    </Badge>
+                                    {statusAnuidade === 'PAGO' && comprovante && comprovante.status === 'APROVADO' && (
+                                      <small className="text-success">
+                                        <FaCheckCircle className="me-1" />
+                                        Aprovado via comprovante
                             </small>
+                                    )}
+                                  </div>
                           </td>
-                          <td>R$ {comprovante.valor ? comprovante.valor.toFixed(2) : 'N/A'}</td>
+                                <td>R$ {(anuidade?.valor || 0).toFixed(2)}</td>
                           <td>
-                            {comprovante.dataPagamento ? (comprovante.dataPagamento ? comprovante.dataPagamento.toLocaleDateString('pt-BR') : 'Data não informada') : 'N/A'}
+                                  {pagamento?.dataPagamento 
+                                    ? pagamento.dataPagamento.toLocaleDateString('pt-BR')
+                                    : '-'
+                                  }
                           </td>
                           <td>
+                                  {comprovante ? (
+                                    <div>
+                                      <small className="text-success">
+                                        <FaCheckCircle className="me-1" />
+                                        {comprovante.nome}
+                                      </small>
+                                      <br />
                             <Badge bg={
                               comprovante.status === 'APROVADO' ? 'success' : 
                               comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
                             }>
-                              {comprovante.status === 'APROVADO' ? 'COMPROVANTE APROVADO' : 
-                               comprovante.status === 'REJEITADO' ? 'COMPROVANTE REJEITADO' : 
-                               'PENDENTE'}
+                                        {comprovante.status}
                             </Badge>
-                          </td>
-                          <td>
-                            {comprovante.dataUpload ? comprovante.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted">Sem comprovante</span>
+                                  )}
                           </td>
                           <td>
                             <div className="d-flex gap-1">
+                                    {comprovante ? (
+                                      <>
                               <Button
                                 variant="outline-primary"
                                 size="sm"
@@ -1151,6 +1826,7 @@ const FinanceiroPage: React.FC = () => {
                               >
                                 <FaDownload />
                               </Button>
+                                        {(user?.tipo === 'admin' || user?.idEquipe === comprovante.equipeId) && (
                               <Button
                                 variant="outline-danger"
                                 size="sm"
@@ -1159,7 +1835,8 @@ const FinanceiroPage: React.FC = () => {
                               >
                                 <FaTimesCircle />
                               </Button>
-                              {user?.tipo === 'admin' && (
+                                        )}
+                                        {user?.tipo === 'admin' && comprovante.status === 'PENDENTE' && (
                                 <Button
                                   variant="outline-success"
                                   size="sm"
@@ -1167,8 +1844,111 @@ const FinanceiroPage: React.FC = () => {
                                   title="Aprovar/Rejeitar comprovante"
                                 >
                                   <FaCheckCircle />
+                                          </Button>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <Button
+                                        variant="outline-primary"
+                                        size="sm"
+                                        onClick={() => abrirModalComprovante(atleta)}
+                                        title="Enviar comprovante de pagamento"
+                                      >
+                                        <FaUpload />
+                                        Enviar
                                 </Button>
                               )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </Table>
+                    )}
+                  </Tab>
+                  
+                  <Tab eventKey="equipes" title="Equipes">
+                    <div className="mb-3">
+                      <Alert variant="info">
+                        <strong>ℹ️ Informação:</strong> Esta seção gerencia comprovantes de anuidade de equipe e status das equipes.
+                        Apenas administradores podem modificar o status das equipes.
+                      </Alert>
+                    </div>
+                    
+                    {equipes.length === 0 ? (
+                      <Alert variant="info" className="text-center">
+                        Nenhuma equipe encontrada.
+                      </Alert>
+                    ) : (
+                      <Table responsive striped>
+                        <thead>
+                          <tr>
+                            <th>Equipe</th>
+                            <th>Cidade</th>
+                            <th>Status da Equipe</th>
+                            <th>Valor Anuidade Equipe</th>
+                            <th>Comprovantes</th>
+                            <th>Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {equipes.map(equipe => (
+                            <tr key={equipe.id}>
+                              <td>
+                                <strong>{equipe.nomeEquipe}</strong>
+                              </td>
+                              <td>{equipe.cidade}</td>
+                              <td>
+                                <Badge bg={
+                                  equipe.status === 'ATIVA' ? 'success' : 
+                                  equipe.status === 'INATIVA' ? 'danger' : 'warning'
+                                }>
+                                  {equipe.status || 'PENDENTE'}
+                                </Badge>
+                              </td>
+                              <td>
+                                R$ {equipe.valorAnuidadeEquipe ? equipe.valorAnuidadeEquipe.toFixed(2) : '0.00'}
+                              </td>
+                              <td>
+                                <Badge bg="info">
+                                  {comprovantesAnuidadeEquipe.filter(comp => comp.idEquipe === equipe.id).length} Comprovantes
+                                </Badge>
+                              </td>
+                              <td>
+                                <div className="d-flex gap-1">
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    onClick={() => handleDetalhesEquipe(equipe)}
+                                    title="Ver detalhes da equipe"
+                                  >
+                                    <FaEye />
+                                  </Button>
+                                  <Button
+                                    variant="outline-success"
+                                    size="sm"
+                                    onClick={() => abrirModalStatusEquipe(equipe)}
+                                    title="Alterar status da equipe"
+                                  >
+                                    <FaCog />
+                                  </Button>
+                                  <Button
+                                    variant="outline-info"
+                                    size="sm"
+                                    onClick={() => abrirModalGerenciarComprovantesEquipe(equipe)}
+                                    title="Ver comprovantes de anuidade"
+                                  >
+                                    <FaEye />
+                                  </Button>
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    onClick={() => abrirModalComprovanteEquipe(equipe)}
+                                    title="Enviar comprovante de anuidade"
+                                  >
+                                    <FaUpload />
+                                  </Button>
                             </div>
                           </td>
                         </tr>
@@ -1176,6 +1956,8 @@ const FinanceiroPage: React.FC = () => {
                     </tbody>
                   </Table>
                 )}
+                  </Tab>
+                </Tabs>
               </Card.Body>
             </Card>
           </Tab>
@@ -1914,6 +2696,132 @@ const FinanceiroPage: React.FC = () => {
                     </tbody>
                   </Table>
                 </Tab>
+                
+                <Tab eventKey="comprovantes-equipe" title="Comprovantes de Anuidade de Equipe">
+                  
+                  {(() => {
+                    const comprovantesEquipe = comprovantesAnuidadeEquipe.filter(comp => comp.idEquipe === selectedEquipe.id);
+                    
+                    if (comprovantesEquipe.length === 0) {
+                      return (
+                        <Alert variant="info" className="text-center">
+                          <FaEye className="me-2" />
+                          Nenhum comprovante de anuidade de equipe encontrado.
+                        </Alert>
+                      );
+                    }
+                    
+                    return (
+                      <Table responsive striped hover>
+                        <thead>
+                          <tr>
+                            <th>Comprovante</th>
+                            <th>Valor</th>
+                            <th>Data Pagamento</th>
+                            <th>Data Envio</th>
+                            <th>Enviado Por</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {comprovantesEquipe.map(comprovante => (
+                            <tr key={comprovante.id}>
+                              <td>
+                                <div>
+                                  <strong>{comprovante.nome}</strong>
+                                  <br />
+                                  <small className="text-muted">
+                                    {(comprovante.tamanho / 1024 / 1024).toFixed(2)} MB
+                                  </small>
+                                </div>
+                              </td>
+                              <td>
+                                <strong>R$ {comprovante.valor.toFixed(2)}</strong>
+                              </td>
+                              <td>
+                                {comprovante.dataPagamento.toLocaleDateString('pt-BR')}
+                              </td>
+                              <td>
+                                {comprovante.dataUpload.toLocaleDateString('pt-BR')}
+                              </td>
+                              <td>
+                                <strong>{comprovante.enviadoPor || 'Usuário'}</strong>
+                              </td>
+                              <td>
+                                <Badge bg={
+                                  comprovante.status === 'APROVADO' ? 'success' :
+                                  comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
+                                }>
+                                  {comprovante.status}
+                                </Badge>
+                                {comprovante.aprovadoPor && (
+                                  <div>
+                                    <small className="text-muted">
+                                      Por: {comprovante.aprovadoPor}
+                                    </small>
+                                  </div>
+                                )}
+                              </td>
+                              <td>
+                                <div className="d-flex gap-1">
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    onClick={async () => {
+                                      try {
+                                        await comprovantesAnuidadeEquipeService.downloadComprovante(comprovante);
+                                        toast.success('Download iniciado com sucesso!');
+                                      } catch (error) {
+                                        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+                                        console.error('❌ Erro no download:', error);
+                                        toast.error(`Erro ao baixar comprovante: ${errorMessage}`);
+                                      }
+                                    }}
+                                    title="Download"
+                                  >
+                                    <FaDownload />
+                                  </Button>
+                                  <Button
+                                    variant="outline-success"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedComprovanteEquipe(comprovante);
+                                      setShowAprovacaoEquipeModal(true);
+                                    }}
+                                    title="Aprovar/Rejeitar"
+                                  >
+                                    <FaCheckCircle />
+                                  </Button>
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    onClick={() => {
+                                      if (window.confirm('Tem certeza que deseja excluir este comprovante?')) {
+                                        comprovantesAnuidadeEquipeService.deletarComprovante(
+                                          comprovante,
+                                          true
+                                        ).then(() => {
+                                          toast.success('Comprovante excluído com sucesso!');
+                                          loadData();
+                                        }).catch(error => {
+                                          toast.error('Erro ao excluir comprovante: ' + error.message);
+                                        });
+                                      }
+                                    }}
+                                    title="Excluir comprovante"
+                                  >
+                                    <FaTimesCircle />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    );
+                  })()}
+                </Tab>
               </Tabs>
             </div>
           )}
@@ -2233,6 +3141,423 @@ const FinanceiroPage: React.FC = () => {
           >
             <FaCheckCircle className="me-2" />
             Aprovar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Configuração de Anuidade de Equipe */}
+      <Modal show={showConfigAnuidadeEquipeModal} onHide={() => setShowConfigAnuidadeEquipeModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaCog className="me-2" />
+            Configurar Valor da Anuidade de Equipe
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info">
+            <strong>ℹ️ Informação:</strong> Configure o valor da anuidade que será cobrado de todas as equipes.
+            <br />
+            <strong>🔄 Atualização Automática:</strong> Quando você salvar, o valor será automaticamente atualizado em todas as {equipes.length} equipes existentes.
+          </Alert>
+          
+          <Form.Group>
+            <Form.Label>Valor da Anuidade de Equipe (R$)</Form.Label>
+            <InputGroup>
+              <InputGroup.Text>R$</InputGroup.Text>
+              <Form.Control
+                type="number"
+                step="0.01"
+                min="0"
+                value={valorAnuidadeEquipe}
+                onChange={(e) => setValorAnuidadeEquipe(e.target.value)}
+                placeholder="0,00"
+              />
+            </InputGroup>
+          </Form.Group>
+
+          {anuidadeEquipe && (
+            <Alert variant="warning" className="mt-3">
+              <strong>⚠️ Valor Atual:</strong> R$ {anuidadeEquipe.valor.toFixed(2)}
+              <br />
+              <small>Configurado em: {anuidadeEquipe.dataCriacao ? anuidadeEquipe.dataCriacao.toLocaleDateString('pt-BR') : 'Data não informada'}</small>
+            </Alert>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConfigAnuidadeEquipeModal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleSalvarAnuidadeEquipe}>
+            Salvar Configuração
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Status da Equipe */}
+      <Modal show={showStatusEquipeModal} onHide={() => setShowStatusEquipeModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaCog className="me-2" />
+            Alterar Status da Equipe
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedEquipe && (
+            <div>
+              <Alert variant="info">
+                <strong>🏆 Equipe:</strong> {selectedEquipe.nomeEquipe}
+                <br />
+                <strong>📍 Cidade:</strong> {selectedEquipe.cidade}
+                <br />
+                <strong>📊 Status Atual:</strong> {selectedEquipe.status || 'PENDENTE'}
+              </Alert>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Novo Status</Form.Label>
+                <Form.Select
+                  value={novoStatusEquipe}
+                  onChange={(e) => setNovoStatusEquipe(e.target.value as 'ATIVA' | 'INATIVA')}
+                >
+                  <option value="ATIVA">ATIVA</option>
+                  <option value="INATIVA">INATIVA</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Alert variant="warning">
+                <strong>⚠️ Atenção:</strong> Apenas administradores podem alterar o status das equipes.
+              </Alert>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowStatusEquipeModal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleAtualizarStatusEquipe}>
+            Atualizar Status
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Upload de Comprovante de Anuidade de Equipe */}
+      <Modal show={showComprovanteEquipeModal} onHide={() => setShowComprovanteEquipeModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaUpload className="me-2" />
+            Enviar Comprovante de Anuidade de Equipe
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info">
+            <strong>ℹ️ Informação:</strong> Envie o comprovante de pagamento da anuidade da equipe para aprovação do administrador.
+            <br />
+            <strong>📋 Processo:</strong> Seu comprovante será analisado e aprovado/rejeitado por um administrador.
+            <br />
+            <strong>⚠️ Importante:</strong> Se já existir um comprovante para esta equipe, ele será substituído automaticamente.
+          </Alert>
+          
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Equipe</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={selectedEquipe?.nomeEquipe || ''}
+                  disabled
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Data do Pagamento</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={dataPagamentoEquipe}
+                  onChange={(e) => setDataPagamentoEquipe(e.target.value)}
+                  required
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Valor Pago (R$)</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={valorPagamentoEquipe}
+                  onChange={(e) => setValorPagamentoEquipe(e.target.value)}
+                  placeholder="0,00"
+                  required
+                />
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Comprovante (PDF, JPG, PNG)</Form.Label>
+                <Form.Control
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setComprovanteEquipeFile((e.target as HTMLInputElement).files?.[0] || null)}
+                  required
+                />
+                <Form.Text className="text-muted">
+                  Tamanho máximo: 20MB
+                </Form.Text>
+              </Form.Group>
+            </Col>
+          </Row>
+
+          <Form.Group className="mb-3">
+            <Form.Label>Observações (opcional)</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={observacoesComprovanteEquipe}
+              onChange={(e) => setObservacoesComprovanteEquipe(e.target.value)}
+              placeholder="Informações adicionais sobre o pagamento..."
+            />
+          </Form.Group>
+
+          {comprovanteEquipeFile && (
+            <Alert variant="success">
+              <strong>✅ Arquivo selecionado:</strong> {comprovanteEquipeFile.name}
+              <br />
+              <small>Tamanho: {comprovanteEquipeFile.size ? (comprovanteEquipeFile.size / 1024 / 1024).toFixed(2) : '0.00'} MB</small>
+            </Alert>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowComprovanteEquipeModal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleUploadComprovanteEquipe}>
+            <FaUpload className="me-2" />
+            Enviar Comprovante
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Aprovação de Comprovante de Anuidade de Equipe */}
+      <Modal show={showAprovacaoEquipeModal} onHide={() => setShowAprovacaoEquipeModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaCheckCircle className="me-2" />
+            Aprovar/Rejeitar Comprovante de Anuidade de Equipe
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedComprovanteEquipe && (
+            <div>
+              <Alert variant="info">
+                <strong>📄 Comprovante:</strong> {selectedComprovanteEquipe.nome}
+                <br />
+                <strong>🏆 Equipe:</strong> {selectedComprovanteEquipe.nomeEquipe}
+                <br />
+                <strong>💰 Valor:</strong> R$ {selectedComprovanteEquipe.valor ? selectedComprovanteEquipe.valor.toFixed(2) : 'N/A'}
+                <br />
+                <strong>📅 Data de Pagamento:</strong> {selectedComprovanteEquipe.dataPagamento ? selectedComprovanteEquipe.dataPagamento.toLocaleDateString('pt-BR') : 'N/A'}
+                <br />
+                <strong>📤 Data Upload:</strong> {selectedComprovanteEquipe.dataUpload ? selectedComprovanteEquipe.dataUpload.toLocaleDateString('pt-BR') : 'Data não informada'}
+                <br />
+                <strong>📏 Tamanho:</strong> {selectedComprovanteEquipe.tamanho ? (selectedComprovanteEquipe.tamanho / 1024 / 1024).toFixed(2) : '0.00'} MB
+              </Alert>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Observações (opcional)</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={observacoesAprovacaoEquipe}
+                  onChange={(e) => setObservacoesAprovacaoEquipe(e.target.value)}
+                  placeholder="Motivo da aprovação/rejeição..."
+                />
+              </Form.Group>
+
+              <div className="text-center mb-3">
+                <Button
+                  variant="outline-primary"
+                  onClick={async () => {
+                    try {
+                      await comprovantesAnuidadeEquipeService.downloadComprovante(selectedComprovanteEquipe);
+                      toast.success('Download iniciado com sucesso!');
+                    } catch (error) {
+                      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+                      console.error('❌ Erro no download:', error);
+                      toast.error(`Erro ao baixar comprovante: ${errorMessage}`);
+                    }
+                  }}
+                  className="me-2"
+                >
+                  <FaDownload className="me-2" />
+                  Baixar Comprovante
+                </Button>
+              </div>
+
+              <Alert variant="warning">
+                <strong>⚠️ Atenção:</strong> Ao aprovar o comprovante, o status da equipe será alterado automaticamente.
+              </Alert>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAprovacaoEquipeModal(false)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={handleRejeitarComprovanteEquipe}>
+            <FaTimesCircle className="me-2" />
+            Rejeitar
+          </Button>
+          <Button variant="success" onClick={handleAprovarComprovanteEquipe}>
+            <FaCheckCircle className="me-2" />
+            Aprovar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal de Gerenciamento de Comprovantes de Anuidade de Equipe */}
+      <Modal show={showGerenciarComprovantesEquipeModal} onHide={() => setShowGerenciarComprovantesEquipeModal(false)} size="xl">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaFileUpload className="me-2" />
+            Comprovantes de Anuidade de Equipe - {selectedEquipe?.nomeEquipe}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedEquipe && (
+            <div>
+              {(() => {
+                const comprovantesEquipe = comprovantesAnuidadeEquipe.filter(comp => comp.idEquipe === selectedEquipe.id);
+                
+                if (comprovantesEquipe.length === 0) {
+                  return (
+                    <Alert variant="info" className="text-center">
+                      <FaEye className="me-2" />
+                      Nenhum comprovante de anuidade de equipe encontrado.
+                    </Alert>
+                  );
+                }
+                
+                return (
+                  <Table responsive striped hover>
+                    <thead>
+                      <tr>
+                        <th>Comprovante</th>
+                        <th>Valor</th>
+                        <th>Data Pagamento</th>
+                        <th>Data Envio</th>
+                        <th>Enviado Por</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comprovantesEquipe.map(comprovante => (
+                        <tr key={comprovante.id}>
+                          <td>
+                            <div>
+                              <strong>{comprovante.nome}</strong>
+                              <br />
+                              <small className="text-muted">
+                                {(comprovante.tamanho / 1024 / 1024).toFixed(2)} MB
+                              </small>
+                            </div>
+                          </td>
+                          <td>
+                            <strong>R$ {comprovante.valor.toFixed(2)}</strong>
+                          </td>
+                          <td>
+                            {comprovante.dataPagamento.toLocaleDateString('pt-BR')}
+                          </td>
+                          <td>
+                            {comprovante.dataUpload.toLocaleDateString('pt-BR')}
+                          </td>
+                          <td>
+                            <strong>{comprovante.enviadoPor || 'Usuário'}</strong>
+                          </td>
+                          <td>
+                            <Badge bg={
+                              comprovante.status === 'APROVADO' ? 'success' :
+                              comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
+                            }>
+                              {comprovante.status}
+                            </Badge>
+                            {comprovante.aprovadoPor && (
+                              <div>
+                                <small className="text-muted">
+                                  Por: {comprovante.aprovadoPor}
+                                </small>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1">
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    await comprovantesAnuidadeEquipeService.downloadComprovante(comprovante);
+                                    toast.success('Download iniciado com sucesso!');
+                                  } catch (error) {
+                                    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+                                    console.error('❌ Erro no download:', error);
+                                    toast.error(`Erro ao baixar comprovante: ${errorMessage}`);
+                                  }
+                                }}
+                                title="Download"
+                              >
+                                <FaDownload />
+                              </Button>
+                              <Button
+                                variant="outline-success"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedComprovanteEquipe(comprovante);
+                                  setShowAprovacaoEquipeModal(true);
+                                  setShowGerenciarComprovantesEquipeModal(false);
+                                }}
+                                title="Aprovar/Rejeitar"
+                              >
+                                <FaCheckCircle />
+                              </Button>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => {
+                                  if (window.confirm('Tem certeza que deseja excluir este comprovante?')) {
+                                    comprovantesAnuidadeEquipeService.deletarComprovante(
+                                      comprovante,
+                                      true
+                                    ).then(() => {
+                                      toast.success('Comprovante excluído com sucesso!');
+                                      loadData();
+                                    }).catch(error => {
+                                      toast.error('Erro ao excluir comprovante: ' + error.message);
+                                    });
+                                  }
+                                }}
+                                title="Excluir comprovante"
+                              >
+                                <FaTimesCircle />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                );
+              })()}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowGerenciarComprovantesEquipeModal(false)}>
+            Fechar
           </Button>
         </Modal.Footer>
       </Modal>

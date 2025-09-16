@@ -47,6 +47,7 @@ const MuralAvisos: React.FC<MuralAvisosProps> = ({ idEquipe }) => {
     const labels = {
       'COMPROVANTE_INSCRICAO': 'Comprovante de Inscrição',
       'COMPROVANTE_ANUIDADE': 'Comprovante de Anuidade',
+      'COMPROVANTE_ANUIDADE_EQUIPE': 'Comprovante de Anuidade de Equipe',
       'COMPROVANTE_RESIDENCIA': 'Comprovante de Residência',
       'FOTO_3X4': 'Foto 3x4',
       'CERTIFICADO_ADEL': 'Certificado ADEL'

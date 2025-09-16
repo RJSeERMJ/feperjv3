@@ -181,10 +181,17 @@ export const equipeService = {
   },
 
   async create(equipe: Omit<Equipe, 'id'>): Promise<string> {
+    // Buscar o valor atual da anuidade de equipe
+    const anuidadeEquipeAtiva = await anuidadeEquipeService.getAtivo();
+    const valorAnuidadeEquipe = anuidadeEquipeAtiva?.valor || 0;
+    
     const docRef = await addDoc(collection(db, 'equipes'), {
       ...equipe,
+      valorAnuidadeEquipe: valorAnuidadeEquipe,
       dataCriacao: Timestamp.now()
     });
+    
+    console.log(`✅ Equipe ${equipe.nomeEquipe} criada com valor de anuidade: R$ ${valorAnuidadeEquipe}`);
     return docRef.id;
   },
 
@@ -1090,6 +1097,181 @@ export const tipoCompeticaoService = {
         tipos: ['S', 'AST', 'T'],
         dataCriacao: Timestamp.now()
       });
+    }
+  }
+};
+
+// Serviços de Anuidade de Equipe
+export const anuidadeEquipeService = {
+  async getAtivo(): Promise<any> {
+    const q = query(
+      collection(db, 'anuidades_equipe'), 
+      where('ativo', '==', true)
+    );
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      // Pegar o mais recente baseado na data de criação
+      const docs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        dataCriacao: convertTimestamp(doc.data().dataCriacao),
+        dataAtualizacao: convertTimestamp(doc.data().dataAtualizacao)
+      }));
+      
+      // Ordenar por data de criação e pegar o mais recente
+      docs.sort((a, b) => b.dataCriacao.getTime() - a.dataCriacao.getTime());
+      return docs[0];
+    }
+    return null;
+  },
+
+  async create(anuidade: any): Promise<string> {
+    // Desativar anuidades anteriores
+    const q = query(collection(db, 'anuidades_equipe'), where('ativo', '==', true));
+    const querySnapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    
+    querySnapshot.docs.forEach((doc) => {
+      batch.update(doc.ref, { ativo: false });
+    });
+
+    // Criar nova anuidade
+    const docRef = await addDoc(collection(db, 'anuidades_equipe'), {
+      ...anuidade,
+      dataCriacao: Timestamp.now(),
+      ativo: true
+    });
+    
+    await batch.commit();
+    
+    // Atualizar valor da anuidade em todas as equipes existentes
+    await this.atualizarValorAnuidadeEmTodasEquipes(anuidade.valor);
+    
+    return docRef.id;
+  },
+
+  async atualizarValorAnuidadeEmTodasEquipes(valor: number): Promise<void> {
+    try {
+      console.log(`🔄 Atualizando valor de anuidade para R$ ${valor} em todas as equipes...`);
+      
+      // Buscar todas as equipes
+      const equipesSnapshot = await getDocs(collection(db, 'equipes'));
+      const batch = writeBatch(db);
+      
+      let equipesAtualizadas = 0;
+      equipesSnapshot.docs.forEach((doc) => {
+        batch.update(doc.ref, {
+          valorAnuidadeEquipe: valor,
+          dataAtualizacao: Timestamp.now()
+        });
+        equipesAtualizadas++;
+      });
+      
+      await batch.commit();
+      console.log(`✅ Valor de anuidade atualizado em ${equipesAtualizadas} equipes`);
+    } catch (error) {
+      console.error('❌ Erro ao atualizar valor de anuidade em todas as equipes:', error);
+      throw error;
+    }
+  },
+
+  async inicializarValorAnuidadeEmEquipesExistentes(): Promise<void> {
+    try {
+      console.log('🔄 Inicializando valor de anuidade em equipes existentes...');
+      
+      // Buscar anuidade ativa
+      const anuidadeAtiva = await this.getAtivo();
+      if (!anuidadeAtiva) {
+        console.log('⚠️ Nenhuma anuidade de equipe ativa encontrada');
+        return;
+      }
+      
+      // Buscar equipes que não possuem valor de anuidade
+      const equipesSnapshot = await getDocs(collection(db, 'equipes'));
+      const batch = writeBatch(db);
+      
+      let equipesInicializadas = 0;
+      equipesSnapshot.docs.forEach((doc) => {
+        const equipeData = doc.data();
+        if (equipeData.valorAnuidadeEquipe === undefined || equipeData.valorAnuidadeEquipe === null) {
+          batch.update(doc.ref, {
+            valorAnuidadeEquipe: anuidadeAtiva.valor,
+            dataAtualizacao: Timestamp.now()
+          });
+          equipesInicializadas++;
+        }
+      });
+      
+      if (equipesInicializadas > 0) {
+        await batch.commit();
+        console.log(`✅ Valor de anuidade inicializado em ${equipesInicializadas} equipes existentes`);
+      } else {
+        console.log('✅ Todas as equipes já possuem valor de anuidade definido');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao inicializar valor de anuidade em equipes existentes:', error);
+      throw error;
+    }
+  },
+
+  async update(id: string, anuidade: any): Promise<void> {
+    const docRef = doc(db, 'anuidades_equipe', id);
+    await updateDoc(docRef, {
+      ...anuidade,
+      dataAtualizacao: Timestamp.now()
+    });
+    
+    // Se o valor foi alterado, atualizar todas as equipes
+    if (anuidade.valor !== undefined) {
+      await this.atualizarValorAnuidadeEmTodasEquipes(anuidade.valor);
+    }
+  },
+
+  async getAll(): Promise<any[]> {
+    const q = query(collection(db, 'anuidades_equipe'), orderBy('dataCriacao', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      dataCriacao: convertTimestamp(doc.data().dataCriacao),
+      dataAtualizacao: convertTimestamp(doc.data().dataAtualizacao)
+    }));
+  }
+};
+
+// Serviços para atualizar status de equipe
+export const equipeStatusService = {
+  async atualizarStatusEquipe(equipeId: string, status: 'ATIVA' | 'INATIVA', adminNome: string): Promise<void> {
+    try {
+      console.log(`🔄 Atualizando status da equipe ${equipeId} para ${status}`);
+      
+      const equipeRef = doc(db, 'equipes', equipeId);
+      await updateDoc(equipeRef, {
+        status: status,
+        dataAtualizacao: Timestamp.now()
+      });
+      
+      console.log(`✅ Status da equipe ${equipeId} atualizado para ${status}`);
+    } catch (error) {
+      console.error('❌ Erro ao atualizar status da equipe:', error);
+      throw error;
+    }
+  },
+
+  async atualizarValorAnuidadeEquipe(equipeId: string, valor: number, adminNome: string): Promise<void> {
+    try {
+      console.log(`💰 Atualizando valor de anuidade da equipe ${equipeId} para R$ ${valor}`);
+      
+      const equipeRef = doc(db, 'equipes', equipeId);
+      await updateDoc(equipeRef, {
+        valorAnuidadeEquipe: valor,
+        dataAtualizacao: Timestamp.now()
+      });
+      
+      console.log(`✅ Valor de anuidade da equipe ${equipeId} atualizado para R$ ${valor}`);
+    } catch (error) {
+      console.error('❌ Erro ao atualizar valor de anuidade da equipe:', error);
+      throw error;
     }
   }
 };

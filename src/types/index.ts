@@ -24,6 +24,9 @@ export interface Equipe {
   idChefe?: string; // ID do usuário que é chefe da equipe
   status?: 'ATIVA' | 'INATIVA' | 'SUSPENSA' | 'PAGO' | 'PENDENTE';
   dataCriacao?: Date;
+  // Novos campos para anuidade de equipe
+  valorAnuidadeEquipe?: number; // Valor da anuidade da equipe
+  dataAtualizacao?: Date; // Data da última atualização do status
 }
 
 export interface Categoria {
@@ -186,7 +189,7 @@ export interface NotificacaoDocumento {
   id?: string;
   idEquipe: string;
   nomeEquipe: string;
-  tipoDocumento: 'COMPROVANTE_INSCRICAO' | 'COMPROVANTE_ANUIDADE' | 'COMPROVANTE_RESIDENCIA' | 'FOTO_3X4' | 'CERTIFICADO_ADEL';
+  tipoDocumento: 'COMPROVANTE_INSCRICAO' | 'COMPROVANTE_ANUIDADE' | 'COMPROVANTE_ANUIDADE_EQUIPE' | 'COMPROVANTE_RESIDENCIA' | 'FOTO_3X4' | 'CERTIFICADO_ADEL';
   nomeDocumento: string;
   dataEnvio: Date;
   status: 'PENDENTE' | 'APROVADO' | 'RECUSADO' | 'EXCLUIDO';
@@ -207,4 +210,34 @@ export interface AuthContextType {
   logout: () => void;
   clearAuthData: () => void;
   loading: boolean;
+}
+
+// Novos tipos para anuidade de equipe
+export interface ComprovanteAnuidadeEquipe {
+  id?: string;
+  idEquipe: string;
+  nomeEquipe: string;
+  nome: string; // Nome do arquivo
+  nomeArquivoSalvo: string; // Nome do arquivo salvo no storage
+  dataUpload: Date;
+  dataPagamento: Date;
+  valor: number;
+  status: 'PENDENTE' | 'APROVADO' | 'REJEITADO';
+  observacoes?: string;
+  enviadoPor?: string; // Nome do usuário que enviou
+  aprovadoPor?: string;
+  dataAprovacao?: Date;
+  rejeitadoPor?: string;
+  dataRejeicao?: Date;
+  tamanho: number;
+  contentType: string;
+  url?: string;
+}
+
+export interface AnuidadeEquipe {
+  id?: string;
+  valor: number;
+  dataCriacao: Date;
+  dataAtualizacao?: Date;
+  ativo: boolean;
 }
