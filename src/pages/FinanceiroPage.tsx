@@ -1393,6 +1393,27 @@ const FinanceiroPage: React.FC = () => {
                                           </small>
                                         </div>
                                       )}
+                                      {comprovante.rejeitadoPor && (
+                                        <div>
+                                          <small className="text-danger">
+                                            Rejeitado por: {comprovante.rejeitadoPor}
+                                          </small>
+                                          {comprovante.dataRejeicao && (
+                                            <div>
+                                              <small className="text-muted">
+                                                Em: {new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
+                                              </small>
+                                            </div>
+                                          )}
+                                          {comprovante.observacoes && (
+                                            <div>
+                                              <small className="text-danger">
+                                                Motivo: {comprovante.observacoes}
+                                              </small>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
                                     </td>
                                     <td>
                                       <div className="d-flex gap-1">
@@ -2762,6 +2783,27 @@ const FinanceiroPage: React.FC = () => {
                                     </small>
                                   </div>
                                 )}
+                                {comprovante.rejeitadoPor && (
+                                  <div>
+                                    <small className="text-danger">
+                                      Rejeitado por: {comprovante.rejeitadoPor}
+                                    </small>
+                                    {comprovante.dataRejeicao && (
+                                      <div>
+                                        <small className="text-muted">
+                                          Em: {new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
+                                        </small>
+                                      </div>
+                                    )}
+                                    {comprovante.observacoes && (
+                                      <div>
+                                        <small className="text-danger">
+                                          Motivo: {comprovante.observacoes}
+                                        </small>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </td>
                               <td>
                                 <div className="d-flex gap-1">
@@ -3490,6 +3532,27 @@ const FinanceiroPage: React.FC = () => {
                                 <small className="text-muted">
                                   Por: {comprovante.aprovadoPor}
                                 </small>
+                              </div>
+                            )}
+                            {comprovante.rejeitadoPor && (
+                              <div>
+                                <small className="text-danger">
+                                  Rejeitado por: {comprovante.rejeitadoPor}
+                                </small>
+                                {comprovante.dataRejeicao && (
+                                  <div>
+                                    <small className="text-muted">
+                                      Em: {new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
+                                    </small>
+                                  </div>
+                                )}
+                                {comprovante.observacoes && (
+                                  <div>
+                                    <small className="text-danger">
+                                      Motivo: {comprovante.observacoes}
+                                    </small>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>

@@ -269,6 +269,20 @@ export class ComprovantesAnuidadeEquipeService {
         // Não falhar a operação se não conseguir atualizar o status da equipe
       }
 
+      // 3. Criar notificação automática de rejeição
+      try {
+        await notificacoesService.criarNotificacaoAutomatica(
+          comprovante.idEquipe,
+          comprovante.nomeEquipe,
+          'COMPROVANTE_ANUIDADE_EQUIPE',
+          `REJEITADO: ${comprovante.nome}`
+        );
+        console.log('✅ Notificação de rejeição criada automaticamente');
+      } catch (error) {
+        console.error('❌ Erro ao criar notificação de rejeição:', error);
+        // Não falhar a operação se a notificação falhar
+      }
+
       console.log('❌ Comprovante de anuidade de equipe rejeitado com sucesso');
     } catch (error) {
       console.error('❌ Erro ao rejeitar comprovante de anuidade de equipe:', error);
