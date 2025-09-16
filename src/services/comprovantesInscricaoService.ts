@@ -43,8 +43,17 @@ const COMPROVANTES_INSCRICAO_CONFIG = {
   BUCKET_NAME: 'financeiro',
   FOLDER_NAME: 'comprovantes-inscricao',
   MAX_FILE_SIZE: 20 * 1024 * 1024, // 20MB em bytes
-  ALLOWED_EXTENSIONS: ['.pdf', '.png', '.jpg', '.jpeg'],
-  ALLOWED_MIME_TYPES: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg']
+  ALLOWED_EXTENSIONS: ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'],
+  ALLOWED_MIME_TYPES: [
+    'application/pdf', 
+    'image/png', 
+    'image/jpeg', 
+    'image/jpg',
+    'image/gif',
+    'image/bmp',
+    'image/tiff',
+    'image/webp'
+  ]
 };
 
 // Função para validar arquivo

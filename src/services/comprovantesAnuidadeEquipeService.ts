@@ -25,7 +25,7 @@ export class ComprovantesAnuidadeEquipeService {
       
       // Validar arquivo
       if (!this.validateFile(file)) {
-        throw new Error('Tipo de arquivo não permitido. Use PDF, PNG, JPG ou JPEG.');
+        throw new Error('Tipo de arquivo não permitido. Use PDF, PNG, JPG, JPEG, GIF, BMP, TIFF ou WEBP.');
       }
 
       // Gerar nome único para o arquivo
@@ -373,7 +373,16 @@ export class ComprovantesAnuidadeEquipeService {
 
   // Validar arquivo
   private static validateFile(file: File): boolean {
-    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    const allowedTypes = [
+      'application/pdf', 
+      'image/png', 
+      'image/jpeg', 
+      'image/jpg',
+      'image/gif',
+      'image/bmp',
+      'image/tiff',
+      'image/webp'
+    ];
     const maxSize = 20 * 1024 * 1024; // 20MB
 
     if (!allowedTypes.includes(file.type)) {

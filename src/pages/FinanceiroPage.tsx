@@ -146,6 +146,23 @@ const FinanceiroPage: React.FC = () => {
     }
   };
 
+  // Função específica para recarregar comprovantes de anuidade de equipe
+  const recarregarComprovantesAnuidadeEquipe = useCallback(async () => {
+    try {
+      if (user?.tipo === 'admin') {
+        const comprovantesEquipeData = await comprovantesAnuidadeEquipeService.listarTodosComprovantes();
+        setComprovantesAnuidadeEquipe(comprovantesEquipeData);
+      } else if (user?.idEquipe) {
+        const comprovantesEquipeData = await comprovantesAnuidadeEquipeService.listarComprovantesPorEquipe(user.idEquipe);
+        setComprovantesAnuidadeEquipe(comprovantesEquipeData);
+      } else {
+        setComprovantesAnuidadeEquipe([]);
+      }
+    } catch (error) {
+      console.warn('Erro ao recarregar comprovantes de anuidade de equipe:', error);
+    }
+  }, [user]);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -219,15 +236,14 @@ const FinanceiroPage: React.FC = () => {
       setAnuidadeEquipe(anuidadeEquipeData);
 
       // Carregar comprovantes de anuidade de equipe
+      await recarregarComprovantesAnuidadeEquipe();
+      
+      // Inicializar valor de anuidade em equipes existentes (se necessário) - apenas para admin
       if (user?.tipo === 'admin') {
         try {
-          const comprovantesEquipeData = await comprovantesAnuidadeEquipeService.listarTodosComprovantes();
-          setComprovantesAnuidadeEquipe(comprovantesEquipeData);
-          
-          // Inicializar valor de anuidade em equipes existentes (se necessário)
           await anuidadeEquipeService.inicializarValorAnuidadeEmEquipesExistentes();
         } catch (error) {
-          console.warn('Erro ao carregar comprovantes de anuidade de equipe:', error);
+          console.warn('Erro ao inicializar valor de anuidade em equipes existentes:', error);
         }
       }
 
@@ -237,7 +253,7 @@ const FinanceiroPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, recarregarComprovantesAnuidadeEquipe]);
 
   useEffect(() => {
     loadData();
@@ -667,7 +683,9 @@ const FinanceiroPage: React.FC = () => {
       toast.success(`Comprovante de anuidade enviado com sucesso! Aguarde a aprovação do administrador.`);
       setShowComprovanteEquipeModal(false);
       limparFormularioComprovanteEquipe();
-      loadData();
+      
+      // Recarregar apenas os comprovantes de anuidade de equipe para atualizar a interface
+      await recarregarComprovantesAnuidadeEquipe();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       console.error('❌ Erro no upload do comprovante de anuidade de equipe:', error);
@@ -689,7 +707,9 @@ const FinanceiroPage: React.FC = () => {
       setShowAprovacaoEquipeModal(false);
       setObservacoesAprovacaoEquipe('');
       setSelectedComprovanteEquipe(null);
-      loadData();
+      
+      // Recarregar apenas os comprovantes de anuidade de equipe para atualizar a interface
+      await recarregarComprovantesAnuidadeEquipe();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       console.error('❌ Erro ao aprovar comprovante de anuidade de equipe:', error);
@@ -710,7 +730,9 @@ const FinanceiroPage: React.FC = () => {
       setShowAprovacaoEquipeModal(false);
       setObservacoesAprovacaoEquipe('');
       setSelectedComprovanteEquipe(null);
-      loadData();
+      
+      // Recarregar apenas os comprovantes de anuidade de equipe para atualizar a interface
+      await recarregarComprovantesAnuidadeEquipe();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       console.error('❌ Erro ao rejeitar comprovante de anuidade de equipe:', error);
@@ -1254,230 +1276,6 @@ const FinanceiroPage: React.FC = () => {
                       </tbody>
                     </Table>
 
-                    {/* Card para Comprovantes de Anuidade de Equipe */}
-                    <Card className="mt-4">
-                      <Card.Header>
-                        <h6 className="mb-0">🏆 Comprovantes de Anuidade de Equipe</h6>
-                      </Card.Header>
-                      <Card.Body>
-                        <Alert variant="info" className="mb-3">
-                          <strong>ℹ️ Informação:</strong> Envie o comprovante de pagamento da anuidade da sua equipe para aprovação do administrador. 
-                          O valor da anuidade de equipe é de <strong>R$ {anuidadeEquipe?.valor?.toFixed(2) || '0.00'}</strong>.
-                          <br />
-                          <strong>📋 Status:</strong> Seu comprovante será analisado e aprovado/rejeitado por um administrador.
-                        </Alert>
-
-                        {/* Estatísticas dos comprovantes da equipe */}
-                        {(() => {
-                          const comprovantesEquipe = comprovantesAnuidadeEquipe.filter(comp => comp.idEquipe === user?.idEquipe);
-                          const comprovantesPendentes = comprovantesEquipe.filter(comp => comp.status === 'PENDENTE');
-                          const comprovantesAprovados = comprovantesEquipe.filter(comp => comp.status === 'APROVADO');
-                          const comprovantesRejeitados = comprovantesEquipe.filter(comp => comp.status === 'REJEITADO');
-                          
-                          return (
-                            <Row className="mb-3">
-                              <Col md={3}>
-                                <Card className="text-center">
-                                  <Card.Body className="py-2">
-                                    <h6 className="text-primary mb-1">{comprovantesEquipe.length}</h6>
-                                    <small className="text-muted">Total Enviados</small>
-                                  </Card.Body>
-                                </Card>
-                              </Col>
-                              <Col md={3}>
-                                <Card className="text-center">
-                                  <Card.Body className="py-2">
-                                    <h6 className="text-warning mb-1">{comprovantesPendentes.length}</h6>
-                                    <small className="text-muted">Pendentes</small>
-                                  </Card.Body>
-                                </Card>
-                              </Col>
-                              <Col md={3}>
-                                <Card className="text-center">
-                                  <Card.Body className="py-2">
-                                    <h6 className="text-success mb-1">{comprovantesAprovados.length}</h6>
-                                    <small className="text-muted">Aprovados</small>
-                                  </Card.Body>
-                                </Card>
-                              </Col>
-                              <Col md={3}>
-                                <Card className="text-center">
-                                  <Card.Body className="py-2">
-                                    <h6 className="text-danger mb-1">{comprovantesRejeitados.length}</h6>
-                                    <small className="text-muted">Rejeitados</small>
-                                  </Card.Body>
-                                </Card>
-                              </Col>
-                            </Row>
-                          );
-                        })()}
-
-                        {/* Botão para enviar comprovante */}
-                        <div className="text-center mb-3">
-                          <Button
-                            variant="primary"
-                            onClick={() => {
-                              const minhaEquipe = equipes.find(eq => eq.id === user?.idEquipe);
-                              if (minhaEquipe) {
-                                abrirModalComprovanteEquipe(minhaEquipe);
-                              }
-                            }}
-                            className="me-2"
-                          >
-                            <FaUpload className="me-2" />
-                            Enviar Comprovante de Anuidade
-                          </Button>
-                        </div>
-
-                        {/* Lista de comprovantes enviados */}
-                        {(() => {
-                          const comprovantesEquipe = comprovantesAnuidadeEquipe.filter(comp => comp.idEquipe === user?.idEquipe);
-                          
-                          if (comprovantesEquipe.length === 0) {
-                            return (
-                              <Alert variant="info" className="text-center">
-                                <FaEye className="me-2" />
-                                Nenhum comprovante de anuidade enviado ainda.
-                              </Alert>
-                            );
-                          }
-
-                          return (
-                            <Table responsive striped hover>
-                            <thead>
-                              <tr>
-                                <th>Comprovante</th>
-                                <th>Valor</th>
-                                <th>Data Pagamento</th>
-                                <th>Data Envio</th>
-                                <th>Enviado Por</th>
-                                <th>Status</th>
-                                <th>Ações</th>
-                              </tr>
-                            </thead>
-                              <tbody>
-                                {comprovantesEquipe.map(comprovante => (
-                                  <tr key={comprovante.id}>
-                                    <td>
-                                      <div>
-                                        <strong>{comprovante.nome}</strong>
-                                        <br />
-                                        <small className="text-muted">
-                                          {(comprovante.tamanho / 1024 / 1024).toFixed(2)} MB
-                                        </small>
-                                      </div>
-                                    </td>
-                                    <td>
-                                      <strong>R$ {comprovante.valor.toFixed(2)}</strong>
-                                    </td>
-                                    <td>
-                                      {comprovante.dataPagamento.toLocaleDateString('pt-BR')}
-                                    </td>
-                                    <td>
-                                      {comprovante.dataUpload.toLocaleDateString('pt-BR')}
-                                    </td>
-                                    <td>
-                                      <strong>{comprovante.enviadoPor || 'Usuário'}</strong>
-                                    </td>
-                                    <td>
-                                      <Badge bg={
-                                        comprovante.status === 'APROVADO' ? 'success' :
-                                        comprovante.status === 'REJEITADO' ? 'danger' : 'warning'
-                                      }>
-                                        {comprovante.status}
-                                      </Badge>
-                                      {comprovante.aprovadoPor && (
-                                        <div>
-                                          <small className="text-muted">
-                                            Por: {comprovante.aprovadoPor}
-                                          </small>
-                                        </div>
-                                      )}
-                                      {comprovante.rejeitadoPor && (
-                                        <div>
-                                          <small className="text-danger">
-                                            Rejeitado por: {comprovante.rejeitadoPor}
-                                          </small>
-                                          {comprovante.dataRejeicao && (
-                                            <div>
-                                              <small className="text-muted">
-                                                Em: {new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
-                                              </small>
-                                            </div>
-                                          )}
-                                          {comprovante.observacoes && (
-                                            <div>
-                                              <small className="text-danger">
-                                                Motivo: {comprovante.observacoes}
-                                              </small>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td>
-                                      <div className="d-flex gap-1">
-                                        <Button
-                                          variant="outline-primary"
-                                          size="sm"
-                                          onClick={async () => {
-                                            try {
-                                              await comprovantesAnuidadeEquipeService.downloadComprovante(comprovante);
-                                              toast.success('Download iniciado com sucesso!');
-                                            } catch (error) {
-                                              const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-                                              console.error('❌ Erro no download:', error);
-                                              toast.error(`Erro ao baixar comprovante: ${errorMessage}`);
-                                            }
-                                          }}
-                                          title="Download"
-                                        >
-                                          <FaDownload />
-                                        </Button>
-                                        {comprovante.status === 'PENDENTE' && (
-                                          <Button
-                                            variant="outline-danger"
-                                            size="sm"
-                                            onClick={() => {
-                                              if (window.confirm('Tem certeza que deseja excluir este comprovante?')) {
-                                                comprovantesAnuidadeEquipeService.deletarComprovante(
-                                                  comprovante,
-                                                  false,
-                                                  user?.idEquipe
-                                                ).then(() => {
-                                                  toast.success('Comprovante excluído com sucesso!');
-                                                  loadData();
-                                                }).catch(error => {
-                                                  toast.error('Erro ao excluir comprovante: ' + error.message);
-                                                });
-                                              }
-                                            }}
-                                            title="Excluir comprovante"
-                                          >
-                                            <FaTimesCircle />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </Table>
-                          );
-                        })()}
-
-                        <Alert variant="success" className="mt-3">
-                          <strong>✅ Status da Equipe:</strong> Sua equipe está atualmente 
-                          <Badge bg={equipes.find(eq => eq.id === user?.idEquipe)?.status === 'ATIVA' ? 'success' : 'danger'} className="ms-2">
-                            {equipes.find(eq => eq.id === user?.idEquipe)?.status || 'PENDENTE'}
-                          </Badge>
-                          {equipes.find(eq => eq.id === user?.idEquipe)?.status === 'ATIVA' ? 
-                            ' - Parabéns! Sua equipe está ativa e pode participar de competições.' : 
-                            ' - Envie um comprovante de anuidade para aprovação e ativação da sua equipe.'
-                          }
-                        </Alert>
-                      </Card.Body>
-                    </Card>
                   </div>
                 ) : (
                   <Alert variant="warning" className="text-center">
@@ -2843,9 +2641,10 @@ const FinanceiroPage: React.FC = () => {
                                         comprovantesAnuidadeEquipeService.deletarComprovante(
                                           comprovante,
                                           true
-                                        ).then(() => {
+                                        ).then(async () => {
                                           toast.success('Comprovante excluído com sucesso!');
-                                          loadData();
+                                          // Recarregar apenas os comprovantes de anuidade de equipe para atualizar a interface
+                                          await recarregarComprovantesAnuidadeEquipe();
                                         }).catch(error => {
                                           toast.error('Erro ao excluir comprovante: ' + error.message);
                                         });
@@ -3072,11 +2871,11 @@ const FinanceiroPage: React.FC = () => {
                     const files = Array.from((e.target as HTMLInputElement).files || []);
                     setSelectedFiles(files);
                   }}
-                  accept=".pdf,.png,.jpg,.jpeg"
+                  accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.webp"
                   required
                 />
                 <Form.Text className="text-muted">
-                  Formatos aceitos: PDF, PNG, JPG, JPEG (máx. 20MB cada arquivo)
+                  Formatos aceitos: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP (máx. 20MB cada arquivo)
                 </Form.Text>
               </Form.Group>
 
@@ -3339,15 +3138,15 @@ const FinanceiroPage: React.FC = () => {
             </Col>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Comprovante (PDF, JPG, PNG)</Form.Label>
+                <Form.Label>Comprovante (PDF, PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP)</Form.Label>
                 <Form.Control
                   type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
+                  accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.webp"
                   onChange={(e) => setComprovanteEquipeFile((e.target as HTMLInputElement).files?.[0] || null)}
                   required
                 />
                 <Form.Text className="text-muted">
-                  Tamanho máximo: 20MB
+                  Formatos aceitos: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF, WEBP (máx. 20MB)
                 </Form.Text>
               </Form.Group>
             </Col>
@@ -3595,9 +3394,10 @@ const FinanceiroPage: React.FC = () => {
                                     comprovantesAnuidadeEquipeService.deletarComprovante(
                                       comprovante,
                                       true
-                                    ).then(() => {
+                                    ).then(async () => {
                                       toast.success('Comprovante excluído com sucesso!');
-                                      loadData();
+                                      // Recarregar apenas os comprovantes de anuidade de equipe para atualizar a interface
+                                      await recarregarComprovantesAnuidadeEquipe();
                                     }).catch(error => {
                                       toast.error('Erro ao excluir comprovante: ' + error.message);
                                     });
