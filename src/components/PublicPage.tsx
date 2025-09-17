@@ -498,9 +498,9 @@ const PublicPage: React.FC = () => {
                               {formatarDataNascimento(atleta.dataNascimento)}
                             </td>
                             <td>
-                              <span className={`badge ${atleta.status === 'ATIVO' ? 'bg-success' : 'bg-secondary'}`}>
+                              <Badge bg={atleta.status === 'ATIVO' ? 'success' : 'secondary'}>
                                 {atleta.status === 'ATIVO' ? 'Ativo' : 'Inativo'}
-                              </span>
+                              </Badge>
                             </td>
                           </tr>
                         ))}

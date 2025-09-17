@@ -269,17 +269,35 @@ export class ComprovantesAnuidadeEquipeService {
         // Não falhar a operação se não conseguir atualizar o status da equipe
       }
 
-      // 3. Criar notificação automática de rejeição
+      // 3. Atualizar notificação existente no mural para status RECUSADO
       try {
-        await notificacoesService.criarNotificacaoAutomatica(
-          comprovante.idEquipe,
-          comprovante.nomeEquipe,
-          'COMPROVANTE_ANUIDADE_EQUIPE',
-          `REJEITADO: ${comprovante.nome}`
+        // Buscar notificação correspondente no mural
+        const notificacoes = await notificacoesService.getNotificacoesEquipe(comprovante.idEquipe);
+        const notificacaoCorrespondente = notificacoes.find(notif => 
+          notif.tipoDocumento === 'COMPROVANTE_ANUIDADE_EQUIPE' && 
+          notif.nomeDocumento === comprovante.nome &&
+          notif.status === 'PENDENTE'
         );
-        console.log('✅ Notificação de rejeição criada automaticamente');
+        
+        if (notificacaoCorrespondente) {
+          await notificacoesService.recusarDocumento(
+            notificacaoCorrespondente.id!,
+            adminNome,
+            observacoes || 'Comprovante de anuidade de equipe rejeitado'
+          );
+          console.log('✅ Notificação atualizada no mural para RECUSADO');
+        } else {
+          // Se não encontrar notificação existente, criar uma nova
+          await notificacoesService.criarNotificacaoAutomatica(
+            comprovante.idEquipe,
+            comprovante.nomeEquipe,
+            'COMPROVANTE_ANUIDADE_EQUIPE',
+            `REJEITADO: ${comprovante.nome}`
+          );
+          console.log('✅ Notificação de rejeição criada automaticamente');
+        }
       } catch (error) {
-        console.error('❌ Erro ao criar notificação de rejeição:', error);
+        console.error('❌ Erro ao atualizar/criar notificação:', error);
         // Não falhar a operação se a notificação falhar
       }
 

@@ -645,7 +645,7 @@ const AtletasPage: React.FC = () => {
                   <td>{atleta.equipe?.nomeEquipe || '-'}</td>
                   <td>
                     <Badge bg={atleta.status === 'ATIVO' ? 'success' : 'secondary'}>
-                      {atleta.status}
+                      {atleta.status === 'ATIVO' ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </td>
                   <td>{atleta.maiorTotal ? `${atleta.maiorTotal}kg` : '-'}</td>

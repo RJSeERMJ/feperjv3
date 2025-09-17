@@ -950,6 +950,36 @@ export const pagamentoService = {
     }
   },
 
+  // Função para limpar comprovante de anuidade (resetar para PENDENTE)
+  async limparComprovante(atletaId: string, adminNome: string): Promise<void> {
+    try {
+      console.log(`🧹 Limpando comprovante para atleta ${atletaId}`);
+      
+      // 1. Atualizar status do atleta para INATIVO
+      const atletaRef = doc(db, 'atletas', atletaId);
+      await updateDoc(atletaRef, {
+        status: 'INATIVO',
+        dataAtualizacao: Timestamp.now()
+      });
+      
+      // 2. Deletar registro de pagamento existente
+      const pagamentosExistentes = await this.getByAtleta(atletaId);
+      const pagamentoAtual = pagamentosExistentes.find(p => p.ano === new Date().getFullYear());
+      
+      if (pagamentoAtual) {
+        await this.delete(pagamentoAtual.id);
+        console.log(`🗑️ Registro de pagamento deletado para atleta ${atletaId}`);
+      }
+      
+      console.log(`🧹 Comprovante limpo com sucesso para atleta ${atletaId}`);
+      console.log(`👤 Status do atleta alterado para INATIVO`);
+      console.log(`🗑️ Registro de pagamento removido`);
+    } catch (error) {
+      console.error('❌ Erro ao limpar comprovante:', error);
+      throw error;
+    }
+  },
+
 
 };
 

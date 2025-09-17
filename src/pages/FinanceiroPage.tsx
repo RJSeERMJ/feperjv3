@@ -25,6 +25,7 @@ import {
   FaTimesCircle,
   FaEye,
   FaUpload,
+  FaBroom,
 
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -470,6 +471,29 @@ const FinanceiroPage: React.FC = () => {
   const abrirModalAprovacao = (comprovante: ComprovanteAnuidade) => {
     setSelectedComprovante(comprovante);
     setShowAprovacaoModal(true);
+  };
+
+  const handleLimparComprovante = async (comprovante: ComprovanteAnuidade) => {
+    if (!window.confirm(`Tem certeza que deseja LIMPAR o comprovante "${comprovante.nome}" do atleta ${comprovante.nomeAtleta} (${comprovante.nomeEquipe})?\n\n⚠️ Esta ação irá:\n• Voltar o status para PENDENTE\n• Apagar todas as informações de pagamento\n• Alterar o status do atleta para INATIVO\n• Remover o registro de pagamento`)) {
+      return;
+    }
+
+    try {
+      console.log('🧹 Iniciando limpeza do comprovante...');
+      await comprovantesAnuidadeService.limparComprovante(
+        comprovante,
+        user!.nome
+      );
+      
+      // Recarregar dados
+      await loadData();
+      
+      toast.success(`Comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe}) limpo com sucesso!`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao limpar comprovante:', error);
+      toast.error(`Erro ao limpar comprovante: ${errorMessage}`);
+    }
   };
 
   // Funções para Comprovantes de Inscrição
@@ -1510,15 +1534,17 @@ const FinanceiroPage: React.FC = () => {
                                       )}
                                     </>
                                   ) : (
-                                    <Button
-                                      variant="outline-primary"
-                                      size="sm"
-                                      onClick={() => abrirModalComprovante(atleta)}
-                                      title="Enviar comprovante de pagamento"
-                                    >
-                                      <FaUpload />
-                                      Enviar
-                                    </Button>
+                                    user?.tipo !== 'admin' && (
+                                      <Button
+                                        variant="outline-primary"
+                                        size="sm"
+                                        onClick={() => abrirModalComprovante(atleta)}
+                                        title="Enviar comprovante de pagamento"
+                                      >
+                                        <FaUpload />
+                                        Enviar
+                                      </Button>
+                                    )
                                   )}
                                 </div>
                               </td>
@@ -1917,18 +1943,30 @@ const FinanceiroPage: React.FC = () => {
                                   <FaCheckCircle />
                                           </Button>
                                         )}
+                                        {user?.tipo === 'admin' && (comprovante.status === 'APROVADO' || comprovante.status === 'REJEITADO') && (
+                                <Button
+                                  variant="outline-warning"
+                                  size="sm"
+                                  onClick={() => handleLimparComprovante(comprovante)}
+                                  title="Limpar comprovante (voltar para PENDENTE)"
+                                >
+                                  <FaBroom />
+                                          </Button>
+                                        )}
                                       </>
                                     ) : (
-                                      <Button
-                                        variant="outline-primary"
-                                        size="sm"
-                                        onClick={() => abrirModalComprovante(atleta)}
-                                        title="Enviar comprovante de pagamento"
-                                      >
-                                        <FaUpload />
-                                        Enviar
-                                </Button>
-                              )}
+                                      user?.tipo !== 'admin' && (
+                                        <Button
+                                          variant="outline-primary"
+                                          size="sm"
+                                          onClick={() => abrirModalComprovante(atleta)}
+                                          title="Enviar comprovante de pagamento"
+                                        >
+                                          <FaUpload />
+                                          Enviar
+                                        </Button>
+                                      )
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -2855,7 +2893,7 @@ const FinanceiroPage: React.FC = () => {
                                     {comprovante.dataRejeicao && (
                                       <div>
                                         <small className="text-muted">
-                                          Em: {new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
+                                          Em: {comprovante.dataRejeicao instanceof Date ? comprovante.dataRejeicao.toLocaleDateString('pt-BR') : new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
                                         </small>
                                       </div>
                                     )}
@@ -3633,7 +3671,7 @@ const FinanceiroPage: React.FC = () => {
                       )}
                       {selectedComprovanteEquipe.dataRejeicao && (
                         <div>
-                          <strong>Data:</strong> {new Date(selectedComprovanteEquipe.dataRejeicao).toLocaleDateString('pt-BR')}
+                          <strong>Data:</strong> {selectedComprovanteEquipe.dataRejeicao instanceof Date ? selectedComprovanteEquipe.dataRejeicao.toLocaleDateString('pt-BR') : new Date(selectedComprovanteEquipe.dataRejeicao).toLocaleDateString('pt-BR')}
                         </div>
                       )}
                       {selectedComprovanteEquipe.observacoes && (
@@ -3801,7 +3839,7 @@ const FinanceiroPage: React.FC = () => {
                                 {comprovante.dataRejeicao && (
                                   <div>
                                     <small className="text-muted">
-                                      Em: {new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
+                                      Em: {comprovante.dataRejeicao instanceof Date ? comprovante.dataRejeicao.toLocaleDateString('pt-BR') : new Date(comprovante.dataRejeicao).toLocaleDateString('pt-BR')}
                                     </small>
                                   </div>
                                 )}

@@ -12,6 +12,8 @@ export interface ComprovanteInscricao {
   valor: number;
   status: 'PENDENTE' | 'APROVADO' | 'REJEITADO';
   observacoes?: string;
+  rejeitadoPor?: string;
+  dataRejeicao?: Date;
   tamanho: number;
   contentType: string;
   url: string;
@@ -610,6 +612,9 @@ export const comprovantesInscricaoService = {
       
       // Atualizar o status do comprovante localmente
       comprovante.status = 'REJEITADO';
+      comprovante.rejeitadoPor = adminNome;
+      comprovante.dataRejeicao = new Date();
+      comprovante.observacoes = observacoes;
       
       // Atualizar status das inscrições no Firebase
       await equipeService.rejeitarComprovanteInscricao(
@@ -618,6 +623,29 @@ export const comprovantesInscricaoService = {
         adminNome,
         observacoes
       );
+      
+      // Atualizar notificação no mural para status RECUSADO
+      try {
+        // Buscar notificação correspondente no mural
+        const notificacoes = await notificacoesService.getNotificacoesEquipe(comprovante.equipeId);
+        const notificacaoCorrespondente = notificacoes.find(notif => 
+          notif.tipoDocumento === 'COMPROVANTE_INSCRICAO' && 
+          notif.nomeDocumento === comprovante.nome &&
+          notif.status === 'PENDENTE'
+        );
+        
+        if (notificacaoCorrespondente) {
+          await notificacoesService.recusarDocumento(
+            notificacaoCorrespondente.id!,
+            adminNome,
+            observacoes || 'Comprovante de inscrição rejeitado'
+          );
+          console.log('✅ Notificação atualizada no mural para RECUSADO');
+        }
+      } catch (notifError) {
+        console.warn('⚠️ Erro ao atualizar notificação no mural:', notifError);
+        // Não falhar a rejeição se a notificação falhar
+      }
       
       console.log(`❌ Comprovante de inscrição rejeitado com sucesso por ${adminNome}:`, comprovante.nome);
       console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);

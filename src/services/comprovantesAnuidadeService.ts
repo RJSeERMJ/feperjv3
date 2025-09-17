@@ -27,6 +27,8 @@ export interface ComprovanteAnuidade {
   observacoes?: string;
   aprovadoPor?: string;
   dataAprovacao?: Date;
+  rejeitadoPor?: string;
+  dataRejeicao?: Date;
   tamanho: number;
   contentType: string;
   url?: string;
@@ -394,7 +396,9 @@ export const comprovantesAnuidadeService = {
               atletaId: atletaIdFromFile,
               equipeId,
               nomeAtleta,
-              nomeEquipe: equipe.nomeEquipe
+              nomeEquipe: equipe.nomeEquipe,
+              rejeitadoPor: undefined,
+              dataRejeicao: undefined
             };
 
             comprovantes.push(comprovante);
@@ -506,7 +510,9 @@ export const comprovantesAnuidadeService = {
               atletaId: atletaIdFromFile,
               equipeId,
               nomeAtleta,
-              nomeEquipe: equipe.nomeEquipe
+              nomeEquipe: equipe.nomeEquipe,
+              rejeitadoPor: pagamentoAtleta?.rejeitadoPor,
+              dataRejeicao: pagamentoAtleta?.dataRejeicao ? new Date(pagamentoAtleta.dataRejeicao.seconds * 1000) : undefined
             };
 
             comprovantes.push(comprovante);
@@ -705,18 +711,75 @@ export const comprovantesAnuidadeService = {
       
       // Atualizar o status do comprovante localmente
       comprovante.status = 'REJEITADO';
+      comprovante.rejeitadoPor = adminNome;
+      comprovante.dataRejeicao = new Date();
+      comprovante.observacoes = observacoes;
+      
+      // Atualizar notificação no mural para status RECUSADO
+      try {
+        // Buscar notificação correspondente no mural
+        const notificacoes = await notificacoesService.getNotificacoesEquipe(comprovante.equipeId);
+        const notificacaoCorrespondente = notificacoes.find(notif => 
+          notif.tipoDocumento === 'COMPROVANTE_ANUIDADE' && 
+          notif.nomeDocumento === comprovante.nome &&
+          notif.status === 'PENDENTE'
+        );
+        
+        if (notificacaoCorrespondente) {
+          await notificacoesService.recusarDocumento(
+            notificacaoCorrespondente.id!,
+            adminNome,
+            observacoes || 'Comprovante rejeitado'
+          );
+          console.log('✅ Notificação atualizada no mural para RECUSADO');
+        }
+      } catch (notifError) {
+        console.warn('⚠️ Erro ao atualizar notificação no mural:', notifError);
+        // Não falhar a rejeição se a notificação falhar
+      }
       
       console.log(`❌ Comprovante rejeitado com sucesso por ${adminNome}:`, comprovante.nome);
       console.log(`👤 Atleta: ${comprovante.nomeAtleta} (${comprovante.atletaId})`);
       console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
       
-    if (observacoes) {
-      console.log(`📝 Observações: ${observacoes}`);
+      if (observacoes) {
+        console.log(`📝 Observações: ${observacoes}`);
       }
       
       console.log('✅ Status do atleta mantido (não alterado)');
     } catch (error) {
       console.error('❌ Erro ao rejeitar comprovante:', error);
+      throw error;
+    }
+  },
+
+  // Função para limpar/resetar comprovante (voltar para PENDENTE)
+  async limparComprovante(comprovante: ComprovanteAnuidade, adminNome: string): Promise<void> {
+    try {
+      console.log(`🧹 Limpando comprovante de ${comprovante.nomeAtleta} (${comprovante.nomeEquipe})`);
+      
+      // Limpar comprovante no Firebase
+      await pagamentoService.limparComprovante(
+        comprovante.atletaId,
+        adminNome
+      );
+      
+      // Resetar o status do comprovante localmente
+      comprovante.status = 'PENDENTE';
+      comprovante.valor = undefined;
+      comprovante.dataPagamento = undefined;
+      comprovante.aprovadoPor = undefined;
+      comprovante.dataAprovacao = undefined;
+      comprovante.rejeitadoPor = undefined;
+      comprovante.dataRejeicao = undefined;
+      comprovante.observacoes = undefined;
+      
+      console.log(`🧹 Comprovante limpo com sucesso por ${adminNome}:`, comprovante.nome);
+      console.log(`👤 Atleta: ${comprovante.nomeAtleta} (${comprovante.atletaId})`);
+      console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
+      console.log('✅ Status resetado para PENDENTE - todas as informações foram limpas');
+    } catch (error) {
+      console.error('❌ Erro ao limpar comprovante:', error);
       throw error;
     }
   }
