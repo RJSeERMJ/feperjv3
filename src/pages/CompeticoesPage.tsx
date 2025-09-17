@@ -60,12 +60,13 @@ import {
 const EditarInscricaoForm: React.FC<{
   inscricao: InscricaoCompeticao;
   competicao: Competicao;
-  onSave: (categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any) => void;
+  onSave: (categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any, total12Meses?: number) => void;
   onCancel: () => void;
 }> = ({ inscricao, competicao, onSave, onCancel }) => {
   const [categoriaPeso, setCategoriaPeso] = useState<any>(inscricao.categoriaPeso || null);
   const [categoriaIdade, setCategoriaIdade] = useState<any>(inscricao.categoriaIdade || null);
   const [dobraCategoria, setDobraCategoria] = useState<any>(inscricao.dobraCategoria || null);
+  const [total12Meses, setTotal12Meses] = useState<number>((inscricao as any).total12Meses || 0);
 
   // Obter atleta da inscrição
   const atleta = inscricao.atleta;
@@ -160,7 +161,7 @@ const EditarInscricaoForm: React.FC<{
 
     // Garantir que dobraCategoria seja null em vez de undefined
     const dobraParaSalvar = (dobraCategoria && dobraCategoria.categoriaIdade && dobraCategoria.categoriaPeso) ? dobraCategoria : null;
-    onSave(categoriaPeso, categoriaIdade, dobraParaSalvar);
+    onSave(categoriaPeso, categoriaIdade, dobraParaSalvar, total12Meses);
   };
 
   return (
@@ -399,6 +400,28 @@ const EditarInscricaoForm: React.FC<{
         </Row>
       )}
 
+      <Row>
+        <Col md={6}>
+          <Form.Group className="mb-3">
+            <Form.Label>Total Declarado (kg)</Form.Label>
+            <Form.Control
+              type="number"
+              min="0"
+              step="0.1"
+              value={total12Meses || ''}
+              onChange={(e) => {
+                const valor = parseFloat(e.target.value) || 0;
+                setTotal12Meses(valor);
+              }}
+              placeholder="Digite o total declarado"
+            />
+            <Form.Text className="text-muted">
+              Total declarado pelo atleta nos últimos 12 meses
+            </Form.Text>
+          </Form.Group>
+        </Col>
+      </Row>
+
       <div className="d-flex justify-content-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
           Cancelar
@@ -445,7 +468,6 @@ const CompeticoesPage: React.FC = () => {
   const [showCSVImportModal, setShowCSVImportModal] = useState(false);
 
   const [inscricaoFormData, setInscricaoFormData] = useState({
-    temDobra: false,
     observacoes: '',
     modalidade: '' as 'CLASSICA' | 'EQUIPADO' | ''
   });
@@ -712,7 +734,7 @@ const CompeticoesPage: React.FC = () => {
 
       setAtletasDisponiveis(atletasDisponiveis);
       setAtletasSelecionados([]);
-      setInscricaoFormData({ temDobra: false, observacoes: '', modalidade: '' });
+      setInscricaoFormData({ observacoes: '', modalidade: '' });
       setShowInscricaoModal(true);
     } catch (error) {
       toast.error('Erro ao carregar atletas disponíveis');
@@ -777,9 +799,15 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
-  const handleCategorizacaoAtleta = (atletaId: string, categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any) => {
+  const handleCategorizacaoAtleta = (atletaId: string, categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any, total12Meses?: number) => {
     const novaCategorizacao = new Map(categorizacaoAtletas);
-    novaCategorizacao.set(atletaId, { categoriaPeso, categoriaIdade, dobraCategoria });
+    const categorizacaoAtual = novaCategorizacao.get(atletaId) || {};
+    novaCategorizacao.set(atletaId, { 
+      categoriaPeso, 
+      categoriaIdade, 
+      dobraCategoria,
+      total12Meses: total12Meses !== undefined ? total12Meses : categorizacaoAtual.total12Meses || 0
+    });
     setCategorizacaoAtletas(novaCategorizacao);
   };
 
@@ -800,15 +828,20 @@ const CompeticoesPage: React.FC = () => {
          const categorizacao = categorizacaoAtletas.get(atletaId);
          const atleta = atletas.find(a => a.id === atletaId);
          
+         // Calcular valor individual (inscrição + dobra se aplicável)
+         const valorBase = selectedCompeticao!.valorInscricao;
+         const valorDobra = categorizacao.dobraCategoria ? (selectedCompeticao!.valorDobra || 0) : 0;
+         const valorTotal = valorBase + valorDobra;
+         
          const inscricao: any = {
            idAtleta: atletaId,
            idCompeticao: selectedCompeticao!.id!,
            statusInscricao: 'INSCRITO' as const,
-           valorIndividual: selectedCompeticao!.valorInscricao,
-           temDobra: inscricaoFormData.temDobra,
+           valorIndividual: valorTotal,
            observacoes: inscricaoFormData.observacoes,
            categoriaPeso: categorizacao.categoriaPeso,
-           categoriaIdade: categorizacao.categoriaIdade
+           categoriaIdade: categorizacao.categoriaIdade,
+           total12Meses: categorizacao.total12Meses || 0
          };
 
          // Adicionar modalidade se a competição for "Clássica e Equipado"
@@ -845,7 +878,7 @@ const CompeticoesPage: React.FC = () => {
       setShowCategorizacaoModal(false);
       setCategorizacaoAtletas(new Map());
       setAtletasSelecionados([]);
-      setInscricaoFormData({ temDobra: false, observacoes: '', modalidade: '' });
+      setInscricaoFormData({ observacoes: '', modalidade: '' });
       loadData(); // Recarregar dados
     } catch (error) {
       toast.error('Erro ao realizar inscrição');
@@ -1023,7 +1056,7 @@ const CompeticoesPage: React.FC = () => {
         categoriasOrdenadas.forEach(categoriaPeso => {
           // Adicionar cabeçalho da categoria
           csvContent.push([`--- ${categoriaPeso} (${categoriasDoSexo[categoriaPeso].length} atleta${categoriasDoSexo[categoriaPeso].length !== 1 ? 's' : ''}) ---`]);
-          csvContent.push(['Nome', 'Equipe', 'Modalidade', 'Categoria Idade', 'Dobra', 'CPF']);
+          csvContent.push(['Nome', 'Equipe', 'Modalidade', 'Categoria Idade', 'Dobra', 'Total (kg)']);
           
           // Adicionar dados da categoria
           categoriasDoSexo[categoriaPeso]
@@ -1035,7 +1068,7 @@ const CompeticoesPage: React.FC = () => {
                 insc.modalidade === 'CLASSICA' ? 'Clássica' : insc.modalidade === 'EQUIPADO' ? 'Equipado' : '',
                 insc.categoriaIdade?.nome || '',
                 insc.dobraCategoria ? 'Sim' : 'Não',
-                insc.atleta?.cpf || ''
+                (insc as any).total12Meses ? `${(insc as any).total12Meses}kg` : 'N/A'
               ]);
             });
           
@@ -1073,14 +1106,15 @@ const CompeticoesPage: React.FC = () => {
     setShowDetalhesCompeticaoModal(true);
   };
 
-  const handleSalvarEdicaoInscricao = async (categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any) => {
+  const handleSalvarEdicaoInscricao = async (categoriaPeso: any, categoriaIdade: any, dobraCategoria?: any, total12Meses?: number) => {
     if (!inscricaoEmEdicao || !selectedCompeticao) return;
 
     try {
       // Preparar dados para atualização
       const dadosAtualizacao: any = {
         categoriaPeso,
-        categoriaIdade
+        categoriaIdade,
+        total12Meses: total12Meses || 0
       };
 
       // Adicionar dobraCategoria apenas se existir e for válida
@@ -1091,8 +1125,8 @@ const CompeticoesPage: React.FC = () => {
         dadosAtualizacao.dobraCategoria = null;
       }
 
-      // Atualizar a inscrição
-      await inscricaoService.update(inscricaoEmEdicao.id!, dadosAtualizacao);
+      // Atualizar a inscrição com recálculo automático do valor
+      await inscricaoService.updateWithRecalculation(inscricaoEmEdicao.id!, dadosAtualizacao, selectedCompeticao);
 
       // Registrar log
       await logService.create({
@@ -1121,27 +1155,24 @@ const CompeticoesPage: React.FC = () => {
     }
 
     // Confirmar cancelamento
-    if (!window.confirm(`Tem certeza que deseja cancelar a inscrição do atleta ${inscricao.atleta?.nome}?`)) {
+    if (!window.confirm(`Tem certeza que deseja cancelar a inscrição do atleta ${inscricao.atleta?.nome}? Esta ação irá excluir o atleta da competição.`)) {
       return;
     }
 
     try {
-      // Atualizar status para CANCELADO
-      await inscricaoService.update(inscricao.id!, {
-        statusInscricao: 'CANCELADO',
-        observacoes: inscricao.observacoes || 'Inscrição cancelada'
-      });
+      // Excluir inscrição do banco de dados
+      await inscricaoService.delete(inscricao.id!);
 
       // Registrar log
       await logService.create({
         dataHora: new Date(),
         usuario: user?.nome || 'Sistema',
         acao: 'Cancelou inscrição',
-        detalhes: `Cancelou inscrição do atleta ${inscricao.atleta?.nome} na competição ${selectedCompeticao?.nomeCompeticao}`,
+        detalhes: `Cancelou inscrição do atleta ${inscricao.atleta?.nome} na competição ${selectedCompeticao?.nomeCompeticao} - Atleta excluído da competição`,
         tipoUsuario: user?.tipo || 'usuario'
       });
 
-      toast.success('Inscrição cancelada com sucesso!');
+      toast.success('Inscrição cancelada e atleta excluído da competição com sucesso!');
       loadData(); // Recarregar dados
     } catch (error) {
       console.error('Erro ao cancelar inscrição:', error);
@@ -2152,297 +2183,7 @@ const CompeticoesPage: React.FC = () => {
               )}
             </Tab>
             
-            <Tab eventKey="nominacao" title="Nominação">
-              <div className="mb-3">
-                <Alert variant="info">
-                  <strong>📋 Nominação por Categoria de Peso</strong>
-                  <br />
-                  Atletas organizados por categoria de peso e sexo para facilitar a organização da competição.
-                </Alert>
-                
-                {/* Botão de Exportar CSV - Apenas para Administradores */}
-                {user?.tipo === 'admin' && (
-                  <div className="d-flex justify-content-end mb-3">
-                    <Button 
-                      variant="success" 
-                      size="sm"
-                      onClick={() => exportarNominacaoCSV()}
-                      disabled={inscricoes.filter(i => i.statusInscricao === 'INSCRITO').length === 0}
-                    >
-                      <FaDownload className="me-2" />
-                      Exportar Nominação (CSV)
-                    </Button>
-                  </div>
-                )}
-              </div>
-              
-              {/* Tabela Masculino */}
-              <Card className="mb-4">
-                <Card.Header className="bg-primary text-white">
-                  <strong>🏋️ Masculino</strong>
-                </Card.Header>
-                <Card.Body>
-                  {(() => {
-                    const inscricoesMasculinas = inscricoes.filter(i => 
-                      i.statusInscricao === 'INSCRITO' && 
-                      i.atleta?.sexo === 'M' && 
-                      i.categoriaPeso
-                    );
-                    
-                    if (inscricoesMasculinas.length === 0) {
-                      return (
-                        <Alert variant="info" className="text-center">
-                          Nenhum atleta masculino inscrito.
-                        </Alert>
-                      );
-                    }
-                    
-                    // Agrupar por categoria de peso
-                    const categoriasPeso = obterCategoriasPeso('M');
-                    const atletasPorCategoria = new Map();
-                    
-                    categoriasPeso.forEach(cat => {
-                      const atletas = inscricoesMasculinas.filter(insc => 
-                        insc.categoriaPeso?.id === cat.id
-                      );
-                      if (atletas.length > 0) {
-                        atletasPorCategoria.set(cat.id, atletas);
-                      }
-                    });
-                    
-                                         return Array.from(atletasPorCategoria.entries()).map(([categoriaId, atletas]: [string, InscricaoCompeticao[]]) => {
-                       const categoria = categoriasPeso.find(cat => cat.id === categoriaId);
-                       return (
-                         <div key={categoriaId} className="mb-4">
-                           <h6 className="text-primary border-bottom pb-2">
-                             <strong>{categoria?.nome}</strong>
-                             <span className="text-muted ms-2">({categoria?.descricao})</span>
-                             <Badge bg="secondary" className="ms-2">{atletas.length} atleta(s)</Badge>
-                           </h6>
-                           <div className="mb-2">
-                             <small className="text-muted">
-                               <strong>Colunas:</strong> Nome | Equipe | Modalidade | Categoria Idade | Dobra
-                             </small>
-                           </div>
-                           <Table responsive striped size="sm">
-                             <thead>
-                               <tr>
-                                 <th>Nome</th>
-                                 <th>Equipe</th>
-                                 <th>Categoria Idade</th>
-                                 <th>Dobra</th>
-                               </tr>
-                             </thead>
-                             <tbody>
-                               {atletas.map((inscricao: InscricaoCompeticao) => (
-                                <tr key={inscricao.id}>
-                                  <td>
-                                    <strong>{inscricao.atleta?.nome}</strong>
-                                    <br />
-                                    <small className="text-muted">{inscricao.atleta?.cpf}</small>
-                                  </td>
-                                  <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
-                                  <td>
-                                    {inscricao.modalidade === 'CLASSICA' && (
-                                      <Badge bg="primary">Clássica</Badge>
-                                    )}
-                                    {inscricao.modalidade === 'EQUIPADO' && (
-                                      <Badge bg="success">Equipado</Badge>
-                                    )}
-                                    {!inscricao.modalidade && (
-                                      <Badge bg="secondary">N/A</Badge>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {inscricao.categoriaIdade ? (
-                                      <Badge bg="info">
-                                        {inscricao.categoriaIdade.nome}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted">-</span>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {inscricao.dobraCategoria ? (
-                                      <Badge bg="warning">
-                                        {inscricao.dobraCategoria.categoriaIdade.nome}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted">-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      );
-                    });
-                  })()}
-                </Card.Body>
-              </Card>
-              
-              {/* Tabela Feminino */}
-              <Card>
-                <Card.Header className="bg-danger text-white">
-                  <strong>🏋️‍♀️ Feminino</strong>
-                </Card.Header>
-                <Card.Body>
-                  {(() => {
-                    const inscricoesFemininas = inscricoes.filter(i => 
-                      i.statusInscricao === 'INSCRITO' && 
-                      i.atleta?.sexo === 'F' && 
-                      i.categoriaPeso
-                    );
-                    
-                    if (inscricoesFemininas.length === 0) {
-                      return (
-                        <Alert variant="info" className="text-center">
-                          Nenhum atleta feminino inscrito.
-                        </Alert>
-                      );
-                    }
-                    
-                    // Agrupar por categoria de peso
-                    const categoriasPeso = obterCategoriasPeso('F');
-                    const atletasPorCategoria = new Map();
-                    
-                    categoriasPeso.forEach(cat => {
-                      const atletas = inscricoesFemininas.filter(insc => 
-                        insc.categoriaPeso?.id === cat.id
-                      );
-                      if (atletas.length > 0) {
-                        atletasPorCategoria.set(cat.id, atletas);
-                      }
-                    });
-                    
-                                         return Array.from(atletasPorCategoria.entries()).map(([categoriaId, atletas]: [string, InscricaoCompeticao[]]) => {
-                       const categoria = categoriasPeso.find(cat => cat.id === categoriaId);
-                       return (
-                         <div key={categoriaId} className="mb-4">
-                           <h6 className="text-danger border-bottom pb-2">
-                             <strong>{categoria?.nome}</strong>
-                             <span className="text-muted ms-2">({categoria?.descricao})</span>
-                             <Badge bg="secondary" className="ms-2">{atletas.length} atleta(s)</Badge>
-                           </h6>
-                           <div className="mb-2">
-                             <small className="text-muted">
-                               <strong>Colunas:</strong> Nome | Equipe | Modalidade | Categoria Idade | Dobra
-                             </small>
-                           </div>
-                           <Table responsive striped size="sm">
-                             <thead>
-                               <tr>
-                                 <th>Nome</th>
-                                 <th>Equipe</th>
-                                 <th>Categoria Idade</th>
-                                 <th>Dobra</th>
-                               </tr>
-                             </thead>
-                             <tbody>
-                               {atletas.map((inscricao: InscricaoCompeticao) => (
-                                <tr key={inscricao.id}>
-                                  <td>
-                                    <strong>{inscricao.atleta?.nome}</strong>
-                                    <br />
-                                    <small className="text-muted">{inscricao.atleta?.cpf}</small>
-                                  </td>
-                                  <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
-                                  <td>
-                                    {inscricao.modalidade === 'CLASSICA' && (
-                                      <Badge bg="primary">Clássica</Badge>
-                                    )}
-                                    {inscricao.modalidade === 'EQUIPADO' && (
-                                      <Badge bg="success">Equipado</Badge>
-                                    )}
-                                    {!inscricao.modalidade && (
-                                      <Badge bg="secondary">N/A</Badge>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {inscricao.categoriaIdade ? (
-                                      <Badge bg="info">
-                                        {inscricao.categoriaIdade.nome}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted">-</span>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {inscricao.dobraCategoria ? (
-                                      <Badge bg="warning">
-                                        {inscricao.dobraCategoria.categoriaIdade.nome}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted">-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </Table>
-                        </div>
-                      );
-                    });
-                  })()}
-                </Card.Body>
-              </Card>
-            </Tab>
             
-            <Tab eventKey="cancelados" title="Cancelados">
-              <Table responsive striped>
-                <thead>
-                  <tr>
-                    <th>Atleta</th>
-                    <th>Equipe</th>
-                    <th>Data Inscrição</th>
-                    <th>Status</th>
-                    <th>Modalidade</th>
-                    <th>Observações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inscricoes.filter(i => i.statusInscricao === 'CANCELADO').map((inscricao) => (
-                    <tr key={inscricao.id}>
-                      <td>
-                        <div>
-                          <strong>{inscricao.atleta?.nome}</strong>
-                          <br />
-                          <small className="text-muted">{inscricao.atleta?.cpf}</small>
-                        </div>
-                      </td>
-                      <td>{inscricao.atleta?.equipe?.nomeEquipe || '-'}</td>
-                      <td>
-                        {formatarData(inscricao.dataInscricao)}
-                      </td>
-                      <td>
-                        <Badge bg="danger">
-                          <FaUserTimes className="me-1" />
-                          Cancelado
-                        </Badge>
-                      </td>
-                      <td>
-                        {inscricao.modalidade === 'CLASSICA' && (
-                          <Badge bg="primary">Clássica</Badge>
-                        )}
-                        {inscricao.modalidade === 'EQUIPADO' && (
-                          <Badge bg="success">Equipado</Badge>
-                        )}
-                        {!inscricao.modalidade && (
-                          <Badge bg="secondary">N/A</Badge>
-                        )}
-                      </td>
-                      <td>{inscricao.observacoes || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-              {inscricoes.filter(i => i.statusInscricao === 'CANCELADO').length === 0 && (
-                <Alert variant="info" className="text-center">
-                  Nenhuma inscrição cancelada.
-                </Alert>
-              )}
-            </Tab>
             <Tab eventKey="estatisticas" title="Estatísticas">
               <Row className="justify-content-center">
                 <Col md={6}>
@@ -2600,21 +2341,6 @@ const CompeticoesPage: React.FC = () => {
                    </Form.Group>
                  )}
 
-                 {selectedCompeticao?.permiteDobraCategoria && (
-                   <Form.Group className="mb-3">
-                     <Form.Check
-                       type="checkbox"
-                       label="Aplicar dobra de categoria para todos os atletas selecionados"
-                       checked={inscricaoFormData.temDobra}
-                       onChange={(e) => setInscricaoFormData({...inscricaoFormData, temDobra: e.target.checked})}
-                     />
-                     {inscricaoFormData.temDobra && (
-                       <Form.Text className="text-muted">
-                         Valor adicional de R$ {selectedCompeticao.valorDobra?.toFixed(2)} por atleta
-                       </Form.Text>
-                     )}
-                   </Form.Group>
-                 )}
 
                  <Form.Group className="mb-3">
                    <Form.Label>Observações (opcional)</Form.Label>
@@ -2641,8 +2367,7 @@ const CompeticoesPage: React.FC = () => {
                      <br />
                      • <strong>Valor total:</strong> R$ {
                        selectedCompeticao ? (
-                         (atletasSelecionados.length * selectedCompeticao.valorInscricao + 
-                          (inscricaoFormData.temDobra ? atletasSelecionados.length * (selectedCompeticao.valorDobra || 0) : 0)).toFixed(2)
+                         (atletasSelecionados.length * selectedCompeticao.valorInscricao).toFixed(2)
                        ) : '0.00'
                      }
                    </Alert>
@@ -2693,7 +2418,7 @@ const CompeticoesPage: React.FC = () => {
                  </Card.Header>
                  <Card.Body>
                    <Row>
-                     <Col md={4}>
+                     <Col md={3}>
                        <Form.Group className="mb-3">
                          <Form.Label>Categoria de Peso</Form.Label>
                          <Form.Select
@@ -2704,7 +2429,8 @@ const CompeticoesPage: React.FC = () => {
                                atletaId, 
                                cat || null, 
                                categorizacao?.categoriaIdade || null,
-                               categorizacao?.dobraCategoria
+                               categorizacao?.dobraCategoria,
+                               categorizacao?.total12Meses
                              );
                            }}
                          >
@@ -2744,7 +2470,7 @@ const CompeticoesPage: React.FC = () => {
                          })()}
                        </Form.Group>
                      </Col>
-                     <Col md={4}>
+                     <Col md={3}>
                        <Form.Group className="mb-3">
                          <Form.Label>Categoria de Idade</Form.Label>
                          <Form.Select
@@ -2761,7 +2487,8 @@ const CompeticoesPage: React.FC = () => {
                                  atletaId, 
                                  categorizacao?.categoriaPeso || null, 
                                  cat,
-                                 categorizacao?.dobraCategoria
+                                 categorizacao?.dobraCategoria,
+                                 categorizacao?.total12Meses
                                );
                              }
                            }}
@@ -2781,7 +2508,7 @@ const CompeticoesPage: React.FC = () => {
                          </Form.Select>
                        </Form.Group>
                      </Col>
-                     <Col md={4}>
+                     <Col md={3}>
                        <Form.Group className="mb-3">
                          <Form.Label>Dobra de Categoria</Form.Label>
                          <Form.Select
@@ -2791,7 +2518,9 @@ const CompeticoesPage: React.FC = () => {
                                handleCategorizacaoAtleta(
                                  atletaId, 
                                  categorizacao?.categoriaPeso || null, 
-                                 categorizacao?.categoriaIdade || null
+                                 categorizacao?.categoriaIdade || null,
+                                 undefined,
+                                 categorizacao?.total12Meses
                                );
                                return;
                              }
@@ -2821,7 +2550,8 @@ const CompeticoesPage: React.FC = () => {
                                atletaId, 
                                categorizacao?.categoriaPeso || null, 
                                categorizacao?.categoriaIdade || null,
-                               dobraCategoria
+                               dobraCategoria,
+                               categorizacao?.total12Meses
                              );
                            }}
                            disabled={!selectedCompeticao?.permiteDobraCategoria || !categorizacao?.categoriaIdade}
@@ -2861,11 +2591,93 @@ const CompeticoesPage: React.FC = () => {
                          </Form.Select>
                        </Form.Group>
                      </Col>
+                     <Col md={3}>
+                       <Form.Group className="mb-3">
+                         <Form.Label>Total (kg)</Form.Label>
+                         <Form.Control
+                           type="number"
+                           min="0"
+                           step="0.1"
+                           value={categorizacao?.total12Meses || ''}
+                           onChange={(e) => {
+                             const valor = parseFloat(e.target.value) || 0;
+                             handleCategorizacaoAtleta(
+                               atletaId,
+                               categorizacao?.categoriaPeso || null,
+                               categorizacao?.categoriaIdade || null,
+                               categorizacao?.dobraCategoria,
+                               valor
+                             );
+                           }}
+                           placeholder="0.0"
+                         />
+                         <Form.Text className="text-muted">
+                           Maior Total Feito nos Últimos 12 meses
+                         </Form.Text>
+                       </Form.Group>
+                     </Col>
                    </Row>
                  </Card.Body>
                </Card>
              );
            })}
+
+           {/* Resumo de Valores */}
+           {atletasSelecionados.length > 0 && (
+             <Card className="mt-4">
+               <Card.Header className="bg-info text-white">
+                 <h6 className="mb-0">
+                   <FaMoneyBillWave className="me-2" />
+                   Resumo de Valores
+                 </h6>
+               </Card.Header>
+               <Card.Body>
+                 <Row>
+                   <Col md={6}>
+                     <h6>Valor por Atleta:</h6>
+                     <ul className="list-unstyled">
+                       <li><strong>Inscrição:</strong> R$ {selectedCompeticao?.valorInscricao.toFixed(2)}</li>
+                       {selectedCompeticao?.valorDobra && (
+                         <li><strong>Dobra:</strong> R$ {selectedCompeticao.valorDobra.toFixed(2)}</li>
+                       )}
+                     </ul>
+                   </Col>
+                   <Col md={6}>
+                     <h6>Total por Atleta:</h6>
+                     {atletasSelecionados.map(atletaId => {
+                       const categorizacao = categorizacaoAtletas.get(atletaId);
+                       const atleta = atletas.find(a => a.id === atletaId);
+                       const valorBase = selectedCompeticao?.valorInscricao || 0;
+                       const valorDobra = categorizacao?.dobraCategoria ? (selectedCompeticao?.valorDobra || 0) : 0;
+                       const valorTotal = valorBase + valorDobra;
+                       
+                       return (
+                         <div key={atletaId} className="mb-1">
+                           <strong>{atleta?.nome}:</strong> R$ {valorTotal.toFixed(2)}
+                           {categorizacao?.dobraCategoria && (
+                             <Badge bg="warning" className="ms-2">Com Dobra</Badge>
+                           )}
+                         </div>
+                       );
+                     })}
+                   </Col>
+                 </Row>
+                 <hr />
+                 <div className="text-center">
+                   <h5 className="text-primary">
+                     <strong>Total Geral: R$ {
+                       atletasSelecionados.reduce((total, atletaId) => {
+                         const categorizacao = categorizacaoAtletas.get(atletaId);
+                         const valorBase = selectedCompeticao?.valorInscricao || 0;
+                         const valorDobra = categorizacao?.dobraCategoria ? (selectedCompeticao?.valorDobra || 0) : 0;
+                         return total + valorBase + valorDobra;
+                       }, 0).toFixed(2)
+                     }</strong>
+                   </h5>
+                 </div>
+               </Card.Body>
+             </Card>
+           )}
          </Modal.Body>
          <Modal.Footer>
            <Button variant="secondary" onClick={() => setShowCategorizacaoModal(false)}>
@@ -3290,7 +3102,7 @@ const CompeticoesPage: React.FC = () => {
                                          <th>Modalidade</th>
                                          <th>Categoria Idade</th>
                                          <th>Dobra</th>
-                                         <th>CPF</th>
+                                         <th>Total (kg)</th>
                                        </tr>
                                      </thead>
                                      <tbody>
@@ -3328,9 +3140,9 @@ const CompeticoesPage: React.FC = () => {
                                                )}
                                              </td>
                                              <td>
-                                               <small className="text-muted">
-                                                 {inscricao.atleta?.cpf || 'N/A'}
-                                               </small>
+                                               <strong className="text-primary">
+                                                 {(inscricao as any).total12Meses ? `${(inscricao as any).total12Meses}kg` : 'N/A'}
+                                               </strong>
                                              </td>
                                            </tr>
                                          ))}

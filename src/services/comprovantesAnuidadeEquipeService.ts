@@ -233,6 +233,37 @@ export class ComprovantesAnuidadeEquipeService {
     }
   }
 
+  // Função para garantir que o status da equipe seja sempre baseado no comprovante de anuidade
+  static async garantirStatusEquipeBaseadoEmAnuidade(equipeId: string): Promise<void> {
+    try {
+      console.log(`🔄 Verificando status da equipe ${equipeId} baseado no comprovante de anuidade...`);
+      
+      // Buscar comprovantes de anuidade da equipe
+      const comprovantes = await this.listarComprovantesPorEquipe(equipeId);
+      
+      if (comprovantes.length === 0) {
+        // Sem comprovante = equipe INATIVA
+        await equipeStatusService.atualizarStatusEquipe(equipeId, 'INATIVA', 'Sistema');
+        console.log(`✅ Equipe ${equipeId} definida como INATIVA (sem comprovante de anuidade)`);
+        return;
+      }
+      
+      // Buscar o comprovante mais recente
+      const comprovanteMaisRecente = comprovantes.sort((a, b) => 
+        b.dataUpload.getTime() - a.dataUpload.getTime()
+      )[0];
+      
+      // Determinar status baseado no comprovante mais recente
+      const novoStatus = comprovanteMaisRecente.status === 'APROVADO' ? 'ATIVA' : 'INATIVA';
+      
+      await equipeStatusService.atualizarStatusEquipe(equipeId, novoStatus, 'Sistema');
+      console.log(`✅ Equipe ${equipeId} atualizada para ${novoStatus} baseado no comprovante de anuidade`);
+    } catch (error) {
+      console.error(`❌ Erro ao verificar status da equipe ${equipeId}:`, error);
+      throw error;
+    }
+  }
+
   // Rejeitar comprovante
   static async rejeitarComprovante(
     comprovante: ComprovanteAnuidadeEquipe,

@@ -102,6 +102,21 @@ const criarNomePastaSeguro = (nome: string): string => {
     .trim();
 };
 
+// Função para criar nome de arquivo seguro
+const criarNomeArquivoSeguro = (nomeOriginal: string): string => {
+  const extensao = nomeOriginal.substring(nomeOriginal.lastIndexOf('.'));
+  const nomeSemExtensao = nomeOriginal.substring(0, nomeOriginal.lastIndexOf('.'));
+  
+  return nomeSemExtensao
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim() + extensao;
+};
+
 export const comprovantesInscricaoService = {
   // Gerar URL temporária com expiração
   async generateTemporaryUrl(filePath: string, expiresIn: number = 1800): Promise<string> {
@@ -266,7 +281,11 @@ export const comprovantesInscricaoService = {
 
       // Gerar nome único para o arquivo
       const timestamp = Date.now();
-      const nomeArquivoSalvo = `${timestamp}_${equipeId}_${competicaoId}_${file.name}`;
+      const nomeArquivoSeguro = criarNomeArquivoSeguro(file.name);
+      // Garantir que os IDs também sejam seguros (remover caracteres especiais)
+      const equipeIdSeguro = equipeId.replace(/[^a-zA-Z0-9]/g, '');
+      const competicaoIdSeguro = competicaoId.replace(/[^a-zA-Z0-9]/g, '');
+      const nomeArquivoSalvo = `${timestamp}_${equipeIdSeguro}_${competicaoIdSeguro}_${nomeArquivoSeguro}`;
       const filePath = `${COMPROVANTES_INSCRICAO_CONFIG.FOLDER_NAME}/${nomePastaEquipe}/${nomeArquivoSalvo}`;
 
       console.log('📁 Fazendo upload para:', filePath);
@@ -655,7 +674,8 @@ export const comprovantesInscricaoService = {
         console.log(`📝 Observações: ${observacoes}`);
       }
       
-      console.log('✅ Status do comprovante e inscrições atualizados para REJEITADO');
+      console.log('✅ Status do comprovante atualizado para REJEITADO');
+      console.log('ℹ️ As inscrições dos atletas foram mantidas ativas - apenas o comprovante foi rejeitado');
     } catch (error) {
       console.error('❌ Erro ao rejeitar comprovante de inscrição:', error);
       throw error;

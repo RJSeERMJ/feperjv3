@@ -266,9 +266,26 @@ const FinanceiroPage: React.FC = () => {
 
   // Funções para Dashboard Financeiro
   const calcularValorTotalCompeticoes = () => {
-    return competicoes.reduce((total, competicao) => {
-      const inscricoesCompeticao = inscricoes.filter(insc => insc.idCompeticao === competicao.id);
-      return total + (inscricoesCompeticao.length * (competicao.valorInscricao || 0));
+    return inscricoes.filter(insc => insc.statusInscricao === 'INSCRITO').reduce((total, insc) => {
+      // Buscar competição para valores base
+      const competicao = competicoes.find(comp => comp.id === insc.idCompeticao);
+      const valorBase = competicao?.valorInscricao || 0;
+      const valorDobra = competicao?.valorDobra || 0;
+      
+      // Calcular valor individual baseado na dobra atual
+      let valorAtleta = valorBase;
+      
+      // Se tem dobraCategoria definida, adicionar valor da dobra
+      if (insc.dobraCategoria && insc.dobraCategoria.categoriaPeso && insc.dobraCategoria.categoriaIdade) {
+        valorAtleta += valorDobra;
+      }
+      
+      // Se tem valorIndividual definido e é maior que 0, usar ele (pode ter sido calculado anteriormente)
+      if (insc.valorIndividual !== undefined && insc.valorIndividual !== null && insc.valorIndividual > 0) {
+        valorAtleta = insc.valorIndividual;
+      }
+      
+      return total + valorAtleta;
     }, 0);
   };
 
@@ -874,7 +891,8 @@ const FinanceiroPage: React.FC = () => {
     const inscricoesEquipe = inscricoes.filter(insc => 
       insc.idCompeticao === competicaoId && 
       insc.atleta && 
-      insc.atleta.idEquipe === equipeId
+      insc.atleta.idEquipe === equipeId &&
+      insc.statusInscricao === 'INSCRITO' // Apenas inscrições ativas
     );
     
     console.log(`🔍 Calculando valor para equipe ${equipeId} na competição ${competicaoId}`);
@@ -886,17 +904,29 @@ const FinanceiroPage: React.FC = () => {
     }
     
     const total = inscricoesEquipe.reduce((total, insc) => {
-      // Verificar se tem valor individual definido
-      const temValorIndividual = insc.valorIndividual !== undefined && insc.valorIndividual !== null && insc.valorIndividual > 0;
-      
-      // Buscar competição para valor padrão
+      // Buscar competição para valores base
       const competicao = competicoes.find(comp => comp.id === competicaoId);
-      const valorPadrao = competicao?.valorInscricao || 0;
+      const valorBase = competicao?.valorInscricao || 0;
+      const valorDobra = competicao?.valorDobra || 0;
       
-      // Usar valor individual se disponível, senão usar valor padrão da competição
-      const valorAtleta = temValorIndividual ? insc.valorIndividual! : valorPadrao;
+      // Calcular valor individual baseado na dobra atual
+      let valorAtleta = valorBase;
       
-      console.log(`🔍 Inscrição ${insc.id}: atleta=${insc.atleta?.nome}, valorIndividual=${insc.valorIndividual}, temValorIndividual=${temValorIndividual}, valorAtleta=${valorAtleta}, total=${total + valorAtleta}`);
+      // Se tem dobraCategoria definida, adicionar valor da dobra
+      if (insc.dobraCategoria && insc.dobraCategoria.categoriaPeso && insc.dobraCategoria.categoriaIdade) {
+        valorAtleta += valorDobra;
+        console.log(`🔍 Atleta ${insc.atleta?.nome}: tem dobra, valorBase=${valorBase}, valorDobra=${valorDobra}, total=${valorAtleta}`);
+      } else {
+        console.log(`🔍 Atleta ${insc.atleta?.nome}: sem dobra, valorBase=${valorBase}`);
+      }
+      
+      // Se tem valorIndividual definido e é maior que 0, usar ele (pode ter sido calculado anteriormente)
+      if (insc.valorIndividual !== undefined && insc.valorIndividual !== null && insc.valorIndividual > 0) {
+        valorAtleta = insc.valorIndividual;
+        console.log(`🔍 Atleta ${insc.atleta?.nome}: usando valorIndividual=${insc.valorIndividual}`);
+      }
+      
+      console.log(`🔍 Inscrição ${insc.id}: atleta=${insc.atleta?.nome}, valorAtleta=${valorAtleta}, total=${total + valorAtleta}`);
       return total + valorAtleta;
     }, 0);
     
@@ -954,10 +984,27 @@ const FinanceiroPage: React.FC = () => {
   };
 
   const calcularValorCompeticoesEquipe = (idEquipe: string) => {
-    const inscricoesEquipe = getInscricoesEquipe(idEquipe);
+    const inscricoesEquipe = getInscricoesEquipe(idEquipe).filter(insc => insc.statusInscricao === 'INSCRITO');
     return inscricoesEquipe.reduce((total, insc) => {
+      // Buscar competição para valores base
       const competicao = competicoes.find(comp => comp.id === insc.idCompeticao);
-      return total + (competicao?.valorInscricao || 0);
+      const valorBase = competicao?.valorInscricao || 0;
+      const valorDobra = competicao?.valorDobra || 0;
+      
+      // Calcular valor individual baseado na dobra atual
+      let valorAtleta = valorBase;
+      
+      // Se tem dobraCategoria definida, adicionar valor da dobra
+      if (insc.dobraCategoria && insc.dobraCategoria.categoriaPeso && insc.dobraCategoria.categoriaIdade) {
+        valorAtleta += valorDobra;
+      }
+      
+      // Se tem valorIndividual definido e é maior que 0, usar ele (pode ter sido calculado anteriormente)
+      if (insc.valorIndividual !== undefined && insc.valorIndividual !== null && insc.valorIndividual > 0) {
+        valorAtleta = insc.valorIndividual;
+      }
+      
+      return total + valorAtleta;
     }, 0);
   };
 
@@ -2796,9 +2843,13 @@ const FinanceiroPage: React.FC = () => {
                             <td>{competicao.dataCompeticao ? competicao.dataCompeticao.toLocaleDateString('pt-BR') : 'Data não informada'}</td>
                             <td>{inscricoesCompeticao.length}</td>
                             <td>R$ {competicao.valorInscricao ? competicao.valorInscricao.toFixed(2) : '0.00'}</td>
-                                                          <td>
-                                <strong>R$ {(inscricoesCompeticao.length * (competicao.valorInscricao || 0)).toFixed(2)}</strong>
-                              </td>
+                            <td>
+                              <strong>R$ {inscricoesCompeticao.reduce((total, insc) => {
+                                const temValorIndividual = insc.valorIndividual !== undefined && insc.valorIndividual !== null && insc.valorIndividual > 0;
+                                const valorAtleta = temValorIndividual ? insc.valorIndividual! : (competicao.valorInscricao || 0);
+                                return total + valorAtleta;
+                              }, 0).toFixed(2)}</strong>
+                            </td>
                           </tr>
                         );
                       })}

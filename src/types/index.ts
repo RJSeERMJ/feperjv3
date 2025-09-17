@@ -106,6 +106,8 @@ export interface InscricaoCompeticao {
     categoriaPeso: CategoriaPeso;
     categoriaIdade: CategoriaIdade;
   };
+  // Campo para total declarado nos últimos 12 meses
+  total12Meses?: number;
   // Novo campo para modalidade da inscrição
   modalidade?: 'CLASSICA' | 'EQUIPADO';
   dataAprovacao?: Date;

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Nav, Navbar, Tab, Tabs, Row, Col, Card, Table, Button, Spinner, Alert, Modal, Badge } from 'react-bootstrap';
-import { FaUsers, FaFileDownload, FaSignInAlt, FaHome, FaTrophy, FaTimes, FaChartBar, FaMedal } from 'react-icons/fa';
+import { FaUsers, FaFileDownload, FaSignInAlt, FaHome, FaTrophy, FaTimes, FaChartBar, FaMedal, FaCrown } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { atletaService } from '../services/firebaseService';
 import { documentosContabeisService, DocumentoContabil } from '../services/documentosContabeisService';
 import { nominacaoService, NominacaoData } from '../services/nominacaoService';
 import { resultadoImportadoService, ResultadoImportado } from '../services/resultadoImportadoService';
 import { Atleta } from '../types';
+import RecordsDisplayPublic from './RecordsDisplayPublic';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { 
@@ -666,6 +667,28 @@ const PublicPage: React.FC = () => {
                     </Table>
                   </div>
                 )}
+              </Card.Body>
+            </Card>
+          </Tab>
+
+          <Tab eventKey="records" title={
+            <span>
+              <FaCrown className="me-2" />
+              Records
+            </span>
+          }>
+            <Card>
+              <Card.Header>
+                <h4 className="mb-0">
+                  <FaCrown className="me-2" />
+                  Records de Powerlifting
+                </h4>
+                <small className="text-muted">
+                  Records oficiais da FEPERJ por divisão de idade, sexo e modalidade
+                </small>
+              </Card.Header>
+              <Card.Body>
+                <RecordsDisplayPublic />
               </Card.Body>
             </Card>
           </Tab>

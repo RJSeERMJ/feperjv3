@@ -210,13 +210,9 @@ export const equipeService = {
     try {
       console.log(`✅ Aprovando comprovante de inscrição para equipe ${equipeId} na competição ${competicaoId}`);
       
-      // 1. Atualizar status da equipe para PAGO
-      const equipeRef = doc(db, 'equipes', equipeId);
-      await updateDoc(equipeRef, {
-        status: 'PAGO',
-        dataAtualizacao: Timestamp.now()
-      });
-      console.log(`✅ Status da equipe ${equipeId} atualizado para PAGO no Firebase`);
+      // 1. NÃO alterar status da equipe - apenas aprovar o comprovante de inscrição
+      // O status da equipe é controlado apenas pelos comprovantes de anuidade
+      console.log(`ℹ️ Status da equipe não alterado - controlado pelos comprovantes de anuidade`);
       
       // 2. Atualizar status das inscrições da equipe para esta competição
       const inscricoesExistentes = await inscricaoService.getByCompeticao(competicaoId);
@@ -248,34 +244,15 @@ export const equipeService = {
     try {
       console.log(`❌ Rejeitando comprovante de inscrição para equipe ${equipeId} na competição ${competicaoId}`);
       
-      // 1. Atualizar status da equipe para PENDENTE
-      const equipeRef = doc(db, 'equipes', equipeId);
-      await updateDoc(equipeRef, {
-        status: 'PENDENTE',
-        dataAtualizacao: Timestamp.now()
-      });
-      console.log(`✅ Status da equipe ${equipeId} atualizado para PENDENTE no Firebase`);
+      // 1. NÃO alterar status da equipe - apenas rejeitar o comprovante de inscrição
+      // O status da equipe é controlado apenas pelos comprovantes de anuidade
+      console.log(`ℹ️ Status da equipe não alterado - controlado pelos comprovantes de anuidade`);
       
-      // 2. Registrar a rejeição das inscrições
-      
-      const inscricoesExistentes = await inscricaoService.getByCompeticao(competicaoId);
-      const inscricoesEquipe = inscricoesExistentes.filter(insc => {
-        // Buscar o atleta para verificar se pertence à equipe
-        return insc.atleta && insc.atleta.idEquipe === equipeId;
-      });
-      
-      // Atualizar status de todas as inscrições da equipe para esta competição
-      for (const inscricao of inscricoesEquipe) {
-        const inscricaoRef = doc(db, 'inscricoes_competicao', inscricao.id!);
-        await updateDoc(inscricaoRef, {
-          statusInscricao: 'CANCELADO',
-          dataRejeicao: Timestamp.now(),
-          rejeitadoPor: adminNome,
-          observacoes: observacoes || 'Rejeitado via comprovante de inscrição'
-        });
-      }
+      // 2. NÃO cancelar as inscrições - apenas marcar que o comprovante foi rejeitado
+      // As inscrições permanecem ativas, apenas o comprovante fica rejeitado
       
       console.log(`❌ Comprovante de inscrição rejeitado com sucesso para equipe ${equipeId}`);
+      console.log(`ℹ️ As inscrições dos atletas foram mantidas ativas - apenas o comprovante foi rejeitado`);
     } catch (error) {
       console.error('❌ Erro ao rejeitar comprovante de inscrição:', error);
       throw error;
@@ -600,6 +577,28 @@ export const inscricaoService = {
   async update(id: string, inscricao: Partial<InscricaoCompeticao>): Promise<void> {
     const docRef = doc(db, 'inscricoes_competicao', id);
     await updateDoc(docRef, inscricao);
+  },
+
+  async updateWithRecalculation(id: string, inscricao: Partial<InscricaoCompeticao>, competicao: any): Promise<void> {
+    // Recalcular valor individual baseado na dobra atual
+    const valorBase = competicao?.valorInscricao || 0;
+    const valorDobra = competicao?.valorDobra || 0;
+    
+    let valorIndividual = valorBase;
+    
+    // Se tem dobraCategoria definida, adicionar valor da dobra
+    if (inscricao.dobraCategoria && inscricao.dobraCategoria.categoriaPeso && inscricao.dobraCategoria.categoriaIdade) {
+      valorIndividual += valorDobra;
+    }
+    
+    // Atualizar com o valor recalculado
+    const dadosAtualizacao = {
+      ...inscricao,
+      valorIndividual
+    };
+    
+    const docRef = doc(db, 'inscricoes_competicao', id);
+    await updateDoc(docRef, dadosAtualizacao);
   },
 
   async delete(id: string): Promise<void> {
