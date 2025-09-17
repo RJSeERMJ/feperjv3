@@ -180,6 +180,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [selectedCompetitionType, setSelectedCompetitionType] = useState<string>('all');
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'teams' | 'teamMedals'>('complete');
@@ -229,6 +230,18 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
     return Array.from(teamsSet).sort();
   };
 
+  // Função para obter grupos únicos
+  const getUniqueGroups = () => {
+    const groupsSet = new Set<string>();
+    registration.entries.forEach((entry: any) => {
+      if (entry.flight && entry.flight.trim() !== '') {
+        groupsSet.add(entry.flight.trim());
+      }
+    });
+    
+    return Array.from(groupsSet).sort();
+  };
+
   // Função para verificar se um atleta compete no tipo de competição selecionado
   const athleteCompetesInType = (entry: Entry, competitionType: string) => {
     if (competitionType === 'all') return true;
@@ -275,6 +288,8 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
         if (selectedCompetitionType !== 'all' && !athleteCompetesInType(entry, selectedCompetitionType)) return false;
         // Filtrar por equipe se selecionado
         if (selectedTeam !== 'all' && entry.team !== selectedTeam) return false;
+        // Filtrar por grupos se selecionado
+        if (selectedGroups.length > 0 && !selectedGroups.includes(entry.flight)) return false;
         return true;
       })
       .forEach((entry: any) => {
@@ -459,7 +474,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
         const bValue = b[sortBy];
         return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
       });
-  }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, selectedCompetitionType, selectedTeam, sortBy, sortOrder]);
+  }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, selectedCompetitionType, selectedTeam, selectedGroups, sortBy, sortOrder]);
 
   // Função para obter nome da categoria de movimentos
   const getMovementCategoryName = (movements: string) => {
@@ -2739,6 +2754,27 @@ const AttemptDisplay: React.FC<{
                     </Form.Select>
                   </Form.Group>
                 </Col>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>Grupos</Form.Label>
+                    <Form.Select 
+                      multiple
+                      value={selectedGroups} 
+                      onChange={(e) => {
+                        const values = Array.from(e.target.selectedOptions, option => option.value);
+                        setSelectedGroups(values);
+                      }}
+                      size="sm"
+                    >
+                      {getUniqueGroups().map(group => (
+                        <option key={group} value={group}>Grupo {group}</option>
+                      ))}
+                    </Form.Select>
+                    <Form.Text className="text-muted">
+                      Segure Ctrl para selecionar múltiplos
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
               </Row>
               <Row className="mt-3">
                 <Col md={6}>
@@ -2815,6 +2851,9 @@ const AttemptDisplay: React.FC<{
                        if (selectedTeam !== 'all') {
                          activeFilters.push(`Equipe: ${selectedTeam}`);
                        }
+                       if (selectedGroups.length > 0) {
+                         activeFilters.push(`Grupos: ${selectedGroups.join(', ')}`);
+                       }
                        
                        if (activeFilters.length === 0) {
                          return <span className="text-muted">Nenhum filtro ativo</span>;
@@ -2843,6 +2882,7 @@ const AttemptDisplay: React.FC<{
                        setSelectedEquipment('all');
                        setSelectedCompetitionType('all');
                        setSelectedTeam('all');
+                       setSelectedGroups([]);
                      }}
                    >
                      Limpar Filtros
