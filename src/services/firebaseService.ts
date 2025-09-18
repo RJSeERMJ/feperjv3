@@ -28,6 +28,7 @@ import {
   CategoriaInscricao,
   HistoricoTotal
 } from '../types';
+import { resultadoImportadoService } from './resultadoImportadoService';
 
 // Função auxiliar para converter Timestamp para Date
 const convertTimestamp = (timestamp: any): Date => {
@@ -669,11 +670,12 @@ export const fileService = {
 // Serviços de Dashboard
 export const dashboardService = {
   async getStats(): Promise<any> {
-    const [atletas, equipes, competicoes, log] = await Promise.all([
+    const [atletas, equipes, competicoes, log, resultadosImportados] = await Promise.all([
       atletaService.getAll(),
       equipeService.getAll(),
       competicaoService.getAll(),
-      logService.getAll()
+      logService.getAll(),
+      resultadoImportadoService.getAll()
     ]);
 
     const atletasAtivos = atletas.filter(a => a.status === 'ATIVO').length;
@@ -716,6 +718,10 @@ export const dashboardService = {
         total: a.maiorTotal || 0
       }));
 
+    // Calcular melhores IPF Points dos resultados importados
+    const melhoresIPFPointsMasculino = this.calcularMelhoresIPFPoints(resultadosImportados, 'M');
+    const melhoresIPFPointsFeminino = this.calcularMelhoresIPFPoints(resultadosImportados, 'F');
+
     return {
       totalAtletas: atletas.length,
       totalEquipes: equipes.length,
@@ -729,8 +735,41 @@ export const dashboardService = {
       atletasPorEquipe,
       maioresTotais,
       maioresTotaisMasculino,
-      maioresTotaisFeminino
+      maioresTotaisFeminino,
+      melhoresIPFPointsMasculino,
+      melhoresIPFPointsFeminino
     };
+  },
+
+  // Função para calcular os melhores IPF Points dos resultados importados
+  calcularMelhoresIPFPoints(resultadosImportados: any[], sexo: 'M' | 'F'): Array<{ atleta: string; pontos: number; total: number; competicao: string }> {
+    const todosOsResultados: Array<{ atleta: string; pontos: number; total: number; competicao: string }> = [];
+
+    // Processar cada resultado importado
+    resultadosImportados.forEach(resultado => {
+      if (resultado.results?.complete) {
+        resultado.results.complete.forEach((categoria: any) => {
+          if (categoria.results) {
+            categoria.results.forEach((result: any) => {
+              // Verificar se o atleta tem o sexo correto e pontos válidos
+              if (result.entry?.sex === sexo && result.points && result.points > 0) {
+                todosOsResultados.push({
+                  atleta: result.entry.name || 'Atleta Desconhecido',
+                  pontos: result.points,
+                  total: result.total || 0,
+                  competicao: resultado.competitionName || 'Competição Desconhecida'
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+
+    // Ordenar por pontos IPF (decrescente) e pegar os top 10
+    return todosOsResultados
+      .sort((a, b) => b.pontos - a.pontos)
+      .slice(0, 10);
   }
 };
 

@@ -10,7 +10,7 @@ import {
   Legend,
   ArcElement
 } from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import { FaUsers, FaTrophy, FaUserFriends, FaChartLine } from 'react-icons/fa';
 import { dashboardService } from '../services/firebaseService';
 import { DashboardStats } from '../types';
@@ -91,27 +91,28 @@ const Dashboard: React.FC = () => {
     ],
   };
 
-  const topTotaisDataMasculino = {
-    labels: stats.maioresTotaisMasculino.map(item => item.atleta),
+
+  const melhoresIPFPointsDataMasculino = {
+    labels: stats.melhoresIPFPointsMasculino.map(item => `${item.atleta} (${item.pontos.toFixed(2)})`),
     datasets: [
       {
-        label: 'Maior Total (kg)',
-        data: stats.maioresTotaisMasculino.map(item => item.total),
-        backgroundColor: 'rgba(54, 162, 235, 0.8)',
-        borderColor: 'rgba(54, 162, 235, 1)',
+        label: 'IPF GL Points',
+        data: stats.melhoresIPFPointsMasculino.map(item => item.pontos),
+        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+        borderColor: 'rgba(34, 197, 94, 1)',
         borderWidth: 1,
       },
     ],
   };
 
-  const topTotaisDataFeminino = {
-    labels: stats.maioresTotaisFeminino.map(item => item.atleta),
+  const melhoresIPFPointsDataFeminino = {
+    labels: stats.melhoresIPFPointsFeminino.map(item => `${item.atleta} (${item.pontos.toFixed(2)})`),
     datasets: [
       {
-        label: 'Maior Total (kg)',
-        data: stats.maioresTotaisFeminino.map(item => item.total),
-        backgroundColor: 'rgba(255, 99, 132, 0.8)',
-        borderColor: 'rgba(255, 99, 132, 1)',
+        label: 'IPF GL Points',
+        data: stats.melhoresIPFPointsFeminino.map(item => item.pontos),
+        backgroundColor: 'rgba(168, 85, 247, 0.8)',
+        borderColor: 'rgba(168, 85, 247, 1)',
         borderWidth: 1,
       },
     ],
@@ -197,15 +198,41 @@ const Dashboard: React.FC = () => {
         <Col lg={6} className="mb-4">
           <Card>
             <Card.Header>
-              <h5 className="mb-0">Top 10 Maiores Totais - Masculino</h5>
+              <h5 className="mb-0">🏆 Melhores IPF Points - Masculino</h5>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '400px' }}>
                 <Bar 
-                  data={topTotaisDataMasculino} 
+                  data={melhoresIPFPointsDataMasculino} 
                   options={{
                     ...chartOptions,
                     indexAxis: 'y' as const,
+                    plugins: {
+                      ...chartOptions.plugins,
+                      tooltip: {
+                        callbacks: {
+                          afterLabel: function(context) {
+                            const dataIndex = context.dataIndex;
+                            const item = stats.melhoresIPFPointsMasculino[dataIndex];
+                            return [
+                              `Total: ${item.total}kg`,
+                              `Competição: ${item.competicao}`
+                            ];
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      x: {
+                        beginAtZero: true,
+                        ticks: {
+                          stepSize: 0.5,
+                          callback: function(value: any) {
+                            return value.toFixed(1);
+                          }
+                        }
+                      }
+                    }
                   }} 
                 />
               </div>
@@ -216,15 +243,41 @@ const Dashboard: React.FC = () => {
         <Col lg={6} className="mb-4">
           <Card>
             <Card.Header>
-              <h5 className="mb-0">Top 10 Maiores Totais - Feminino</h5>
+              <h5 className="mb-0">🏆 Melhores IPF Points - Feminino</h5>
             </Card.Header>
             <Card.Body>
               <div style={{ height: '400px' }}>
                 <Bar 
-                  data={topTotaisDataFeminino} 
+                  data={melhoresIPFPointsDataFeminino} 
                   options={{
                     ...chartOptions,
                     indexAxis: 'y' as const,
+                    plugins: {
+                      ...chartOptions.plugins,
+                      tooltip: {
+                        callbacks: {
+                          afterLabel: function(context) {
+                            const dataIndex = context.dataIndex;
+                            const item = stats.melhoresIPFPointsFeminino[dataIndex];
+                            return [
+                              `Total: ${item.total}kg`,
+                              `Competição: ${item.competicao}`
+                            ];
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      x: {
+                        beginAtZero: true,
+                        ticks: {
+                          stepSize: 0.5,
+                          callback: function(value: any) {
+                            return value.toFixed(1);
+                          }
+                        }
+                      }
+                    }
                   }} 
                 />
               </div>
@@ -232,6 +285,8 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+   
 
       {/* Estatísticas detalhadas */}
       <Row className="mt-4">

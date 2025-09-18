@@ -185,6 +185,8 @@ export interface DashboardStats {
   maioresTotais: Array<{ atleta: string; total: number }>;
   maioresTotaisMasculino: Array<{ atleta: string; total: number }>;
   maioresTotaisFeminino: Array<{ atleta: string; total: number }>;
+  melhoresIPFPointsMasculino: Array<{ atleta: string; pontos: number; total: number; competicao: string }>;
+  melhoresIPFPointsFeminino: Array<{ atleta: string; pontos: number; total: number; competicao: string }>;
 }
 
 export interface NotificacaoDocumento {
