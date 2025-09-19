@@ -306,7 +306,7 @@ const FinanceiroPage: React.FC = () => {
 
   const calcularValorTotalAnuidadesEquipe = () => {
     if (!anuidadeEquipe) return 0;
-    return equipes.length * anuidadeEquipe.valor;
+    return atletas.length * anuidadeEquipe.valor;
   };
 
   const calcularValorPagoAnuidadesEquipe = () => {
@@ -1079,7 +1079,7 @@ const FinanceiroPage: React.FC = () => {
                 <Card.Body>
                   <FaUsers className="text-success mb-2" size={24} />
                   <h3>R$ {calcularValorTotalAnuidades().toFixed(2)}</h3>
-                  <p className="text-muted">Total Anuidades</p>
+                  <p className="text-muted">Anuidades dos Atletas</p>
                 </Card.Body>
               </Card>
             </Col>
@@ -1088,7 +1088,7 @@ const FinanceiroPage: React.FC = () => {
                 <Card.Body>
                   <FaCheckCircle className="text-success mb-2" size={24} />
                   <h3>R$ {calcularValorPagoAnuidades().toFixed(2)}</h3>
-                  <p className="text-muted">Anuidades Pagas</p>
+                  <p className="text-muted">Anuidades Atletas Pagas</p>
                 </Card.Body>
               </Card>
             </Col>
@@ -1135,8 +1135,8 @@ const FinanceiroPage: React.FC = () => {
               <Card className="text-center">
                 <Card.Body>
                   <FaUsers className="text-primary mb-2" size={24} />
-                  <h3>{equipes.length}</h3>
-                  <p className="text-muted">Total de Equipes</p>
+                  <h3>{atletas.length}</h3>
+                  <p className="text-muted">Total de Atletas das Equipes</p>
                 </Card.Body>
               </Card>
             </Col>
