@@ -292,11 +292,41 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
       });
     }
 
-    // Total Válido = Soma das melhores cargas válidas apenas dos movimentos que o atleta compete
-    totalValid = squatValid + benchValid + deadliftValid;
+          // Total Válido = Soma das melhores cargas válidas apenas dos movimentos que o atleta compete
+          totalValid = squatValid + benchValid + deadliftValid;
 
-    // Total Pretendido = Soma das melhores cargas pretendidas apenas dos movimentos que o atleta compete
-    totalIntended = squatIntended + benchIntended + deadliftIntended;
+          // Total Pretendido = Soma das melhores cargas pretendidas apenas dos movimentos que o atleta compete
+          // MAS: Se não há tentativas pendentes, o pretendido deve ser igual ao parcial
+          totalIntended = squatIntended + benchIntended + deadliftIntended;
+          
+          // Verificar se há tentativas pendentes (status 0) em algum movimento
+          let hasPendingAttempts = false;
+          
+          if (competesSquat) {
+            const squatStatus = entry.squatStatus || [0, 0, 0];
+            if (squatStatus.some(status => status === 0)) {
+              hasPendingAttempts = true;
+            }
+          }
+          
+          if (competesBench) {
+            const benchStatus = entry.benchStatus || [0, 0, 0];
+            if (benchStatus.some(status => status === 0)) {
+              hasPendingAttempts = true;
+            }
+          }
+          
+          if (competesDeadlift) {
+            const deadliftStatus = entry.deadliftStatus || [0, 0, 0];
+            if (deadliftStatus.some(status => status === 0)) {
+              hasPendingAttempts = true;
+            }
+          }
+          
+          // Se não há tentativas pendentes, o pretendido deve ser igual ao parcial
+          if (!hasPendingAttempts) {
+            totalIntended = totalValid;
+          }
 
     return {
       totalValid,
