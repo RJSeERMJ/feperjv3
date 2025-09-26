@@ -34,16 +34,33 @@ const LOCAL_USERS: Array<{
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Sempre limpar dados de autenticação ao iniciar a aplicação
-    // Força o usuário a fazer login manual a cada acesso
-    console.log('🔄 [AUTH] Inicializando aplicação - Limpando dados de sessão anterior');
-    localStorage.removeItem('feperj_user');
-    sessionStorage.removeItem('feperj_user');
+    // Verificar se é a primeira inicialização da aplicação
+    if (!isInitialized) {
+      console.log('🔄 [AUTH] Primeira inicialização - Limpando dados de sessão anterior');
+      localStorage.removeItem('feperj_user');
+      sessionStorage.removeItem('feperj_user');
+      setUser(null);
+      setIsInitialized(true);
+    } else {
+      // Durante navegação, verificar se há usuário válido no localStorage
+      const savedUser = localStorage.getItem('feperj_user');
+      if (savedUser && !user) {
+        try {
+          const userData = JSON.parse(savedUser);
+          if (userData && userData.login && userData.nome && userData.tipo) {
+            console.log('🔄 [AUTH] Restaurando sessão do usuário:', userData.nome);
+            setUser(userData);
+          }
+        } catch (error) {
+          console.error('Erro ao restaurar usuário:', error);
+          localStorage.removeItem('feperj_user');
+        }
+      }
+    }
     
-    // Garantir que o usuário seja null
-    setUser(null);
     setLoading(false);
 
     // Limpar dados ao fechar a aba/janela
@@ -57,7 +74,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [isInitialized, user]);
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
@@ -142,17 +159,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
     } finally {
-      setUser(null);
-      localStorage.removeItem('feperj_user');
-      sessionStorage.removeItem('feperj_user');
+      clearAuthData();
     }
   };
 
   // Função para limpar dados de autenticação
   const clearAuthData = () => {
+    console.log('🧹 [AUTH] Limpando dados de autenticação');
     setUser(null);
     localStorage.removeItem('feperj_user');
     sessionStorage.removeItem('feperj_user');
+  };
+
+  // Função para forçar nova inicialização (útil para logout manual)
+  const forceReinitialize = () => {
+    console.log('🔄 [AUTH] Forçando nova inicialização');
+    setIsInitialized(false);
+    clearAuthData();
   };
 
 
