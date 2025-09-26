@@ -77,6 +77,19 @@ const LeftCard: React.FC<LeftCardProps> = ({
     }
   };
 
+  // Obter o tipo de competição do atleta
+  const getCompetitionType = (entry: any): string => {
+    if (!entry?.movements) return 'N/A';
+    
+    // Se há vírgula, pegar o primeiro tipo
+    if (entry.movements.includes(',')) {
+      return entry.movements.split(',')[0].trim();
+    }
+    
+    return entry.movements.trim();
+  };
+
+
   // Função para verificar se o peso atual é record
   const checkRecord = useCallback(async (weight: number, entry: any) => {
     if (!weight || weight <= 0 || !entry) {
@@ -162,8 +175,11 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 <Badge bg="info" className="me-1">
                   {currentEntry.weightClass}
                 </Badge>
-                <Badge bg="warning" text="dark">
+                <Badge bg="warning" text="dark" className="me-1">
                   {currentEntry.team || 'Sem equipe'}
+                </Badge>
+                <Badge bg="primary" className="me-1">
+                  {getCompetitionType(currentEntry)}
                 </Badge>
               </div>
             </div>
@@ -235,8 +251,11 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 <Badge bg="info" className="me-1">
                   {nextEntry.weightClass}
                 </Badge>
-                <Badge bg="warning" text="dark">
+                <Badge bg="warning" text="dark" className="me-1">
                   {nextEntry.team || 'Sem equipe'}
+                </Badge>
+                <Badge bg="primary" className="me-1">
+                  {getCompetitionType(nextEntry)}
                 </Badge>
               </div>
             </div>
