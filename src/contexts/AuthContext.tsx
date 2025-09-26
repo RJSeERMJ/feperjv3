@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usuarioService, logService } from '../services/firebaseService';
 import { Usuario, LoginCredentials, AuthContextType } from '../types';
 
@@ -34,47 +34,27 @@ const LOCAL_USERS: Array<{
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Verificar se é a primeira inicialização da aplicação
-    if (!isInitialized) {
-      console.log('🔄 [AUTH] Primeira inicialização - Limpando dados de sessão anterior');
-      localStorage.removeItem('feperj_user');
-      sessionStorage.removeItem('feperj_user');
-      setUser(null);
-      setIsInitialized(true);
-    } else {
-      // Durante navegação, verificar se há usuário válido no localStorage
-      const savedUser = localStorage.getItem('feperj_user');
-      if (savedUser && !user) {
-        try {
-          const userData = JSON.parse(savedUser);
-          if (userData && userData.login && userData.nome && userData.tipo) {
-            console.log('🔄 [AUTH] Restaurando sessão do usuário:', userData.nome);
-            setUser(userData);
-          }
-        } catch (error) {
-          console.error('Erro ao restaurar usuário:', error);
+    // Verificar se há usuário válido no localStorage
+    const savedUser = localStorage.getItem('feperj_user');
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        // Verificar se o usuário tem os campos obrigatórios
+        if (userData && userData.login && userData.nome && userData.tipo) {
+          setUser(userData);
+        } else {
+          // Dados inválidos, limpar
           localStorage.removeItem('feperj_user');
         }
+      } catch (error) {
+        console.error('Erro ao carregar usuário do localStorage:', error);
+        localStorage.removeItem('feperj_user');
       }
     }
-    
     setLoading(false);
-
-    // Limpar dados ao fechar a aba/janela
-    const handleBeforeUnload = () => {
-      localStorage.removeItem('feperj_user');
-      sessionStorage.removeItem('feperj_user');
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isInitialized, user]);
+  }, []);
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
@@ -159,25 +139,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
     } finally {
-      clearAuthData();
+      setUser(null);
+      localStorage.removeItem('feperj_user');
+      sessionStorage.removeItem('feperj_user');
     }
   };
 
   // Função para limpar dados de autenticação
   const clearAuthData = () => {
-    console.log('🧹 [AUTH] Limpando dados de autenticação');
     setUser(null);
     localStorage.removeItem('feperj_user');
     sessionStorage.removeItem('feperj_user');
   };
-
-  // Função para forçar nova inicialização (útil para logout manual)
-  const forceReinitialize = () => {
-    console.log('🔄 [AUTH] Forçando nova inicialização');
-    setIsInitialized(false);
-    clearAuthData();
-  };
-
 
   const value: AuthContextType = {
     user,

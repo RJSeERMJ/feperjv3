@@ -7,13 +7,13 @@ import { logService } from '../services/firebaseService';
 const InactivityManager: React.FC = () => {
   const { user, logout } = useAuth();
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-  const [inactivityCountdown, setInactivityCountdown] = useState(120); // 2 minutos em segundos
+  const [inactivityCountdown, setInactivityCountdown] = useState(60); // 1 minuto em segundos
 
   // Callback para aviso de inatividade
   const handleInactivityWarning = useCallback(() => {
     console.log('⚠️ [INATIVIDADE] Aviso: Usuário ficará inativo em breve');
     setShowInactivityWarning(true);
-    setInactivityCountdown(120); // 2 minutos para o usuário responder
+    setInactivityCountdown(60); // 1 minuto para o usuário responder
   }, []);
 
   // Callback para logout automático por inatividade
@@ -27,7 +27,7 @@ const InactivityManager: React.FC = () => {
           dataHora: new Date(),
           usuario: user.nome,
           acao: 'Logout automático por inatividade',
-          detalhes: `Logout automático após 10 minutos de inatividade`,
+          detalhes: `Logout automático após 5 minutos de inatividade`,
           tipoUsuario: user.tipo
         });
       } catch (logError) {
@@ -43,7 +43,7 @@ const InactivityManager: React.FC = () => {
   const handleStayLoggedIn = useCallback(() => {
     console.log('✅ [INATIVIDADE] Usuário escolheu continuar logado');
     setShowInactivityWarning(false);
-    setInactivityCountdown(120);
+    setInactivityCountdown(60);
   }, []);
 
   // Callback para usuário escolher fazer logout
@@ -54,9 +54,10 @@ const InactivityManager: React.FC = () => {
   }, [logout]);
 
   // Configurar sistema de inatividade
+  // CONFIGURAÇÃO FIXA: 5 minutos de timeout, 1 minuto de aviso
   useInactivityTimer({
-    timeoutMinutes: 10,
-    warningMinutes: 2,
+    timeoutMinutes: 5,    // 5 minutos de timeout
+    warningMinutes: 1,    // 1 minuto de aviso antes do logout
     onWarning: handleInactivityWarning,
     onTimeout: handleInactivityTimeout
   });

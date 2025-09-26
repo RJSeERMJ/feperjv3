@@ -9,12 +9,12 @@ interface UseInactivityTimerOptions {
 }
 
 export const useInactivityTimer = ({
-  timeoutMinutes = 10,
-  warningMinutes = 2,
+  timeoutMinutes = 5,
+  warningMinutes = 1,
   onWarning,
   onTimeout
 }: UseInactivityTimerOptions = {}) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isWarningShownRef = useRef(false);
@@ -60,8 +60,8 @@ export const useInactivityTimer = ({
     const now = Date.now();
     const timeSinceLastActivity = now - lastActivityRef.current;
     
-    // Evitar resets muito frequentes (mínimo 5 segundos entre resets)
-    if (timeSinceLastActivity > 5000) {
+    // Evitar resets muito frequentes (mínimo 3 segundos entre resets)
+    if (timeSinceLastActivity > 3000) {
       resetTimers();
     }
   }, [resetTimers]);
