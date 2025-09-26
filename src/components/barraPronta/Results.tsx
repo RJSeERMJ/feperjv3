@@ -2814,33 +2814,46 @@ const AttemptDisplay: React.FC<{
                         </Form.Select>
                       </Form.Group>
                     </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label>Grupos de Voo</Form.Label>
-                        <div className="d-flex flex-wrap gap-2">
-                          {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].map((flight) => (
-                            <Form.Check
-                              key={flight}
-                              type="checkbox"
-                              id={`flight-${flight}`}
-                              label={flight}
-                              checked={selectedGroups.includes(flight)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedGroups([...selectedGroups, flight]);
-                                } else {
-                                  setSelectedGroups(selectedGroups.filter(g => g !== flight));
-                                }
-                              }}
-                              className="me-2"
-                            />
-                          ))}
-                        </div>
-                        <small className="text-muted">
-                          Selecione os grupos para filtrar os resultados
-                        </small>
-                      </Form.Group>
-                    </Col>
+              <Col md={6}>
+                <Form.Group>
+                  <Form.Label>Grupos de Voo</Form.Label>
+                  <div className="d-flex flex-wrap gap-2">
+                    {(() => {
+                      // Obter grupos únicos utilizados na competição
+                      const usedGroups = new Set<string>();
+                      registration.entries.forEach((entry: Entry) => {
+                        if (entry.flight) {
+                          usedGroups.add(entry.flight);
+                        }
+                      });
+                      
+                      // Converter para array e ordenar
+                      const sortedGroups = Array.from(usedGroups).sort();
+                      
+                      return sortedGroups.map((flight) => (
+                        <Form.Check
+                          key={flight}
+                          type="checkbox"
+                          id={`flight-${flight}`}
+                          label={flight}
+                          checked={selectedGroups.includes(flight)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedGroups([...selectedGroups, flight]);
+                            } else {
+                              setSelectedGroups(selectedGroups.filter(g => g !== flight));
+                            }
+                          }}
+                          className="me-2"
+                        />
+                      ));
+                    })()}
+                  </div>
+                  <small className="text-muted">
+                    Selecione os grupos para filtrar os resultados
+                  </small>
+                </Form.Group>
+              </Col>
                   </Row>
                 </Card.Body>
               </Card>
