@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { usuarioService, logService } from '../services/firebaseService';
 import { Usuario, LoginCredentials, AuthContextType } from '../types';
 
@@ -36,24 +36,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há usuário válido no localStorage
-    const savedUser = localStorage.getItem('feperj_user');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        // Verificar se o usuário tem os campos obrigatórios
-        if (userData && userData.login && userData.nome && userData.tipo) {
-          setUser(userData);
-        } else {
-          // Dados inválidos, limpar
-          localStorage.removeItem('feperj_user');
-        }
-      } catch (error) {
-        console.error('Erro ao carregar usuário do localStorage:', error);
-        localStorage.removeItem('feperj_user');
-      }
-    }
+    // Sempre limpar dados de autenticação ao iniciar a aplicação
+    // Força o usuário a fazer login manual a cada acesso
+    console.log('🔄 [AUTH] Inicializando aplicação - Limpando dados de sessão anterior');
+    localStorage.removeItem('feperj_user');
+    sessionStorage.removeItem('feperj_user');
+    
+    // Garantir que o usuário seja null
+    setUser(null);
     setLoading(false);
+
+    // Limpar dados ao fechar a aba/janela
+    const handleBeforeUnload = () => {
+      localStorage.removeItem('feperj_user');
+      sessionStorage.removeItem('feperj_user');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
@@ -151,6 +154,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('feperj_user');
     sessionStorage.removeItem('feperj_user');
   };
+
 
   const value: AuthContextType = {
     user,

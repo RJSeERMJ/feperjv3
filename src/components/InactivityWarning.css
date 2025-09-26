@@ -1,0 +1,74 @@
+/* Estilos para o modal de aviso de inatividade */
+.inactivity-warning-modal .modal-content {
+  border: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.inactivity-warning-modal .modal-header {
+  border-bottom: 2px solid #ffc107;
+  background: linear-gradient(135deg, #ffc107, #ffca2c);
+}
+
+.inactivity-warning-modal .modal-title {
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+.inactivity-warning-modal .alert {
+  border-left: 4px solid #ffc107;
+  background-color: #fff3cd;
+}
+
+.inactivity-warning-modal .text-danger {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.inactivity-warning-modal .btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  font-weight: 500;
+}
+
+.inactivity-warning-modal .btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+.inactivity-warning-modal .btn-outline-secondary {
+  border-color: #6c757d;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.inactivity-warning-modal .btn-outline-secondary:hover {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+/* Animação de pulsação para o countdown */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.inactivity-warning-modal .text-danger {
+  animation: pulse 2s infinite;
+}
+
+/* Responsividade */
+@media (max-width: 576px) {
+  .inactivity-warning-modal .modal-dialog {
+    margin: 1rem;
+  }
+  
+  .inactivity-warning-modal .modal-title {
+    font-size: 1.1rem;
+  }
+  
+  .inactivity-warning-modal h2 {
+    font-size: 1.5rem;
+  }
+}

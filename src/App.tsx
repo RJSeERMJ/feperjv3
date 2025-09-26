@@ -15,6 +15,7 @@ import EquipesPage from './pages/EquipesPage';
 import CompeticoesPage from './pages/CompeticoesPage';
 import InscricoesPage from './pages/InscricoesPage';
 import FinanceiroPage from './pages/FinanceiroPage';
+import InactivityManager from './components/InactivityManager';
 
 import UsuariosPage from './pages/UsuariosPage';
 import LogPage from './pages/LogPage';
@@ -86,6 +87,9 @@ const App: React.FC = () => {
     <AuthProvider>
       <Router>
         <div className="App">
+          {/* Gerenciador de inatividade */}
+          <InactivityManager />
+          
           <Routes>
             <Route path="/publico" element={<PublicPage />} />
             <Route path="/atleta/:id" element={<AtletaDetalhesPage />} />
