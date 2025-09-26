@@ -157,17 +157,6 @@ const ResultsMirror: React.FC<ResultsMirrorProps> = (props) => {
   if (isMirrorWindow) {
     return (
       <div className="results-mirror-container mirror-window">
-        <div className="mirror-header">
-          <div className="text-center mb-3">
-            <h4 className="mb-0 text-primary">
-              📊 Resultados - Monitor Externo
-              <Badge bg="info" className="ms-2">
-                Espelhado
-              </Badge>
-            </h4>
-          </div>
-          
-        </div>
         
         {mirrorState ? (
           <ResultsWithMirrorState 

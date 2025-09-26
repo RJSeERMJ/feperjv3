@@ -183,7 +183,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [activeTab, setActiveTab] = useState<'complete' | 'simplified' | 'teams' | 'teamMedals'>('complete');
+  const [activeTab, setActiveTab] = useState<'complete' | 'partial' | 'simplified' | 'teams' | 'teamMedals'>('complete');
   
   // Estado para armazenar informações de records
   const [recordInfo, setRecordInfo] = useState<Map<string, {
@@ -194,6 +194,124 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
   // Estado para armazenar resultados com records atualizados
   const [resultsWithRecords, setResultsWithRecords] = useState<CalculatedResult[]>([]);
 
+  // Função para calcular total parcial dinâmico baseado nas tentativas validadas
+  const calculatePartialTotal = (entry: Entry): {
+    totalValid: number;
+    totalInvalid: number;
+    totalIntended: number;
+    totalFuture: number;
+    hasFutureWeight: boolean;
+    squatValid: number;
+    benchValid: number;
+    deadliftValid: number;
+    squatIntended: number;
+    benchIntended: number;
+    deadliftIntended: number;
+  } => {
+    let totalValid = 0;
+    let totalInvalid = 0;
+    let totalIntended = 0;
+    let totalFuture = 0;
+    let hasFutureWeight = false;
+    let squatValid = 0;
+    let benchValid = 0;
+    let deadliftValid = 0;
+    let squatIntended = 0;
+    let benchIntended = 0;
+    let deadliftIntended = 0;
+
+    // Determinar quais movimentos o atleta compete
+    const movements = entry.movements || '';
+    const competesSquat = movements.includes('A') || movements.includes('AST') || movements.includes('AS') || movements.includes('AT');
+    const competesBench = movements.includes('S') || movements.includes('AST') || movements.includes('AS') || movements.includes('ST');
+    const competesDeadlift = movements.includes('T') || movements.includes('AST') || movements.includes('AT') || movements.includes('ST');
+
+    // Agachamento
+    if (competesSquat) {
+      const squatAttempts = [entry.squat1, entry.squat2, entry.squat3];
+      const squatStatus = entry.squatStatus || [0, 0, 0];
+      
+      // Encontrar a melhor carga pretendida (maior peso declarado)
+      squatIntended = Math.max(...squatAttempts.filter(w => w && w > 0).map(w => w!), 0);
+      
+      squatAttempts.forEach((weight, index) => {
+        if (weight && weight > 0) {
+          if (squatStatus[index] === 1) { // Good Lift
+            squatValid = Math.max(squatValid, weight); // Melhor tentativa válida
+          } else if (squatStatus[index] === 2) { // No Lift
+            totalInvalid += weight;
+          } else if (squatStatus[index] === 0) { // Pendente - peso futuro
+            totalFuture += weight;
+            hasFutureWeight = true;
+          }
+        }
+      });
+    }
+
+    // Supino
+    if (competesBench) {
+      const benchAttempts = [entry.bench1, entry.bench2, entry.bench3];
+      const benchStatus = entry.benchStatus || [0, 0, 0];
+      
+      // Encontrar a melhor carga pretendida (maior peso declarado)
+      benchIntended = Math.max(...benchAttempts.filter(w => w && w > 0).map(w => w!), 0);
+      
+      benchAttempts.forEach((weight, index) => {
+        if (weight && weight > 0) {
+          if (benchStatus[index] === 1) { // Good Lift
+            benchValid = Math.max(benchValid, weight); // Melhor tentativa válida
+          } else if (benchStatus[index] === 2) { // No Lift
+            totalInvalid += weight;
+          } else if (benchStatus[index] === 0) { // Pendente - peso futuro
+            totalFuture += weight;
+            hasFutureWeight = true;
+          }
+        }
+      });
+    }
+
+    // Terra
+    if (competesDeadlift) {
+      const deadliftAttempts = [entry.deadlift1, entry.deadlift2, entry.deadlift3];
+      const deadliftStatus = entry.deadliftStatus || [0, 0, 0];
+      
+      // Encontrar a melhor carga pretendida (maior peso declarado)
+      deadliftIntended = Math.max(...deadliftAttempts.filter(w => w && w > 0).map(w => w!), 0);
+      
+      deadliftAttempts.forEach((weight, index) => {
+        if (weight && weight > 0) {
+          if (deadliftStatus[index] === 1) { // Good Lift
+            deadliftValid = Math.max(deadliftValid, weight); // Melhor tentativa válida
+          } else if (deadliftStatus[index] === 2) { // No Lift
+            totalInvalid += weight;
+          } else if (deadliftStatus[index] === 0) { // Pendente - peso futuro
+            totalFuture += weight;
+            hasFutureWeight = true;
+          }
+        }
+      });
+    }
+
+    // Total Válido = Soma das melhores cargas válidas apenas dos movimentos que o atleta compete
+    totalValid = squatValid + benchValid + deadliftValid;
+
+    // Total Pretendido = Soma das melhores cargas pretendidas apenas dos movimentos que o atleta compete
+    totalIntended = squatIntended + benchIntended + deadliftIntended;
+
+    return {
+      totalValid,
+      totalInvalid,
+      totalIntended,
+      totalFuture,
+      hasFutureWeight,
+      squatValid,
+      benchValid,
+      deadliftValid,
+      squatIntended,
+      benchIntended,
+      deadliftIntended
+    };
+  };
 
   // Função para obter tipos de competição únicos
   const getUniqueCompetitionTypes = () => {
@@ -2629,6 +2747,17 @@ const AttemptDisplay: React.FC<{
             </Nav.Item>
 
             <Nav.Item>
+              <Nav.Link 
+                active={activeTab === 'partial'}
+                onClick={() => setActiveTab('partial')}
+                className="fw-bold"
+              >
+                <FaSortUp className="me-2" />
+                Resultados Parciais
+              </Nav.Link>
+            </Nav.Item>
+
+            <Nav.Item>
                           <Nav.Link 
               active={activeTab === 'simplified'}
               onClick={() => setActiveTab('simplified')}
@@ -2655,6 +2784,338 @@ const AttemptDisplay: React.FC<{
 
 
       {/* Conteúdo das Abas */}
+      {activeTab === 'partial' && (
+        <>
+          {/* Filtros para Resultados Parciais */}
+          <Row className="mb-4">
+            <Col>
+              <Card>
+                <Card.Header>
+                  <h5 className="mb-0">
+                    <FaSortUp className="me-2" />
+                    Filtros - Resultados Parciais
+                  </h5>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Dia</Form.Label>
+                        <Form.Select
+                          value={selectedDay}
+                          onChange={(e) => setSelectedDay(Number(e.target.value))}
+                        >
+                          <option value={0}>Todos os dias</option>
+                          {Array.from({ length: meet.lengthDays }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                              Dia {i + 1}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Grupos de Voo</Form.Label>
+                        <div className="d-flex flex-wrap gap-2">
+                          {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].map((flight) => (
+                            <Form.Check
+                              key={flight}
+                              type="checkbox"
+                              id={`flight-${flight}`}
+                              label={flight}
+                              checked={selectedGroups.includes(flight)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedGroups([...selectedGroups, flight]);
+                                } else {
+                                  setSelectedGroups(selectedGroups.filter(g => g !== flight));
+                                }
+                              }}
+                              className="me-2"
+                            />
+                          ))}
+                        </div>
+                        <small className="text-muted">
+                          Selecione os grupos para filtrar os resultados
+                        </small>
+                      </Form.Group>
+                    </Col>
+                  </Row>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Tabelas de Resultados Parciais Separadas por Modalidade e Tipo */}
+          {(() => {
+            // Filtrar e agrupar atletas
+            const filteredEntries = (registration.entries as Entry[]).filter((entry: Entry) => {
+              // Aplicar filtros
+              if (selectedDay > 0 && entry.day !== selectedDay) return false;
+              
+              // Filtro por grupos de voo (A, B, C, etc.)
+              if (selectedGroups.length > 0) {
+                const entryFlight = entry.flight || '';
+                if (!selectedGroups.includes(entryFlight)) return false;
+              }
+              
+              return true;
+            });
+
+            // Agrupar por modalidade e tipo
+            const groups: { [key: string]: Entry[] } = {};
+            
+            filteredEntries.forEach(entry => {
+              const equipment = entry.equipment || 'Raw';
+              const movements = entry.movements || '';
+              
+              // Determinar modalidade
+              const modality = equipment === 'Raw' ? 'Clássica' : 'Equipado';
+              
+              // Determinar tipo
+              let type = '';
+              if (movements.includes('AST') || (movements.includes('A') && movements.includes('S') && movements.includes('T'))) {
+                type = 'AST';
+              } else if (movements.includes('AS') || (movements.includes('A') && movements.includes('S'))) {
+                type = 'AS';
+              } else if (movements.includes('AT') || (movements.includes('A') && movements.includes('T'))) {
+                type = 'AT';
+              } else if (movements.includes('ST') || (movements.includes('S') && movements.includes('T'))) {
+                type = 'ST';
+              } else if (movements.includes('A')) {
+                type = 'A';
+              } else if (movements.includes('S')) {
+                type = 'S';
+              } else if (movements.includes('T')) {
+                type = 'T';
+              } else {
+                type = 'Outros';
+              }
+              
+              const groupKey = `${modality} - ${type}`;
+              if (!groups[groupKey]) {
+                groups[groupKey] = [];
+              }
+              groups[groupKey].push(entry);
+            });
+
+            // Função para renderizar tentativa com status
+            const renderAttempt = (weight: number | null, status: number) => {
+              if (!weight || weight <= 0) return '-';
+              
+              let className = 'fw-bold';
+              let statusIcon = '';
+              
+              switch (status) {
+                case 1: // Good Lift
+                  className += ' text-success';
+                  statusIcon = ' ✅';
+                  break;
+                case 2: // No Lift
+                  className += ' text-danger';
+                  statusIcon = ' ❌';
+                  break;
+                case 3: // No Attempt
+                  className += ' text-secondary';
+                  statusIcon = ' ⏸️';
+                  break;
+                case 0: // Pendente
+                  className += ' text-warning';
+                  statusIcon = ' ⏳';
+                  break;
+              }
+              
+              return (
+                <span className={className}>
+                  {weight}kg{statusIcon}
+                </span>
+              );
+            };
+
+            // Função para renderizar tabela de um grupo
+            const renderGroupTable = (groupKey: string, entries: Entry[]) => {
+              // Agrupar por divisão e categoria de peso
+              const entriesByDivisionAndWeight: { [key: string]: Entry[] } = {};
+              entries.forEach(entry => {
+                const division = entry.division || 'Open';
+                const weightClass = entry.weightClass || '';
+                const key = `${division}-${weightClass}`;
+                if (!entriesByDivisionAndWeight[key]) {
+                  entriesByDivisionAndWeight[key] = [];
+                }
+                entriesByDivisionAndWeight[key].push(entry);
+              });
+
+              // Ordenar cada grupo (divisão + categoria) por Total Parcial
+              Object.keys(entriesByDivisionAndWeight).forEach(key => {
+                entriesByDivisionAndWeight[key].sort((a: Entry, b: Entry) => {
+                  const partialA = calculatePartialTotal(a);
+                  const partialB = calculatePartialTotal(b);
+                  return partialB.totalValid - partialA.totalValid; // Decrescente
+                });
+              });
+
+              // Calcular colocações dentro de cada grupo (divisão + categoria)
+              const entriesWithPosition: { entry: Entry; position: number; partial: any; division: string; weightClass: string }[] = [];
+              Object.keys(entriesByDivisionAndWeight).forEach(key => {
+                const [division, weightClass] = key.split('-');
+                entriesByDivisionAndWeight[key].forEach((entry, index) => {
+                  const partial = calculatePartialTotal(entry);
+                  entriesWithPosition.push({
+                    entry,
+                    position: index + 1,
+                    partial,
+                    division,
+                    weightClass
+                  });
+                });
+              });
+
+              // Ordenar por divisão, categoria de peso e depois por posição para exibição
+              entriesWithPosition.sort((a, b) => {
+                if (a.division !== b.division) {
+                  return a.division.localeCompare(b.division);
+                }
+                if (a.weightClass !== b.weightClass) {
+                  return a.weightClass.localeCompare(b.weightClass);
+                }
+                return a.position - b.position;
+              });
+
+              return (
+                <Row key={groupKey} className="mb-4">
+                  <Col>
+                    <Card>
+                      <Card.Header className="bg-primary text-white">
+                        <h5 className="mb-0">
+                          <FaSortUp className="me-2" />
+                          {groupKey} ({entries.length} atletas)
+                        </h5>
+                      </Card.Header>
+                      <Card.Body className="p-0">
+                        <div className="table-responsive">
+                          <Table striped bordered hover className="mb-0">
+                            <thead className="table-dark">
+                              <tr>
+                                <th className="text-center">#</th>
+                                <th>Atleta</th>
+                                <th className="text-center">Equipe</th>
+                                <th className="text-center" colSpan={3}>Agachamento</th>
+                                <th className="text-center" colSpan={3}>Supino</th>
+                                <th className="text-center" colSpan={3}>Terra</th>
+                                <th className="text-center">Total Parcial</th>
+                                <th className="text-center">Total Pretendido</th>
+                              </tr>
+                              <tr>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                                <th className="text-center">1ª</th>
+                                <th className="text-center">2ª</th>
+                                <th className="text-center">3ª</th>
+                                <th className="text-center">1ª</th>
+                                <th className="text-center">2ª</th>
+                                <th className="text-center">3ª</th>
+                                <th className="text-center">1ª</th>
+                                <th className="text-center">2ª</th>
+                                <th className="text-center">3ª</th>
+                                
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {entriesWithPosition.map(({ entry, position, partial, division, weightClass }, index: number) => {
+                                return (
+                                  <tr key={entry.id}>
+                                    <td className="text-center fw-bold">
+                                      <div>
+                                        <span className={`badge ${position === 1 ? 'bg-warning' : position === 2 ? 'bg-secondary' : position === 3 ? 'bg-danger' : 'bg-primary'}`}>
+                                          {position}º
+                                        </span>
+                                        <br />
+                                        <small className="text-muted">{division}</small>
+                                        <br />
+                                        <small className="text-info fw-bold">{weightClass}</small>
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div>
+                                        <strong>{entry.name}</strong>
+                                        <br />
+                                        <small className="text-muted">
+                                          {entry.sex === 'M' ? 'M' : 'F'}
+                                        </small>
+                                      </div>
+                                    </td>
+                                    <td className="text-center">{entry.team}</td>
+                                    
+                                    {/* Agachamento - 3 tentativas */}
+                                    <td className="text-center">
+                                      {renderAttempt(entry.squat1, entry.squatStatus?.[0] || 0)}
+                                    </td>
+                                    <td className="text-center">
+                                      {renderAttempt(entry.squat2, entry.squatStatus?.[1] || 0)}
+                                    </td>
+                                    <td className="text-center">
+                                      {renderAttempt(entry.squat3, entry.squatStatus?.[2] || 0)}
+                                    </td>
+                                    
+                                    {/* Supino - 3 tentativas */}
+                                    <td className="text-center">
+                                      {renderAttempt(entry.bench1, entry.benchStatus?.[0] || 0)}
+                                    </td>
+                                    <td className="text-center">
+                                      {renderAttempt(entry.bench2, entry.benchStatus?.[1] || 0)}
+                                    </td>
+                                    <td className="text-center">
+                                      {renderAttempt(entry.bench3, entry.benchStatus?.[2] || 0)}
+                                    </td>
+                                    
+                                    {/* Terra - 3 tentativas */}
+                                    <td className="text-center">
+                                      {renderAttempt(entry.deadlift1, entry.deadliftStatus?.[0] || 0)}
+                                    </td>
+                                    <td className="text-center">
+                                      {renderAttempt(entry.deadlift2, entry.deadliftStatus?.[1] || 0)}
+                                    </td>
+                                    <td className="text-center">
+                                      {renderAttempt(entry.deadlift3, entry.deadliftStatus?.[2] || 0)}
+                                    </td>
+                                    
+                                    {/* Total Parcial - Somatório do melhor levantamento válido de cada movimento */}
+                                    <td className="text-center">
+                                      <span className="fw-bold text-success fs-5">
+                                        {partial.totalValid > 0 ? `${partial.totalValid}kg` : '-'}
+                                      </span>
+                                    </td>
+                                    
+                                    {/* Total Pretendido - Somatório de todas as tentativas declaradas */}
+                                    <td className="text-center">
+                                      <span className="fw-bold text-primary fs-5">
+                                        {partial.totalIntended > 0 ? `${partial.totalIntended}kg` : '-'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </Table>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+              );
+            };
+
+            // Renderizar todas as tabelas
+            return Object.entries(groups).map(([groupKey, entries]) => 
+              renderGroupTable(groupKey, entries)
+            );
+          })()}
+        </>
+      )}
+
       {activeTab === 'complete' && (
         <>
                 {/* Filtros */}
