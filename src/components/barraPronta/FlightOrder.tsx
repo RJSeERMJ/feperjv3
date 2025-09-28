@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Container, 
   Row, 
@@ -9,18 +9,17 @@ import {
   Table,
   Badge,
   Alert,
-  InputGroup
 } from 'react-bootstrap';
 import { useSelector, useDispatch } from 'react-redux';
 import { GlobalState, Entry, Flight } from '../../types/barraProntaTypes';
 import { updateEntry, setLiftingState } from '../../actions/barraProntaActions';
-import { FaPlane, FaEdit, FaRandom, FaFilter, FaWeightHanging } from 'react-icons/fa';
+import { FaPlane, FaRandom, FaWeightHanging, FaDownload, FaUpload } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
 
 const FlightOrder: React.FC = () => {
   const dispatch = useDispatch();
   const meet = useSelector((state: GlobalState) => state.meet);
   const registration = useSelector((state: GlobalState) => state.registration);
-  const lifting = useSelector((state: GlobalState) => state.lifting);
   
   const [filterSex, setFilterSex] = useState<'all' | 'M' | 'F'>('all');
   const [filterDivision, setFilterDivision] = useState('all');
@@ -65,19 +64,325 @@ const FlightOrder: React.FC = () => {
     dispatch(updateEntry(entryId, { platform }));
   };
 
-  const handleAutoAssignFlights = () => {
-          if (window.confirm('Isso irá redistribuir automaticamente todos os atletas nos grupos. Continuar?')) {
-      const entriesWithWeight = registration.entries
-        .filter(entry => entry.bodyweightKg !== null)
-        .sort((a, b) => (b.bodyweightKg || 0) - (a.bodyweightKg || 0));
+  // Função para exportar Excel
+  const handleExportCSV = () => {
+    const excelData = registration.entries.map(entry => ({
+      'ID': entry.id,
+      'Nome': entry.name,
+      'Equipe': entry.team || '',
+      'Sexo': entry.sex,
+      'Divisão': entry.division,
+      'Categoria de Peso': getWeightClassLabel(entry.weightClassKg || 0, entry.sex),
+      'Peso Corporal': entry.bodyweightKg || '',
+      'Modalidade': entry.movements || '',
+      'Equipamento': entry.equipment || '',
+      'Grupo': entry.flight || '',
+      'Dia': entry.day || '',
+      'Plataforma': entry.platform || '',
+      'Agachamento 1': entry.squat1 || '',
+      'Agachamento 2': entry.squat2 || '',
+      'Agachamento 3': entry.squat3 || '',
+      'Supino 1': entry.bench1 || '',
+      'Supino 2': entry.bench2 || '',
+      'Supino 3': entry.bench3 || '',
+      'Terra 1': entry.deadlift1 || '',
+      'Terra 2': entry.deadlift2 || '',
+      'Terra 3': entry.deadlift3 || ''
+    }));
 
-      const entriesPerFlight = Math.ceil(entriesWithWeight.length / flights.length);
+    // Criar workbook e worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // Adicionar worksheet ao workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Ordem de Grupos');
+    
+    // Gerar arquivo Excel
+    XLSX.writeFile(wb, 'Ordem de Grupo Configuravel.xlsx');
+  };
+
+  // Função para importar Excel
+  const handleImportCSV = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        processExcelFile(file);
+      }
+    };
+    input.click();
+  };
+
+  // Função para processar arquivo Excel
+  const processExcelFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        
+        // Obter primeira planilha
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Converter para JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length < 2) {
+          alert('Arquivo Excel vazio ou inválido.');
+          return;
+        }
+        
+        // Primeira linha são os cabeçalhos
+        const headers = jsonData[0] as string[];
+        const errors: string[] = [];
+        const updates: Array<{id: number, updates: Partial<Entry>}> = [];
+
+        // Processar cada linha (pular cabeçalho)
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i] as any[];
+          if (!row || row.length === 0) continue;
+
+          // Criar objeto com os dados da linha
+          const rowData: { [key: string]: any } = {};
+          headers.forEach((header, index) => {
+            rowData[header] = row[index] || '';
+          });
+
+          // Validar dados
+          const id = parseInt(rowData['ID']);
+          if (isNaN(id)) {
+            errors.push(`Linha ${i + 1}: ID inválido`);
+            continue;
+          }
+
+          // Verificar se atleta existe
+          const existingEntry = registration.entries.find(entry => entry.id === id);
+          if (!existingEntry) {
+            errors.push(`Linha ${i + 1}: Atleta com ID ${id} não encontrado`);
+            continue;
+          }
+
+          // Validar grupo
+          const group = rowData['Grupo'];
+          if (group && !flights.includes(group as Flight)) {
+            errors.push(`Linha ${i + 1}: Grupo "${group}" inválido. Grupos válidos: ${flights.join(', ')}`);
+            continue;
+          }
+
+          // Validar dia
+          const day = parseInt(rowData['Dia']);
+          if (rowData['Dia'] && (isNaN(day) || day < 1 || day > meet.lengthDays)) {
+            errors.push(`Linha ${i + 1}: Dia "${rowData['Dia']}" inválido. Dias válidos: 1 a ${meet.lengthDays}`);
+            continue;
+          }
+
+          // Validar plataforma
+          const platform = parseInt(rowData['Plataforma']);
+          if (rowData['Plataforma'] && (isNaN(platform) || platform < 1 || platform > (meet.platformsOnDays[day - 1] || 1))) {
+            errors.push(`Linha ${i + 1}: Plataforma "${rowData['Plataforma']}" inválida para o dia ${day}`);
+            continue;
+          }
+
+          // Preparar atualizações
+          const entryUpdates: Partial<Entry> = {};
+          if (group) entryUpdates.flight = group as Flight;
+          if (rowData['Dia']) entryUpdates.day = day;
+          if (rowData['Plataforma']) entryUpdates.platform = platform;
+
+          if (Object.keys(entryUpdates).length > 0) {
+            updates.push({ id, updates: entryUpdates });
+          }
+        }
+
+        // Se há erros, mostrar e não importar
+        if (errors.length > 0) {
+          alert(`Erros encontrados no Excel:\n\n${errors.join('\n')}\n\nImportação cancelada.`);
+          return;
+        }
+
+        // Se não há erros, aplicar atualizações
+        if (updates.length > 0) {
+          updates.forEach(({ id, updates }) => {
+            dispatch(updateEntry(id, updates));
+          });
+          alert(`Excel importado com sucesso!\n\n${updates.length} atletas atualizados.`);
+        } else {
+          alert('Nenhuma alteração encontrada no Excel.');
+        }
+      } catch (error) {
+        alert('Erro ao processar arquivo Excel. Verifique se o arquivo está no formato correto.');
+        console.error('Erro ao processar Excel:', error);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleAutoAssignFlights = () => {
+    if (window.confirm('Isso irá redistribuir automaticamente todos os atletas nos grupos com balanceamento inteligente. Continuar?')) {
+      // Obter todos os atletas com peso definido
+      const entriesWithWeight = registration.entries
+        .filter(entry => entry.bodyweightKg !== null);
+
+      if (entriesWithWeight.length === 0) {
+        alert('Nenhum atleta com peso definido encontrado.');
+        return;
+      }
+
+      // Função para determinar a modalidade do atleta
+      const getAthleteModality = (entry: Entry): string => {
+        const movements = entry.movements || '';
+        const equipment = entry.equipment || 'Raw';
+        
+        if (movements.includes('SBD')) {
+          return equipment === 'Raw' ? 'Power Clássico' : 'Power Equipado';
+        } else if (movements.includes('B')) {
+          return equipment === 'Raw' ? 'Supino Clássico' : 'Supino Equipado';
+        }
+        return 'Outros';
+      };
+
+      // Função para obter categoria de peso
+      const getWeightCategory = (weight: number): string => {
+        if (weight <= 59) return 'até 59kg';
+        if (weight <= 66) return 'até 66kg';
+        if (weight <= 74) return 'até 74kg';
+        if (weight <= 83) return 'até 83kg';
+        if (weight <= 93) return 'até 93kg';
+        if (weight <= 105) return 'até 105kg';
+        if (weight <= 120) return 'até 120kg';
+        return '120kg+';
+      };
+
+      // Agrupar atletas por modalidade, categoria de peso e idade
+      const groupedAthletes: { [key: string]: Entry[] } = {};
       
-      entriesWithWeight.forEach((entry, index) => {
-        const flightIndex = Math.floor(index / entriesPerFlight);
-        const flight = flights[flightIndex] || flights[0];
-        dispatch(updateEntry(entry.id, { flight }));
+      entriesWithWeight.forEach(entry => {
+        const modality = getAthleteModality(entry);
+        const weightCategory = getWeightCategory(entry.bodyweightKg || 0);
+        const ageCategory = entry.division || 'Open';
+        const sex = entry.sex;
+        
+        const groupKey = `${modality}-${weightCategory}-${ageCategory}-${sex}`;
+        
+        if (!groupedAthletes[groupKey]) {
+          groupedAthletes[groupKey] = [];
+        }
+        groupedAthletes[groupKey].push(entry);
       });
+
+      // Distribuir atletas usando o mínimo de grupos possível
+      const maxAthletesPerFlight = 15;
+      const flightCounts: { [key: string]: number } = {};
+      const usedFlights: string[] = [];
+      
+      // Inicializar contadores de voos
+      flights.forEach(flight => {
+        flightCounts[flight] = 0;
+      });
+
+      // Processar cada grupo de atletas
+      Object.entries(groupedAthletes).forEach(([groupKey, athletes]) => {
+        const totalAthletes = athletes.length;
+        
+        if (totalAthletes <= maxAthletesPerFlight) {
+          // Se cabe em um voo, colocar todos juntos
+          // Primeiro, tentar usar um voo já utilizado
+          let selectedFlight = usedFlights.find(flight => 
+            flightCounts[flight] + totalAthletes <= maxAthletesPerFlight
+          );
+          
+          // Se não cabe em nenhum voo usado, usar um novo voo
+          if (!selectedFlight) {
+            selectedFlight = flights.find(flight => 
+              flightCounts[flight] + totalAthletes <= maxAthletesPerFlight
+            );
+          }
+          
+          if (selectedFlight) {
+            const flight = selectedFlight; // Garantir que não é undefined
+            athletes.forEach(entry => {
+              dispatch(updateEntry(entry.id, { flight: flight as Flight }));
+              flightCounts[flight] = (flightCounts[flight] || 0) + 1;
+            });
+            
+            // Marcar voo como usado se não estava na lista
+            if (!usedFlights.includes(flight)) {
+              usedFlights.push(flight);
+            }
+          } else {
+            // Se não cabe em nenhum voo, usar o voo com menos atletas
+            const minFlightEntry = Object.entries(flightCounts)
+              .reduce((min, current) => 
+                current[1] < min[1] ? current : min
+              );
+            const minFlight = minFlightEntry[0];
+            
+            athletes.forEach(entry => {
+              dispatch(updateEntry(entry.id, { flight: minFlight as Flight }));
+              flightCounts[minFlight] += 1;
+            });
+            
+            if (!usedFlights.includes(minFlight)) {
+              usedFlights.push(minFlight);
+            }
+          }
+        } else {
+          // Se não cabe em um voo, calcular o mínimo de voos necessários
+          const minFlightsNeeded = Math.ceil(totalAthletes / maxAthletesPerFlight);
+          const athletesPerFlight = Math.ceil(totalAthletes / minFlightsNeeded);
+          
+          // Usar apenas os voos necessários, priorizando voos já utilizados
+          const availableFlights = flights.filter(flight => 
+            flightCounts[flight] + athletesPerFlight <= maxAthletesPerFlight
+          );
+          
+          // Combinar voos já usados com voos disponíveis
+          const usedAvailableFlights = usedFlights.filter(flight => 
+            flightCounts[flight] + athletesPerFlight <= maxAthletesPerFlight
+          );
+          
+          let selectedFlights: string[] = [];
+          
+          if (usedAvailableFlights.length >= minFlightsNeeded) {
+            // Usar apenas voos já utilizados
+            selectedFlights = usedAvailableFlights.slice(0, minFlightsNeeded);
+          } else if (availableFlights.length >= minFlightsNeeded) {
+            // Usar voos já utilizados + voos disponíveis
+            selectedFlights = [
+              ...usedAvailableFlights,
+              ...availableFlights.slice(0, minFlightsNeeded - usedAvailableFlights.length)
+            ];
+          } else {
+            // Usar todos os voos disponíveis (fallback)
+            selectedFlights = availableFlights.slice(0, minFlightsNeeded);
+          }
+          
+          // Distribuir atletas entre os voos selecionados
+          athletes.forEach((entry, index) => {
+            const flightIndex = index % selectedFlights.length;
+            const flight = selectedFlights[flightIndex];
+            dispatch(updateEntry(entry.id, { flight: flight as Flight }));
+            flightCounts[flight] += 1;
+          });
+          
+          // Marcar voos como utilizados
+          selectedFlights.forEach(flight => {
+            if (!usedFlights.includes(flight)) {
+              usedFlights.push(flight);
+            }
+          });
+        }
+      });
+
+      // Exibir estatísticas da distribuição (apenas grupos utilizados)
+      const usedFlightsStats = usedFlights.map(flight => 
+        `Grupo ${flight}: ${flightCounts[flight]} atletas`
+      ).join('\n');
+      
+      alert(`Distribuição concluída!\n\n${usedFlightsStats}\n\nTotal: ${entriesWithWeight.length} atletas\nGrupos utilizados: ${usedFlights.length}`);
     }
   };
 
@@ -109,6 +414,14 @@ const FlightOrder: React.FC = () => {
               <p className="text-muted">Organize os atletas em grupos e plataformas</p>
             </div>
             <div className="d-flex gap-2">
+              <Button variant="outline-success" onClick={handleExportCSV}>
+                <FaDownload className="me-2" />
+                Exportar Excel
+              </Button>
+              <Button variant="outline-info" onClick={handleImportCSV}>
+                <FaUpload className="me-2" />
+                Importar Excel
+              </Button>
               <Button variant="outline-primary" onClick={handleAutoAssignFlights}>
                 <FaRandom className="me-2" />
                 Auto Distribuir
