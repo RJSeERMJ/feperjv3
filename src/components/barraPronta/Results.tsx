@@ -179,7 +179,6 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
   const [selectedSex, setSelectedSex] = useState<'M' | 'F' | 'all'>('all');
   const [selectedEquipment, setSelectedEquipment] = useState<string>('all');
   const [selectedCompetitionType, setSelectedCompetitionType] = useState<string>('all');
-  const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'total' | 'points' | 'squat' | 'bench' | 'deadlift'>('total');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -434,8 +433,6 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
         if (selectedEquipment !== 'all' && entry.equipment !== selectedEquipment) return false;
         // Filtrar por tipo de competição se selecionado
         if (selectedCompetitionType !== 'all' && !athleteCompetesInType(entry, selectedCompetitionType)) return false;
-        // Filtrar por equipe se selecionado
-        if (selectedTeam !== 'all' && entry.team !== selectedTeam) return false;
         // Filtrar por grupos se selecionado
         if (selectedGroups.length > 0 && !selectedGroups.includes(entry.flight)) return false;
         return true;
@@ -622,7 +619,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
         const bValue = b[sortBy];
         return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
       });
-  }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, selectedCompetitionType, selectedTeam, selectedGroups, sortBy, sortOrder]);
+  }, [registration.entries, selectedDay, selectedDivision, selectedSex, selectedEquipment, selectedCompetitionType, selectedGroups, sortBy, sortOrder]);
 
   // Função para obter nome da categoria de movimentos
   const getMovementCategoryName = (movements: string) => {
@@ -2846,7 +2843,7 @@ const AttemptDisplay: React.FC<{
                     </Col>
               <Col md={6}>
                 <Form.Group>
-                  <Form.Label>Grupos de Voo</Form.Label>
+                  <Form.Label>Grupos</Form.Label>
                   <div className="d-flex flex-wrap gap-2">
                     {(() => {
                       // Obter grupos únicos utilizados na competição
@@ -3253,20 +3250,6 @@ const AttemptDisplay: React.FC<{
                 </Col>
                 <Col md={2}>
                   <Form.Group>
-                    <Form.Label>Equipe</Form.Label>
-                    <Form.Select 
-                      value={selectedTeam} 
-                      onChange={(e) => setSelectedTeam(e.target.value)}
-                    >
-                      <option value="all">Todas</option>
-                      {getUniqueTeams().map(team => (
-                        <option key={team} value={team}>{team}</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={2}>
-                  <Form.Group>
                     <Form.Label>Grupos</Form.Label>
                     <Form.Select 
                       multiple
@@ -3359,9 +3342,6 @@ const AttemptDisplay: React.FC<{
                        if (selectedCompetitionType !== 'all') {
                          activeFilters.push(`Tipo: ${getCompetitionTypeDisplayName(selectedCompetitionType)}`);
                        }
-                       if (selectedTeam !== 'all') {
-                         activeFilters.push(`Equipe: ${selectedTeam}`);
-                       }
                        if (selectedGroups.length > 0) {
                          activeFilters.push(`Grupos: ${selectedGroups.join(', ')}`);
                        }
@@ -3392,7 +3372,6 @@ const AttemptDisplay: React.FC<{
                        setSelectedSex('all');
                        setSelectedEquipment('all');
                        setSelectedCompetitionType('all');
-                       setSelectedTeam('all');
                        setSelectedGroups([]);
                      }}
                    >
