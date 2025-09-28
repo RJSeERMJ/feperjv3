@@ -3041,9 +3041,11 @@ const AttemptDisplay: React.FC<{
                           <Table striped bordered hover className="mb-0">
                             <thead className="table-dark">
                               <tr>
-                                <th className="text-center">#</th>
-                                <th>Atleta</th>
+                                <th className="text-center">POS</th>
+                                <th className="text-center">Atleta</th>
                                 <th className="text-center">Equipe</th>
+                                <th className="text-center">Peso </th>
+                                <th className="text-center">Nº Lote</th>
                                 <th className="text-center" colSpan={3}>Agachamento</th>
                                 <th className="text-center" colSpan={3}>Supino</th>
                                 <th className="text-center" colSpan={3}>Terra</th>
@@ -3054,6 +3056,8 @@ const AttemptDisplay: React.FC<{
                                 <th></th>
                                 <th></th>
                                 <th></th>
+                                <th></th>
+                                <th></th>
                                 <th className="text-center">1ª</th>
                                 <th className="text-center">2ª</th>
                                 <th className="text-center">3ª</th>
@@ -3063,7 +3067,8 @@ const AttemptDisplay: React.FC<{
                                 <th className="text-center">1ª</th>
                                 <th className="text-center">2ª</th>
                                 <th className="text-center">3ª</th>
-                                
+                                <th></th>
+                                <th></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3091,6 +3096,8 @@ const AttemptDisplay: React.FC<{
                                       </div>
                                     </td>
                                     <td className="text-center">{entry.team}</td>
+                                    <td className="text-center">{entry.bodyweightKg || '-'} kg</td>
+                                    <td className="text-center">{entry.lotNumber || '-'}</td>
                                     
                                     {/* Agachamento - 3 tentativas */}
                                     <td className="text-center">
