@@ -178,32 +178,6 @@ const LiftingPage: React.FC = () => {
 
 
 
-        {/* Mensagem se não há tentativas pendentes */}
-        {!hasPendingAttempts && (
-          <div className="no-pending-attempts">
-            <div className="alert alert-info">
-              <strong>Parabéns!</strong> Todas as tentativas deste movimento foram concluídas.
-              {lift === 'S' && <button 
-                className="btn btn-primary ms-3" 
-                onClick={() => dispatch({ type: 'lifting/setLift', payload: 'B' })}
-              >
-                Próximo: Supino
-              </button>}
-              {lift === 'B' && <button 
-                className="btn btn-primary ms-3" 
-                onClick={() => dispatch({ type: 'lifting/setLift', payload: 'D' })}
-              >
-                Próximo: Terra
-              </button>}
-              {lift === 'D' && <button 
-                className="btn btn-primary ms-3" 
-                onClick={() => dispatch({ type: 'lifting/setLift', payload: 'S' })}
-              >
-                Próximo: Agachamento
-              </button>}
-            </div>
-          </div>
-        )}
       </div>
       
       {/* Footer com controles de levantamento */}

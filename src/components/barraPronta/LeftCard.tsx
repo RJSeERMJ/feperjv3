@@ -271,7 +271,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
                     return (nextEntry as any)[weightField] || 'Não definido';
                   })()} kg
                 </span>
-                <span className="next-weight-label">Peso da Próxima Tentativa</span>
+                <span className="next-weight-label"> Peso da Próxima Tentativa</span>
               </div>
             </div>
 
