@@ -36,7 +36,7 @@ const LOCAL_USERS: Array<{
 }> = [
   {
     login: '15119236790',
-    senhaHash: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4', // hash de '49912170'
+    senhaHash: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6:1e03d824d1543b9a6e9ea7baea68ac837324ec46deae62d179c147994227bfd1', // hash de '49912170'
     nome: 'Administrador',
     tipo: 'admin'
   }
