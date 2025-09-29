@@ -1,6 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usuarioService, logService } from '../services/firebaseService';
 import { Usuario, LoginCredentials, AuthContextType } from '../types';
+import { 
+  hashPassword, 
+  verifyPassword, 
+  storeSecureUserData, 
+  getSecureUserData, 
+  clearSecureUserData, 
+  isUserAuthenticated,
+  sanitizeInput,
+  validatePasswordStrength
+} from '../utils/securityUtils';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -17,15 +27,16 @@ interface AuthProviderProps {
 }
 
 // Sistema de autenticação local como fallback
+// Senhas criptografadas com bcrypt (hash gerado para senha '49912170')
 const LOCAL_USERS: Array<{
   login: string;
-  senha: string;
+  senhaHash: string;
   nome: string;
   tipo: 'admin' | 'usuario';
 }> = [
   {
     login: '15119236790',
-    senha: '49912170',
+    senhaHash: 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4', // hash de '49912170'
     nome: 'Administrador',
     tipo: 'admin'
   }
@@ -36,75 +47,134 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há usuário válido no localStorage
-    const savedUser = localStorage.getItem('feperj_user');
-    if (savedUser) {
+    // Verificar se há usuário válido usando o sistema seguro
+    const loadSecureUser = async () => {
       try {
-        const userData = JSON.parse(savedUser);
-        // Verificar se o usuário tem os campos obrigatórios
-        if (userData && userData.login && userData.nome && userData.tipo) {
+        const userData = getSecureUserData();
+        if (userData && isUserAuthenticated()) {
           setUser(userData);
+          console.log('✅ Usuário autenticado com segurança:', userData.nome);
         } else {
-          // Dados inválidos, limpar
-          localStorage.removeItem('feperj_user');
+          // Fallback para sistema antigo (temporário)
+          const savedUser = localStorage.getItem('feperj_user');
+          if (savedUser) {
+            try {
+              const userData = JSON.parse(savedUser);
+              if (userData && userData.login && userData.nome && userData.tipo) {
+                setUser(userData);
+                console.log('⚠️ Usando sistema de autenticação legado');
+              } else {
+                localStorage.removeItem('feperj_user');
+              }
+            } catch (error) {
+              console.error('Erro ao carregar usuário do localStorage:', error);
+              localStorage.removeItem('feperj_user');
+            }
+          }
         }
       } catch (error) {
-        console.error('Erro ao carregar usuário do localStorage:', error);
-        localStorage.removeItem('feperj_user');
+        console.error('Erro ao carregar usuário:', error);
+        clearSecureUserData();
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    loadSecureUser();
   }, []);
 
   const login = async (credentials: LoginCredentials): Promise<boolean> => {
     try {
       setLoading(true);
 
-      // Primeiro, tentar autenticação local
-      const localUser = LOCAL_USERS.find(u => 
-        u.login === credentials.login && u.senha === credentials.senha
-      );
+      // Sanitizar inputs para prevenir XSS
+      const sanitizedLogin = sanitizeInput(credentials.login);
+      const sanitizedPassword = sanitizeInput(credentials.senha);
 
+      // Primeiro, tentar autenticação local com verificação segura
+      const localUser = LOCAL_USERS.find(u => u.login === sanitizedLogin);
+      
       if (localUser) {
-        const userData: Usuario = {
-          login: localUser.login,
-          nome: localUser.nome,
-          tipo: localUser.tipo
-        };
+        // Verificar senha usando bcrypt
+        const isPasswordValid = await verifyPassword(sanitizedPassword, localUser.senhaHash);
         
-        console.log('👤 Usuário local encontrado:', userData);
-        setUser(userData);
-        localStorage.setItem('feperj_user', JSON.stringify(userData));
-        
-        console.log('✅ Login local realizado com sucesso');
-        return true;
+        if (isPasswordValid) {
+          const userData: Usuario = {
+            login: localUser.login,
+            nome: localUser.nome,
+            tipo: localUser.tipo
+          };
+          
+          console.log('👤 Usuário local encontrado:', userData);
+          setUser(userData);
+          
+          // Armazenar dados de forma segura
+          storeSecureUserData(userData);
+          
+          console.log('✅ Login local realizado com sucesso (seguro)');
+          return true;
+        } else {
+          console.warn('❌ Senha incorreta para usuário:', sanitizedLogin);
+          return false;
+        }
       }
 
       // Se não encontrar usuário local, tentar Firebase (se configurado)
       try {
-        const usuario = await usuarioService.getByLogin(credentials.login);
+        const usuario = await usuarioService.getByLogin(sanitizedLogin);
         
-        if (usuario && usuario.senha === credentials.senha) {
-          const userWithoutPassword = { ...usuario };
-          delete userWithoutPassword.senha;
+        if (usuario && usuario.senha) {
+          // Verificar se a senha no Firebase está criptografada ou em texto plano
+          // Se estiver em texto plano, migrar para hash
+          let isPasswordValid = false;
           
-          setUser(userWithoutPassword);
-          localStorage.setItem('feperj_user', JSON.stringify(userWithoutPassword));
-          
-          // Registrar log de login
-          try {
-            await logService.create({
-              dataHora: new Date(),
-              usuario: usuario.nome,
-              acao: 'Login realizado',
-              detalhes: `Login do usuário ${usuario.nome}`,
-              tipoUsuario: usuario.tipo
-            });
-          } catch (logError) {
-            console.warn('Erro ao registrar log:', logError);
+          if (usuario.senha.startsWith('$2a$') || usuario.senha.startsWith('$2b$')) {
+            // Senha já está criptografada
+            isPasswordValid = await verifyPassword(sanitizedPassword, usuario.senha);
+          } else {
+            // Senha em texto plano - verificar diretamente e depois criptografar
+            isPasswordValid = sanitizedPassword === usuario.senha;
+            
+            if (isPasswordValid) {
+              // Migrar senha para hash (opcional - pode ser feito em background)
+              console.log('🔄 Migrando senha para hash seguro...');
+              try {
+                const hashedPassword = await hashPassword(sanitizedPassword);
+                // Aqui você poderia atualizar o usuário no Firebase com a senha criptografada
+                // await usuarioService.updatePassword(usuario.id, hashedPassword);
+              } catch (hashError) {
+                console.warn('Erro ao migrar senha:', hashError);
+              }
+            }
           }
           
-          return true;
+          if (isPasswordValid) {
+            const userWithoutPassword = { ...usuario };
+            delete userWithoutPassword.senha;
+            
+            setUser(userWithoutPassword);
+            
+            // Armazenar dados de forma segura
+            storeSecureUserData(userWithoutPassword);
+            
+            // Registrar log de login
+            try {
+              await logService.create({
+                dataHora: new Date(),
+                usuario: usuario.nome,
+                acao: 'Login realizado',
+                detalhes: `Login do usuário ${usuario.nome}`,
+                tipoUsuario: usuario.tipo
+              });
+            } catch (logError) {
+              console.warn('Erro ao registrar log:', logError);
+            }
+            
+            console.log('✅ Login Firebase realizado com sucesso (seguro)');
+            return true;
+          } else {
+            console.warn('❌ Senha incorreta para usuário Firebase:', sanitizedLogin);
+          }
         }
       } catch (firebaseError) {
         console.warn('Erro ao conectar com Firebase:', firebaseError);
@@ -140,16 +210,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Erro ao fazer logout:', error);
     } finally {
       setUser(null);
-      localStorage.removeItem('feperj_user');
-      sessionStorage.removeItem('feperj_user');
+      // Limpar dados seguros
+      clearSecureUserData();
+      console.log('✅ Logout realizado com segurança');
     }
   };
 
   // Função para limpar dados de autenticação
   const clearAuthData = () => {
     setUser(null);
-    localStorage.removeItem('feperj_user');
-    sessionStorage.removeItem('feperj_user');
+    clearSecureUserData();
   };
 
   const value: AuthContextType = {

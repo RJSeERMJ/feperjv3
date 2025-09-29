@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './components/Login';
 import PublicPage from './components/PublicPage';
+import SecurityHeaders from './components/SecurityHeaders';
 import AtletaDetalhesPage from './components/AtletaDetalhesPage';
 import Dashboard from './components/Dashboard';
 import AtletasPage from './pages/AtletasPage';
@@ -87,6 +88,9 @@ const App: React.FC = () => {
     <AuthProvider>
       <Router>
         <div className="App">
+          {/* Headers de segurança */}
+          <SecurityHeaders />
+          
           {/* Gerenciador de inatividade */}
           <InactivityManager />
           

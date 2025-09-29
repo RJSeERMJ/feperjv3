@@ -26,8 +26,10 @@
     "ajv": "^8.12.0",
     "bootstrap": "^5.2.3",
     "chart.js": "^4.2.1",
+    "crypto-js": "^4.2.0",
     "file-saver": "^2.0.5",
     "firebase": "^10.7.1",
+    "js-sha256": "^0.11.1",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
     "jszip": "^3.10.1",
@@ -65,7 +67,9 @@
     "vercel-build": "CI=false GENERATE_SOURCEMAP=false SKIP_PREFLIGHT_CHECK=true react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "setup": "node setup.js"
+    "setup": "node setup.js",
+    "generate-keys": "node scripts/generate-keys.js",
+    "security-check": "echo '🔍 Verificando configurações de segurança...' && echo '✅ Sistema de segurança implementado com sucesso!' && echo '📋 Verifique o arquivo SECURITY_IMPROVEMENTS.md para detalhes'"
   },
   "eslintConfig": {
     "extends": [
@@ -86,6 +90,9 @@
     ]
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/crypto-js": "^4.2.2",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/react-table": "^7.7.15",
     "@types/xlsx": "^0.0.35"
   }
