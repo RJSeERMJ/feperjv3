@@ -10,11 +10,16 @@ const path = require('path');
 console.log('🚀 Iniciando build para Vercel...');
 
 try {
-  // 1. Verificar se node_modules existe
-  if (!fs.existsSync('node_modules')) {
-    console.log('📦 Instalando dependências...');
-    execSync('npm install --legacy-peer-deps', { stdio: 'inherit' });
+  // 1. Limpar cache e instalar dependências
+  console.log('🧹 Limpando cache do npm...');
+  try {
+    execSync('npm cache clean --force', { stdio: 'inherit' });
+  } catch (error) {
+    console.warn('⚠️ Erro ao limpar cache:', error.message);
   }
+
+  console.log('📦 Instalando dependências...');
+  execSync('npm install --legacy-peer-deps --no-optional', { stdio: 'inherit' });
 
   // 2. Configurar variáveis de ambiente para build
   process.env.CI = 'false';
