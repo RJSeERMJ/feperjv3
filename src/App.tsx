@@ -88,11 +88,11 @@ const App: React.FC = () => {
     <AuthProvider>
       <Router>
         <div className="App">
-          {/* Headers de segurança */}
-          <SecurityHeaders />
+          {/* Headers de segurança - apenas no browser */}
+          {typeof window !== 'undefined' && <SecurityHeaders />}
           
-          {/* Gerenciador de inatividade */}
-          <InactivityManager />
+          {/* Gerenciador de inatividade - apenas no browser */}
+          {typeof window !== 'undefined' && <InactivityManager />}
           
           <Routes>
             <Route path="/publico" element={<PublicPage />} />

@@ -50,6 +50,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Verificar se há usuário válido usando o sistema seguro
     const loadSecureUser = async () => {
       try {
+        // Timeout de segurança para evitar loading infinito
+        const timeoutId = setTimeout(() => {
+          console.warn('⚠️ Timeout no carregamento do usuário, definindo loading como false');
+          setLoading(false);
+        }, 5000); // 5 segundos de timeout
+
         const userData = getSecureUserData();
         if (userData && isUserAuthenticated()) {
           setUser(userData);
@@ -72,6 +78,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           }
         }
+        
+        clearTimeout(timeoutId);
       } catch (error) {
         console.error('Erro ao carregar usuário:', error);
         clearSecureUserData();
