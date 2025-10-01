@@ -1,12 +1,18 @@
 {
   "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "build",
   "builds": [
     {
       "src": "package.json",
-      "use": "@vercel/next",
+      "use": "@vercel/static-build",
       "config": {
         "distDir": "build"
       }
+    },
+    {
+      "src": "pages/api/**/*.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -41,7 +47,8 @@
     "GENERATE_SOURCEMAP": "false",
     "SKIP_PREFLIGHT_CHECK": "true",
     "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org/",
-    "NPM_CONFIG_STRICT_SSL": "false"
+    "NPM_CONFIG_STRICT_SSL": "false",
+    "NODE_ENV": "production"
   },
   "functions": {
     "pages/api/**/*.ts": {
