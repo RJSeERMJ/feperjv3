@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "build",
   "builds": [
     {
       "src": "package.json",
@@ -11,9 +13,24 @@
   ],
   "routes": [
     {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
+      "dest": "/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "CI": "false",
+    "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+    "GENERATE_SOURCEMAP": "false",
+    "SKIP_PREFLIGHT_CHECK": "true",
+    "NODE_ENV": "production"
+  }
 }
   
