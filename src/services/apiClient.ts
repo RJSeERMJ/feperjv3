@@ -76,9 +76,9 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     // Adicionar token de autorização se disponível
@@ -99,10 +99,14 @@ class ApiClient {
         const refreshed = await this.refreshAuthToken();
         if (refreshed) {
           // Tentar novamente com novo token
-          headers.Authorization = `Bearer ${this.token}`;
+          const retryHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...(options.headers as Record<string, string>),
+            Authorization: `Bearer ${this.token}`,
+          };
           const retryResponse = await fetch(url, {
             ...options,
-            headers,
+            headers: retryHeaders,
           });
           return await retryResponse.json();
         } else {
