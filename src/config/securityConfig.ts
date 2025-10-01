@@ -37,7 +37,7 @@ export const RATE_LIMIT_CONFIG = {
 export const SESSION_CONFIG = {
   MAX_IDLE_TIME: 30 * 60 * 1000, // 30 minutos
   WARNING_TIME: 5 * 60 * 1000, // 5 minutos antes do timeout
-  MAX_SESSION_DURATION: 24 * 60 * 60 * 1000 // 24 horas
+  MAX_SESSION_DURATION: 5 * 60 * 60 * 1000 // 5 horas
 };
 
 // Headers de segurança
