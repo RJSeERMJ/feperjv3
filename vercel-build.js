@@ -28,14 +28,25 @@ try {
   process.env.NODE_ENV = 'production';
   process.env.NODE_OPTIONS = '--max-old-space-size=4096';
 
-  // 3. Verificar se html2canvas está instalado
+  // 3. Verificar dependências críticas
   console.log('🔍 Verificando dependências críticas...');
+  
+  // Verificar html2canvas
   try {
     require.resolve('html2canvas');
     console.log('✅ html2canvas encontrado');
   } catch (error) {
     console.log('⚠️ html2canvas não encontrado, instalando...');
     execSync('npm install html2canvas@^1.4.1 --legacy-peer-deps', { stdio: 'inherit' });
+  }
+  
+  // Verificar canvg
+  try {
+    require.resolve('canvg');
+    console.log('✅ canvg encontrado');
+  } catch (error) {
+    console.log('⚠️ canvg não encontrado, instalando...');
+    execSync('npm install canvg@^4.0.1 --legacy-peer-deps', { stdio: 'inherit' });
   }
 
   // 4. Executar build

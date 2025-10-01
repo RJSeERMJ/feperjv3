@@ -291,7 +291,9 @@ const FinanceiroPage: React.FC = () => {
 
   const calcularValorTotalAnuidades = () => {
     if (!anuidade) return 0;
-    return atletas.length * anuidade.valor;
+    // Filtrar apenas atletas ativos
+    const atletasAtivos = atletas.filter(atleta => atleta.status === 'ATIVO');
+    return atletasAtivos.length * anuidade.valor;
   };
 
   const calcularValorPagoAnuidades = () => {
@@ -306,7 +308,9 @@ const FinanceiroPage: React.FC = () => {
 
   const calcularValorTotalAnuidadesEquipe = () => {
     if (!anuidadeEquipe) return 0;
-    return atletas.length * anuidadeEquipe.valor;
+    // Filtrar apenas equipes ativas
+    const equipesAtivas = equipes.filter(equipe => equipe.status === 'ATIVA');
+    return equipesAtivas.length * anuidadeEquipe.valor;
   };
 
   const calcularValorPagoAnuidadesEquipe = () => {

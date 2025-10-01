@@ -36,6 +36,7 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.31",
     "html2canvas": "^1.4.1",
+    "canvg": "^4.0.1",
     "jszip": "^3.10.1",
     "papaparse": "^5.4.1",
     "pdf-lib": "^1.17.1",
