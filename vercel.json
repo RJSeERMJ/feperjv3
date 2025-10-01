@@ -1,44 +1,36 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build",
-        "buildCommand": "npm run vercel-build"
-      }
-    }
-  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "installCommand": "npm install",
+  "framework": "create-react-app",
   "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/favicon.png",
-      "dest": "/favicon.png"
-    },
-    {
-      "src": "/feperj-logo.png",
-      "dest": "/feperj-logo.png"
-    },
-    {
-      "src": "/manifest.json",
-      "dest": "/manifest.json"
-    },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
   ],
-  "env": {
-    "CI": "false",
-    "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-    "GENERATE_SOURCEMAP": "false",
-    "SKIP_PREFLIGHT_CHECK": "true",
-    "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org/",
-    "NPM_CONFIG_STRICT_SSL": "false"
-  }
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
 }
-  

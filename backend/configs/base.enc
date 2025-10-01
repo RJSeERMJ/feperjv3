@@ -1,0 +1,8 @@
+# Arquivo base para configuração de novos clientes
+# Este arquivo será criptografado pelo script create-base-config.ts
+# 
+# Para usar:
+# 1. Execute: npm run create-base-config
+# 2. Copie base.enc para <tenant-id>.enc
+# 3. Configure as variáveis de ambiente
+# 4. Use o script setup-tenant para personalizar
