@@ -331,3 +331,195 @@ export const validateCPF = (cpf: string): boolean => {
   
   return true;
 };
+
+/**
+ * Rastreia sessão do usuário para controle de sessões simultâneas
+ */
+export const trackUserSession = async (userId: string): Promise<void> => {
+  try {
+    const sessionData = {
+      userId,
+      loginTime: Date.now(),
+      lastActivity: Date.now(),
+      ip: 'client-ip', // Implementar captura de IP real
+      userAgent: navigator.userAgent,
+      active: true
+    };
+    
+    // Salvar no localStorage para controle local
+    localStorage.setItem(`session_${userId}`, JSON.stringify(sessionData));
+    
+    console.log('✅ Sessão rastreada para usuário:', userId);
+  } catch (error) {
+    console.error('Erro ao rastrear sessão:', error);
+  }
+};
+
+/**
+ * Valida se pode criar nova sessão (controle de concorrência)
+ */
+export const validateConcurrentSessions = async (userId: string): Promise<boolean> => {
+  try {
+    const sessionKey = `session_${userId}`;
+    const existingSession = localStorage.getItem(sessionKey);
+    
+    if (existingSession) {
+      const sessionData = JSON.parse(existingSession);
+      const now = Date.now();
+      const sessionAge = now - sessionData.lastActivity;
+      
+      // Se sessão mais antiga que 30 minutos, permitir nova sessão
+      if (sessionAge > 30 * 60 * 1000) {
+        localStorage.removeItem(sessionKey);
+        return true;
+      }
+      
+      // Sessão ativa, não permitir nova sessão
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao validar sessões concorrentes:', error);
+    return true; // Em caso de erro, permitir login
+  }
+};
+
+/**
+ * Verifica rate limiting por usuário
+ */
+export const checkUserRateLimit = async (userId: string, action: string): Promise<boolean> => {
+  try {
+    const rateLimitKey = `rate_limit_${userId}_${action}`;
+    const now = Date.now();
+    
+    // Verificar no localStorage (implementação simples)
+    const rateLimitData = localStorage.getItem(rateLimitKey);
+    
+    if (rateLimitData) {
+      const data = JSON.parse(rateLimitData);
+      const timeWindow = data.timeWindow;
+      const requestCount = data.requestCount;
+      
+      // Resetar se passou da janela de tempo (1 minuto)
+      if (now - timeWindow > 60 * 1000) {
+        localStorage.setItem(rateLimitKey, JSON.stringify({
+          timeWindow: now,
+          requestCount: 1
+        }));
+        return true;
+      }
+      
+      // Verificar se excedeu o limite (10 requests por minuto)
+      if (requestCount >= 10) {
+        return false;
+      }
+      
+      // Incrementar contador
+      localStorage.setItem(rateLimitKey, JSON.stringify({
+        timeWindow,
+        requestCount: requestCount + 1
+      }));
+    } else {
+      // Primeira requisição
+      localStorage.setItem(rateLimitKey, JSON.stringify({
+        timeWindow: now,
+        requestCount: 1
+      }));
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao verificar rate limit:', error);
+    return true; // Em caso de erro, permitir ação
+  }
+};
+
+/**
+ * Adquire lock para operações críticas
+ */
+export const acquireLock = async (operationId: string, userId: string): Promise<boolean> => {
+  try {
+    const lockKey = `lock_${operationId}`;
+    const lockData = {
+      userId,
+      acquiredAt: Date.now(),
+      expiresAt: Date.now() + (5 * 60 * 1000) // 5 minutos
+    };
+    
+    // Verificar se já existe lock
+    const existingLock = localStorage.getItem(lockKey);
+    if (existingLock) {
+      const lock = JSON.parse(existingLock);
+      const now = Date.now();
+      
+      // Se lock expirou, remover
+      if (now > lock.expiresAt) {
+        localStorage.removeItem(lockKey);
+      } else {
+        return false; // Lock ativo
+      }
+    }
+    
+    // Criar novo lock
+    localStorage.setItem(lockKey, JSON.stringify(lockData));
+    return true;
+  } catch (error) {
+    console.error('Erro ao adquirir lock:', error);
+    return false;
+  }
+};
+
+/**
+ * Libera lock para operações críticas
+ */
+export const releaseLock = async (operationId: string, userId: string): Promise<void> => {
+  try {
+    const lockKey = `lock_${operationId}`;
+    const existingLock = localStorage.getItem(lockKey);
+    
+    if (existingLock) {
+      const lock = JSON.parse(existingLock);
+      if (lock.userId === userId) {
+        localStorage.removeItem(lockKey);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao liberar lock:', error);
+  }
+};
+
+/**
+ * Log de eventos de segurança
+ */
+export const logSecurityEvent = async (event: {
+  userId: string;
+  action: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  details: string;
+  ip?: string;
+  userAgent?: string;
+}): Promise<void> => {
+  try {
+    const logData = {
+      ...event,
+      timestamp: Date.now(),
+      resolved: false
+    };
+    
+    // Salvar no localStorage (implementação simples)
+    const logs = JSON.parse(localStorage.getItem('security_logs') || '[]');
+    logs.push(logData);
+    
+    // Manter apenas os últimos 100 logs
+    if (logs.length > 100) {
+      logs.splice(0, logs.length - 100);
+    }
+    
+    localStorage.setItem('security_logs', JSON.stringify(logs));
+    
+    console.log('🔒 Evento de segurança registrado:', event.action);
+  } catch (error) {
+    console.error('Erro ao registrar evento de segurança:', error);
+  }
+};

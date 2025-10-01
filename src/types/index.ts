@@ -4,6 +4,7 @@ export interface Usuario {
   nome: string;
   senha?: string;
   tipo: 'admin' | 'usuario';
+  ativo?: boolean; // Novo campo para controle de usuários ativos
   chefeEquipe?: boolean; // Indica se o usuário é chefe de equipe
   idEquipe?: string; // ID da equipe que o usuário é chefe
   // Campos da equipe
@@ -11,6 +12,7 @@ export interface Usuario {
   estado?: string; // Estado da equipe
   observacoes?: string; // Observações
   dataCriacao?: Date;
+  criadoPor?: string; // ID do usuário que criou este usuário
   equipe?: Equipe; // Relacionamento com a equipe
 }
 
@@ -214,6 +216,13 @@ export interface AuthContextType {
   logout: () => void;
   clearAuthData: () => void;
   loading: boolean;
+  createUser?: (userData: {
+    email: string;
+    password: string;
+    nome: string;
+    tipo: 'admin' | 'usuario';
+  }) => Promise<boolean>;
+  firebaseUser?: any; // Firebase User object
 }
 
 // Novos tipos para anuidade de equipe

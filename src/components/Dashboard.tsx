@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Spinner, Alert } from 'react-bootstrap';
+import { Row, Col, Card, Spinner, Alert, Button } from 'react-bootstrap';
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -11,10 +11,11 @@ import {
   ArcElement
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { FaUsers, FaTrophy, FaUserFriends, FaChartLine } from 'react-icons/fa';
+import { FaUsers, FaTrophy, FaUserFriends, FaChartLine, FaCog } from 'react-icons/fa';
 import { dashboardService } from '../services/firebaseService';
 import { DashboardStats } from '../types';
 import MuralAvisos from './MuralAvisos';
+import UserManagement from './UserManagement';
 import { useAuth } from '../contexts/AuthContext';
 
 ChartJS.register(
@@ -31,6 +32,7 @@ const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showUserManagement, setShowUserManagement] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -129,7 +131,19 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      <h2 className="mb-4">🏋️ Dashboard FEPERJ</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>🏋️ Dashboard FEPERJ</h2>
+        {user?.tipo === 'admin' && (
+          <Button 
+            variant="outline-primary" 
+            onClick={() => setShowUserManagement(true)}
+            className="d-flex align-items-center gap-2"
+          >
+            <FaCog />
+            Gerenciar Usuários
+          </Button>
+        )}
+      </div>
       
       {/* Cards de estatísticas */}
       <Row className="mb-4">
@@ -326,6 +340,11 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
       </Row>
+      
+      {/* Modal de Gerenciamento de Usuários */}
+      {showUserManagement && (
+        <UserManagement onClose={() => setShowUserManagement(false)} />
+      )}
     </div>
   );
 };

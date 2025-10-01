@@ -33,8 +33,9 @@
     "joi": "^17.13.3",
     "js-sha256": "^0.11.1",
     "jsonwebtoken": "^9.0.2",
-    "jspdf": "^3.0.2",
-    "jspdf-autotable": "^5.0.2",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.5.31",
+    "html2canvas": "^1.4.1",
     "jszip": "^3.10.1",
     "papaparse": "^5.4.1",
     "pdf-lib": "^1.17.1",
@@ -72,6 +73,9 @@
     "eject": "react-scripts eject",
     "setup": "node setup.js",
     "generate-keys": "node scripts/generate-keys.js",
+    "init-multi-user": "node scripts/init-multi-user.js",
+    "init-admin": "node scripts/init-admin-user.js",
+    "security-check": "node -e \"console.log('🔒 Verificando configurações de segurança...'); const config = require('./src/config/securityConfig'); const validation = config.validateSecurityConfig(); console.log('✅ Configuração válida:', validation.isValid); if (validation.errors.length > 0) console.log('❌ Erros:', validation.errors); if (validation.warnings.length > 0) console.log('⚠️ Avisos:', validation.warnings);\"",
     "security-check": "echo '🔍 Verificando configurações de segurança...' && echo '✅ Sistema de segurança implementado com sucesso!' && echo '📋 Verifique o arquivo SECURITY_IMPROVEMENTS.md para detalhes'"
   },
   "eslintConfig": {

@@ -19,15 +19,26 @@ try {
   }
 
   console.log('📦 Instalando dependências...');
-  execSync('npm install --legacy-peer-deps --no-optional', { stdio: 'inherit' });
+  execSync('npm install --legacy-peer-deps --no-optional --force', { stdio: 'inherit' });
 
   // 2. Configurar variáveis de ambiente para build
   process.env.CI = 'false';
   process.env.GENERATE_SOURCEMAP = 'false';
   process.env.SKIP_PREFLIGHT_CHECK = 'true';
   process.env.NODE_ENV = 'production';
+  process.env.NODE_OPTIONS = '--max-old-space-size=4096';
 
-  // 3. Executar build
+  // 3. Verificar se html2canvas está instalado
+  console.log('🔍 Verificando dependências críticas...');
+  try {
+    require.resolve('html2canvas');
+    console.log('✅ html2canvas encontrado');
+  } catch (error) {
+    console.log('⚠️ html2canvas não encontrado, instalando...');
+    execSync('npm install html2canvas@^1.4.1 --legacy-peer-deps', { stdio: 'inherit' });
+  }
+
+  // 4. Executar build
   console.log('🔨 Executando build...');
   execSync('npm run build', { stdio: 'inherit' });
 

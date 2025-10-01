@@ -1,4 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 import { usuarioService, logService } from '../services/firebaseService';
 import { Usuario, LoginCredentials, AuthContextType } from '../types';
 import { 
@@ -9,7 +18,10 @@ import {
   clearSecureUserData, 
   isUserAuthenticated,
   sanitizeInput,
-  validatePasswordStrength
+  validatePasswordStrength,
+  trackUserSession,
+  validateConcurrentSessions,
+  checkUserRateLimit
 } from '../utils/securityUtils';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +57,7 @@ const LOCAL_USERS: Array<{
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
 
   useEffect(() => {
     // Verificar se há usuário válido usando o sistema seguro
@@ -218,9 +231,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Erro ao fazer logout:', error);
     } finally {
       setUser(null);
+      setFirebaseUser(null);
       // Limpar dados seguros
       clearSecureUserData();
       console.log('✅ Logout realizado com segurança');
+    }
+  };
+
+  // Função para criar novo usuário
+  const createUser = async (userData: {
+    email: string;
+    password: string;
+    nome: string;
+    tipo: 'admin' | 'usuario';
+  }): Promise<boolean> => {
+    try {
+      setLoading(true);
+      
+      // Verificar se usuário já existe
+      const existingUser = await usuarioService.getByLogin(userData.email);
+      if (existingUser) {
+        console.warn('❌ Usuário já existe');
+        return false;
+      }
+      
+      // Criar usuário no Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+      const firebaseUser = userCredential.user;
+      
+      // Salvar dados adicionais no Firestore
+      await setDoc(doc(db, 'usuarios', firebaseUser.uid), {
+        nome: userData.nome,
+        tipo: userData.tipo,
+        ativo: true,
+        criadoEm: new Date(),
+        criadoPor: user?.id || 'system'
+      });
+      
+      console.log('✅ Usuário criado com sucesso:', userData.nome);
+      return true;
+    } catch (error: any) {
+      console.error('Erro ao criar usuário:', error);
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -235,7 +289,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     clearAuthData,
-    loading
+    loading,
+    createUser,
+    firebaseUser
   };
 
   return (
