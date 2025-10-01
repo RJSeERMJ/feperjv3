@@ -1,13 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Configuração temporária para resolver o erro de signature verification
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://kamgocrdbdwjryvcavuo.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthbWdvY3JkYmR3anJ5dmNhdnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzQ4MDAsImV4cCI6MjA1MDU1MDgwMH0.placeholder';
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
 
-// Verificar se a chave está válida
-if (supabaseAnonKey.includes('placeholder')) {
-  console.warn('⚠️ Chave do Supabase inválida detectada!');
-  console.warn('📝 Configure REACT_APP_SUPABASE_ANON_KEY no arquivo .env');
+if (!supabaseAnonKey) {
+  console.warn('⚠️ REACT_APP_SUPABASE_ANON_KEY não configurada!');
+  console.warn('Configure REACT_APP_SUPABASE_ANON_KEY no arquivo .env');
+  console.warn('URL do Supabase:', supabaseUrl);
+}
+
+if (!supabaseUrl) {
+  console.error('❌ REACT_APP_SUPABASE_URL não configurada!');
+  console.error('Configure REACT_APP_SUPABASE_URL no arquivo .env');
+  throw new Error('Supabase URL não configurada');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -50,63 +55,238 @@ export const MODELO_CARTEIRINHA_CONFIG = {
   ALLOWED_MIME_TYPES: ['application/pdf']
 };
 
+// Função para validar extensão do arquivo financeiro
+export const validateContabilFileExtension = (fileName: string): boolean => {
+  const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+  return CONTABIL_CONFIG.ALLOWED_EXTENSIONS.includes(extension);
+};
+
+// Função para validar extensão do arquivo de atletas
+export const validateFileExtension = (fileName: string, documentType: keyof typeof STORAGE_CONFIG.ALLOWED_EXTENSIONS): boolean => {
+  const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+  return STORAGE_CONFIG.ALLOWED_EXTENSIONS[documentType].includes(extension);
+};
+
+// Função para validar tamanho do arquivo financeiro
+export const validateContabilFileSize = (fileSize: number): boolean => {
+  return fileSize <= CONTABIL_CONFIG.MAX_FILE_SIZE;
+};
+
+// Função para validar tamanho do arquivo de atletas
+export const validateFileSize = (fileSize: number): boolean => {
+  return fileSize <= STORAGE_CONFIG.MAX_FILE_SIZE;
+};
+
 // Função para testar conectividade com Supabase
-export const testSupabaseConnection = async (): Promise<boolean> => {
+export const testSupabaseConnection = async () => {
   try {
-    console.log('🔍 Testando conexão com Supabase...');
+    console.log('🧪 Testando conectividade com Supabase...');
+    console.log('📡 URL:', supabaseUrl);
+    console.log('🔑 Chave configurada:', supabaseAnonKey ? 'Sim' : 'Não');
     
-    // Tentar listar buckets para testar a conexão
-    const { data, error } = await supabase.storage.listBuckets();
+    // Testar acesso direto ao bucket financeiro (sem listar buckets que precisa de service_role)
+    console.log('🔍 Testando acesso ao bucket financeiro...');
     
-    if (error) {
-      console.error('❌ Erro na conexão com Supabase:', error);
-      return false;
+    try {
+      // Tentar listar arquivos da pasta documentos para verificar acesso
+      const { error: listError } = await supabase.storage
+        .from(CONTABIL_CONFIG.BUCKET_NAME)
+        .list('documentos', { limit: 1 });
+      
+      if (listError) {
+        console.warn('⚠️ Erro ao acessar bucket financeiro:', listError);
+        
+        // Se o erro for de permissão ou bucket não encontrado
+        if (listError.message.includes('not found') || listError.message.includes('permission')) {
+          return {
+            success: false,
+            error: `Bucket "${CONTABIL_CONFIG.BUCKET_NAME}" não acessível. Verifique se existe e se as políticas SQL foram aplicadas.`,
+            financeiroAccess: false
+          };
+        }
+        
+        return {
+          success: false,
+          error: `Erro ao acessar bucket: ${listError.message}`,
+          financeiroAccess: false
+        };
+      } else {
+        console.log('✅ Acesso ao bucket financeiro confirmado');
+        return {
+          success: true,
+          message: 'Conectividade OK! Bucket financeiro acessível.',
+          financeiroAccess: true
+        };
+      }
+    } catch (accessError) {
+      console.error('❌ Erro ao testar acesso ao bucket financeiro:', accessError);
+      return {
+        success: false,
+        error: `Erro de conectividade: ${accessError instanceof Error ? accessError.message : 'Erro desconhecido'}`,
+        financeiroAccess: false
+      };
     }
-    
-    console.log('✅ Conexão com Supabase estabelecida com sucesso!');
-    console.log('📦 Buckets disponíveis:', data?.map(b => b.name));
-    return true;
   } catch (error) {
-    console.error('❌ Erro ao testar conexão com Supabase:', error);
-    return false;
+    console.error('❌ Erro no teste de conectividade:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+      financeiroAccess: false
+    };
   }
 };
 
-// Função para diagnosticar problemas de upload
-export const diagnoseUploadIssue = async (bucketName: string): Promise<void> => {
+// Função para autenticar no Supabase (necessário para acessar buckets)
+export const authenticateSupabase = async () => {
   try {
-    console.log(`🔍 Diagnosticando bucket: ${bucketName}`);
+    console.log('🔐 Autenticando no Supabase...');
     
-    // Verificar se o bucket existe
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    // Verificar se já está autenticado
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (bucketsError) {
-      console.error('❌ Erro ao listar buckets:', bucketsError);
-      return;
+    if (userError) {
+      console.warn('⚠️ Erro ao verificar usuário:', userError);
     }
     
-    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
-    
-    if (!bucketExists) {
-      console.error(`❌ Bucket '${bucketName}' não encontrado!`);
-      console.log('📦 Buckets disponíveis:', buckets?.map(b => b.name));
-      return;
+    if (user) {
+      console.log('✅ Usuário já autenticado no Supabase');
+      return true;
     }
     
-    console.log(`✅ Bucket '${bucketName}' encontrado!`);
+    // Se não estiver autenticado, fazer login anônimo
+    console.log('🔐 Fazendo login anônimo no Supabase...');
+    const { error } = await supabase.auth.signInAnonymously();
     
-    // Tentar listar arquivos no bucket
-    const { data: files, error: filesError } = await supabase.storage
-      .from(bucketName)
-      .list('', { limit: 1 });
-    
-    if (filesError) {
-      console.error(`❌ Erro ao acessar bucket '${bucketName}':`, filesError);
-    } else {
-      console.log(`✅ Acesso ao bucket '${bucketName}' funcionando!`);
+    if (error) {
+      console.error('❌ Erro no login anônimo:', error);
+      throw new Error(`Erro de autenticação: ${error.message}`);
     }
+    
+    console.log('✅ Autenticação anônima realizada com sucesso');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro na autenticação:', error);
+    throw error;
+  }
+};
+
+// Função para verificar e criar bucket se necessário
+export const ensureBucketCreated = async () => {
+  try {
+    console.log('🔍 Verificando se o bucket financeiro existe...');
+    
+    // Autenticar primeiro
+    await authenticateSupabase();
+    
+    // Listar buckets
+    const { data: buckets, error } = await supabase.storage.listBuckets();
+    
+    if (error) {
+      console.error('❌ Erro ao listar buckets:', error);
+      throw new Error(`Erro ao listar buckets: ${error.message}`);
+    }
+    
+    console.log('📋 Buckets encontrados:', buckets?.map(b => b.name));
+    
+    const bucketExists = buckets?.some(bucket => bucket.name === CONTABIL_CONFIG.BUCKET_NAME);
+    
+    if (bucketExists) {
+      console.log('✅ Bucket "financeiro" já existe');
+      return true;
+    }
+    
+    console.log('⚠️ Bucket "financeiro" não encontrado. Criando...');
+    
+    // Tentar criar o bucket
+    const { error: createError } = await supabase.storage.createBucket(CONTABIL_CONFIG.BUCKET_NAME, {
+      public: false,
+      allowedMimeTypes: CONTABIL_CONFIG.ALLOWED_MIME_TYPES,
+      fileSizeLimit: CONTABIL_CONFIG.MAX_FILE_SIZE
+    });
+    
+    if (createError) {
+      console.error('❌ Erro ao criar bucket:', createError);
+      throw new Error(`Erro ao criar bucket: ${createError.message}`);
+    }
+    
+    console.log('✅ Bucket "financeiro" criado com sucesso');
+    return true;
     
   } catch (error) {
-    console.error('❌ Erro no diagnóstico:', error);
+    console.error('❌ Erro ao verificar/criar bucket:', error);
+    throw error;
+  }
+};
+
+// Função para diagnóstico detalhado do Supabase
+export const diagnoseSupabaseIssues = async () => {
+  const diagnosis = {
+    connection: false,
+    authentication: false,
+    bucketExists: false,
+    bucketAccess: false,
+    policies: false,
+    errors: [] as string[]
+  };
+
+  try {
+    console.log('🔍 Iniciando diagnóstico detalhado do Supabase...');
+    
+    // 1. Testar conexão básica
+    try {
+      const { error } = await supabase.storage.listBuckets();
+      if (error) {
+        diagnosis.errors.push(`Erro de conexão: ${error.message}`);
+      } else {
+        diagnosis.connection = true;
+        console.log('✅ Conexão básica OK');
+      }
+    } catch (error) {
+      diagnosis.errors.push(`Erro de conexão: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+
+    // 2. Testar autenticação
+    try {
+      await authenticateSupabase();
+      diagnosis.authentication = true;
+      console.log('✅ Autenticação: Usuário autenticado no Supabase');
+    } catch (error) {
+      diagnosis.errors.push(`Erro de autenticação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+
+    // 3. Verificar se o bucket existe
+    try {
+      const { data: buckets, error } = await supabase.storage.listBuckets();
+      if (!error && buckets) {
+        const bucketExists = buckets.some(bucket => bucket.name === CONTABIL_CONFIG.BUCKET_NAME);
+        diagnosis.bucketExists = bucketExists;
+        console.log(`✅ Bucket "${CONTABIL_CONFIG.BUCKET_NAME}" existe:`, bucketExists);
+      }
+    } catch (error) {
+      diagnosis.errors.push(`Erro ao verificar bucket: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+
+    // 4. Testar acesso ao bucket
+    if (diagnosis.bucketExists) {
+      try {
+        const { error } = await supabase.storage
+          .from(CONTABIL_CONFIG.BUCKET_NAME)
+          .list(CONTABIL_CONFIG.FOLDER_NAME, { limit: 1 });
+        
+        if (!error) {
+          diagnosis.bucketAccess = true;
+          console.log('✅ Acesso ao bucket confirmado');
+        } else {
+          diagnosis.errors.push(`Erro de acesso ao bucket: ${error.message}`);
+        }
+      } catch (error) {
+        diagnosis.errors.push(`Erro ao testar acesso: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      }
+    }
+
+    return diagnosis;
+  } catch (error) {
+    diagnosis.errors.push(`Erro geral: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    return diagnosis;
   }
 };
