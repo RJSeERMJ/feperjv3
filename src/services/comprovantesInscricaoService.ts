@@ -680,5 +680,29 @@ export const comprovantesInscricaoService = {
       console.error('❌ Erro ao rejeitar comprovante de inscrição:', error);
       throw error;
     }
+  },
+
+  async limparComprovante(comprovante: ComprovanteInscricao, adminNome: string): Promise<void> {
+    try {
+      console.log(`🧹 Limpando comprovante de inscrição da equipe ${comprovante.nomeEquipe} para ${comprovante.nomeCompeticao}`);
+      
+      // Atualizar o status do comprovante para PENDENTE
+      comprovante.status = 'PENDENTE';
+      comprovante.dataAprovacao = undefined;
+      comprovante.rejeitadoPor = undefined;
+      comprovante.dataRejeicao = undefined;
+      comprovante.observacoes = undefined;
+      
+      // Log da ação de limpeza
+      console.log(`📝 Comprovante limpo por ${adminNome} - Equipe: ${comprovante.equipeId}, Competição: ${comprovante.competicaoId}`);
+      
+      console.log(`✅ Comprovante de inscrição limpo com sucesso por ${adminNome}:`, comprovante.nome);
+      console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.equipeId})`);
+      console.log(`🏁 Competição: ${comprovante.nomeCompeticao} (${comprovante.competicaoId})`);
+      console.log('✅ Status do comprovante e equipe atualizados para PENDENTE');
+    } catch (error) {
+      console.error('❌ Erro ao limpar comprovante de inscrição:', error);
+      throw error;
+    }
   }
 };

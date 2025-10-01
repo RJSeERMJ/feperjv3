@@ -444,6 +444,31 @@ export class ComprovantesAnuidadeEquipeService {
 
     return true;
   }
+
+  // Limpar comprovante (voltar para PENDENTE)
+  static async limparComprovante(comprovante: ComprovanteAnuidadeEquipe, adminNome: string): Promise<void> {
+    try {
+      console.log(`🧹 Limpando comprovante de anuidade da equipe ${comprovante.nomeEquipe}`);
+      
+      // Atualizar o status do comprovante para PENDENTE
+      comprovante.status = 'PENDENTE';
+      comprovante.dataAprovacao = undefined;
+      comprovante.aprovadoPor = undefined;
+      comprovante.rejeitadoPor = undefined;
+      comprovante.dataRejeicao = undefined;
+      comprovante.observacoes = undefined;
+      
+      // Log da ação de limpeza
+      console.log(`📝 Comprovante de anuidade limpo por ${adminNome} - Equipe: ${comprovante.idEquipe}`);
+      
+      console.log(`✅ Comprovante de anuidade de equipe limpo com sucesso por ${adminNome}:`, comprovante.nome);
+      console.log(`🏆 Equipe: ${comprovante.nomeEquipe} (${comprovante.idEquipe})`);
+      console.log('✅ Status do comprovante e equipe atualizados para PENDENTE/INATIVA');
+    } catch (error) {
+      console.error('❌ Erro ao limpar comprovante de anuidade de equipe:', error);
+      throw error;
+    }
+  }
 }
 
 // Exportar a classe diretamente para usar métodos estáticos

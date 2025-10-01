@@ -636,6 +636,29 @@ const FinanceiroPage: React.FC = () => {
     setSelectedCompeticao(null);
   };
 
+  const handleLimparComprovanteInscricao = async (comprovante: ComprovanteInscricao) => {
+    if (!window.confirm(`Tem certeza que deseja LIMPAR o comprovante "${comprovante.nome}" da competição ${comprovante.nomeCompeticao}?\n\n⚠️ Esta ação irá:\n• Voltar o status para PENDENTE\n• Apagar todas as informações de pagamento\n• Remover o registro de pagamento`)) {
+      return;
+    }
+
+    try {
+      console.log('🧹 Iniciando limpeza do comprovante de inscrição...');
+      await comprovantesInscricaoService.limparComprovante(
+        comprovante,
+        user!.nome
+      );
+      
+      // Recarregar dados
+      await loadData();
+      
+      toast.success(`Comprovante de inscrição de ${comprovante.nomeCompeticao} limpo com sucesso!`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao limpar comprovante de inscrição:', error);
+      toast.error(`Erro ao limpar comprovante: ${errorMessage}`);
+    }
+  };
+
   const abrirModalInscricao = (competicao: Competicao) => {
     setSelectedCompeticao(competicao);
     setShowInscricaoModal(true);
@@ -791,6 +814,29 @@ const FinanceiroPage: React.FC = () => {
     setValorPagamentoEquipe('');
     setObservacoesComprovanteEquipe('');
     setSelectedEquipe(null);
+  };
+
+  const handleLimparComprovanteEquipe = async (comprovante: ComprovanteAnuidadeEquipe) => {
+    if (!window.confirm(`Tem certeza que deseja LIMPAR o comprovante "${comprovante.nome}" da equipe ${comprovante.nomeEquipe}?\n\n⚠️ Esta ação irá:\n• Voltar o status para PENDENTE\n• Apagar todas as informações de pagamento\n• Alterar o status da equipe para INATIVA\n• Remover o registro de pagamento`)) {
+      return;
+    }
+
+    try {
+      console.log('🧹 Iniciando limpeza do comprovante de anuidade de equipe...');
+      await comprovantesAnuidadeEquipeService.limparComprovante(
+        comprovante,
+        user!.nome
+      );
+      
+      // Recarregar dados
+      await loadData();
+      
+      toast.success(`Comprovante de anuidade da equipe ${comprovante.nomeEquipe} limpo com sucesso!`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('❌ Erro ao limpar comprovante de anuidade de equipe:', error);
+      toast.error(`Erro ao limpar comprovante: ${errorMessage}`);
+    }
   };
 
   const abrirModalComprovanteEquipe = (equipe: Equipe) => {
@@ -2616,6 +2662,17 @@ const FinanceiroPage: React.FC = () => {
                                   >
                                     <FaTimesCircle />
                                   </Button>
+                                  
+                                  {user?.tipo === 'admin' && (comprovante.status === 'APROVADO' || comprovante.status === 'REJEITADO') && (
+                                    <Button
+                                      variant="outline-warning"
+                                      size="sm"
+                                      onClick={() => handleLimparComprovanteInscricao(comprovante)}
+                                      title="Limpar comprovante (voltar para PENDENTE)"
+                                    >
+                                      <FaBroom />
+                                    </Button>
+                                  )}
                                 </div>
                           </td>
                         </tr>
@@ -3042,6 +3099,17 @@ const FinanceiroPage: React.FC = () => {
                                   >
                                     <FaTimesCircle />
                                   </Button>
+                                  
+                                  {user?.tipo === 'admin' && (comprovante.status === 'APROVADO' || comprovante.status === 'REJEITADO') && (
+                                    <Button
+                                      variant="outline-warning"
+                                      size="sm"
+                                      onClick={() => handleLimparComprovanteEquipe(comprovante)}
+                                      title="Limpar comprovante (voltar para PENDENTE)"
+                                    >
+                                      <FaBroom />
+                                    </Button>
+                                  )}
                                   </div>
                                 </div>
                               </td>
