@@ -48,6 +48,15 @@ try {
     console.log('⚠️ canvg não encontrado, instalando...');
     execSync('npm install canvg@^4.0.1 --legacy-peer-deps', { stdio: 'inherit' });
   }
+  
+  // Verificar dompurify
+  try {
+    require.resolve('dompurify');
+    console.log('✅ dompurify encontrado');
+  } catch (error) {
+    console.log('⚠️ dompurify não encontrado, instalando...');
+    execSync('npm install dompurify@^3.0.8 --legacy-peer-deps', { stdio: 'inherit' });
+  }
 
   // 4. Executar build
   console.log('🔨 Executando build...');
