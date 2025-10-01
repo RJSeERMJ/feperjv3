@@ -29,17 +29,17 @@ const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
   console.warn('⚠️ Variáveis de ambiente do Firebase não configuradas:', missingEnvVars);
-  console.warn('📝 Configure as variáveis no arquivo .env para maior segurança');
+  console.warn('📝 Usando configurações padrão para desenvolvimento');
 }
 
 // Verificar se as configurações estão corretas
-const isConfigValid = firebaseConfig.apiKey !== "sua-api-key-aqui";
+const isConfigValid = firebaseConfig.apiKey && firebaseConfig.apiKey !== "sua-api-key-aqui";
 
-if (!isConfigValid) {
+if (isConfigValid) {
   console.log('✅ Configurações do Firebase carregadas com sucesso!');
 } else {
   console.warn('⚠️ Configurações do Firebase não estão definidas!');
-  console.warn('📝 Configure as variáveis de ambiente ou atualize o arquivo src/config/firebase.ts');
+  console.warn('📝 Usando configurações padrão para desenvolvimento');
 }
 
 const app = initializeApp(firebaseConfig);
