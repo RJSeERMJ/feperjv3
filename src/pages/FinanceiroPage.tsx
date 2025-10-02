@@ -291,35 +291,37 @@ const FinanceiroPage: React.FC = () => {
 
   const calcularValorTotalAnuidades = () => {
     if (!anuidade) return 0;
-    // Filtrar apenas atletas ativos
-    const atletasAtivos = atletas.filter(atleta => atleta.status === 'ATIVO');
-    return atletasAtivos.length * anuidade.valor;
+    // Anuidade Total = Quantidade de Atletas * Valor da Anuidade
+    return atletas.length * anuidade.valor;
   };
 
   const calcularValorPagoAnuidades = () => {
+    // Anuidade Paga = Σ(Pagamentos com status 'PAGO')
     return pagamentosAnuidade
       .filter(pag => pag.status === 'PAGO')
       .reduce((total, pag) => total + pag.valor, 0);
   };
 
   const calcularValorPendenteAnuidades = () => {
+    // Anuidade Pendente = Anuidade Total - Anuidade Paga
     return calcularValorTotalAnuidades() - calcularValorPagoAnuidades();
   };
 
   const calcularValorTotalAnuidadesEquipe = () => {
     if (!anuidadeEquipe) return 0;
-    // Filtrar apenas equipes ativas
-    const equipesAtivas = equipes.filter(equipe => equipe.status === 'ATIVA');
-    return equipesAtivas.length * anuidadeEquipe.valor;
+    // Anuidade Total = Quantidade de Equipes * Valor da Anuidade
+    return equipes.length * anuidadeEquipe.valor;
   };
 
   const calcularValorPagoAnuidadesEquipe = () => {
+    // Anuidade Paga = Σ(Anuidades Aprovadas)
     return comprovantesAnuidadeEquipe
       .filter(comp => comp.status === 'APROVADO')
       .reduce((total, comp) => total + comp.valor, 0);
   };
 
   const calcularValorPendenteAnuidadesEquipe = () => {
+    // Anuidade Pendente = Anuidade Total - Anuidade Paga
     return calcularValorTotalAnuidadesEquipe() - calcularValorPagoAnuidadesEquipe();
   };
 
@@ -1138,7 +1140,7 @@ const FinanceiroPage: React.FC = () => {
                 <Card.Body>
                   <FaCheckCircle className="text-success mb-2" size={24} />
                   <h3>R$ {calcularValorPagoAnuidades().toFixed(2)}</h3>
-                  <p className="text-muted">Anuidades Atletas Pagas</p>
+                  <p className="text-muted">Anuidades dos Atletas</p>
                 </Card.Body>
               </Card>
             </Col>
@@ -1159,7 +1161,7 @@ const FinanceiroPage: React.FC = () => {
                 <Card.Body>
                   <FaUsers className="text-info mb-2" size={24} />
                   <h3>R$ {calcularValorTotalAnuidadesEquipe().toFixed(2)}</h3>
-                  <p className="text-muted">Total Anuidades Equipe</p>
+                  <p className="text-muted">Anuidades Equipe</p>
                 </Card.Body>
               </Card>
             </Col>
