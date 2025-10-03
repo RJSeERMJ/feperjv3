@@ -1,0 +1,98 @@
+/* Estilos para o formato CBLB de resultados - Layout idêntico ao original */
+
+.titcoluna {
+  background-color: #e0dbcb;
+  color: black;
+  font-family: "Tahoma";
+  font-size: 14px;
+  font-weight: normal;
+  text-align: center;
+}
+
+.titcategoria {
+  background-color: #e0dbcb;
+  color: black;
+  font-family: "Tahoma";
+  font-size: 14px;
+  font-weight: bold;
+  text-align: left;
+}
+
+.titatleta {
+  background-color: white;
+  color: black;
+  font-family: "Tahoma";
+  font-size: 14px;
+}
+
+.chamada {
+  background-color: white;
+  color: #00008B;
+  font-family: "Tahoma";
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.titcamp {
+  font-family: tahoma;
+  font-weight: bold;
+  font-size: 22px;
+  color: #0B610B;
+  text-shadow: 0 2px 3px #999;
+  padding: 10pt 0pt 0pt 20pt;
+}
+
+.titfem {
+  font-family: tahoma;
+  font-weight: bold;
+  font-size: 22px;
+  padding: 10pt;
+  color: #FA58F4;
+  text-shadow: 0 2px 3px #999;
+}
+
+.titmas {
+  font-family: tahoma;
+  font-weight: bold;
+  font-size: 22px;
+  padding: 10pt;
+  color: #0000FF;
+  text-shadow: 0 2px 3px #999;
+}
+
+a:hover {
+  background-color: #FFFF99;
+  color: #B40404;
+}
+
+table, td, th {
+  border: 1px solid;
+  border-color: #808080;
+  padding: 1px;
+}
+
+.lift {
+  text-align: center;
+  background-color: #d9f5bc;
+}
+
+.nolift {
+  text-align: center;
+  text-decoration: line-through;
+  background-color: #fad9da;
+}
+
+.zerou {
+  text-align: center;
+  background-color: #fad9da;
+}
+
+.posicao {
+  text-align: center;
+}
+
+@media print {
+  @page {
+    size: landscape;
+  }
+}

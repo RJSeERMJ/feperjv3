@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import '../styles/cblb-results.css';
 import { 
   Row, 
   Col, 
@@ -11,7 +12,6 @@ import {
   Alert,
   Spinner,
   Badge,
-  Dropdown,
   Tabs,
   Tab,
   Nav
@@ -31,17 +31,17 @@ import {
   FaChartBar,
   FaDownload,
   FaTrophy,
-  FaCog,
-  FaInfoCircle
+  FaCog
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { competicaoService, inscricaoService, atletaService, equipeService, logService, tipoCompeticaoService } from '../services/firebaseService';
+import { competicaoService, inscricaoService, atletaService, logService, tipoCompeticaoService } from '../services/firebaseService';
 import { resultadoImportadoService, ResultadoImportado } from '../services/resultadoImportadoService';
-import { Competicao, InscricaoCompeticao, Atleta, Equipe } from '../types';
+import { Competicao, InscricaoCompeticao, Atleta } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import CSVImportModal from '../components/CSVImportModal';
 import RecordsDisplay from '../components/RecordsDisplay';
+import CBLBResultsDisplay from '../components/CBLBResultsDisplay';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminPermission } from '../hooks/useAdminPermission';
 import { formatarData } from '../utils/dateUtils';
@@ -437,7 +437,6 @@ const EditarInscricaoForm: React.FC<{
 const CompeticoesPage: React.FC = () => {
   const [competicoes, setCompeticoes] = useState<Competicao[]>([]);
   const [atletas, setAtletas] = useState<Atleta[]>([]);
-  const [equipes, setEquipes] = useState<Equipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -466,6 +465,8 @@ const CompeticoesPage: React.FC = () => {
   const [resultadosImportados, setResultadosImportados] = useState<ResultadoImportado[]>([]);
   const [loadingResultados, setLoadingResultados] = useState(false);
   const [showCSVImportModal, setShowCSVImportModal] = useState(false);
+  const [showCBLBModal, setShowCBLBModal] = useState(false);
+  const [cblbResultado, setCblbResultado] = useState<ResultadoImportado | null>(null);
 
   const [inscricaoFormData, setInscricaoFormData] = useState({
     observacoes: '',
@@ -491,9 +492,6 @@ const CompeticoesPage: React.FC = () => {
   const { user } = useAuth();
   const { isAdmin } = useAdminPermission();
 
-  useEffect(() => {
-    loadData();
-  }, []);
 
   // Atualizar datas de nominata quando data da competição mudar
   useEffect(() => {
@@ -516,7 +514,7 @@ const CompeticoesPage: React.FC = () => {
     }
   }, [formData.dataCompeticao]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -534,34 +532,25 @@ const CompeticoesPage: React.FC = () => {
       // Se for admin, carrega todos os dados
       // Se for usuário comum, carrega apenas dados da sua equipe
       let atletasData: Atleta[];
-      let equipesData: Equipe[];
       
       if (user?.tipo === 'admin') {
-        [atletasData, equipesData] = await Promise.all([
-          atletaService.getAll(),
-          equipeService.getAll()
-        ]);
+        atletasData = await atletaService.getAll();
       } else {
         // Usuário comum - só pode ver atletas da sua equipe
         if (!user?.idEquipe) {
           toast.error('Usuário não está vinculado a uma equipe');
           setAtletas([]);
-          setEquipes([]);
           setCompeticoes([]);
           return;
         }
         
         const atletasDaEquipe = await atletaService.getAll();
         atletasData = atletasDaEquipe.filter(atleta => atleta.idEquipe === user.idEquipe);
-        
-        const equipeDoUsuario = await equipeService.getById(user.idEquipe);
-        equipesData = equipeDoUsuario ? [equipeDoUsuario] : [];
       }
       
       const competicoesData = await competicaoService.getAll();
       
       setAtletas(atletasData);
-      setEquipes(equipesData);
       setCompeticoes(competicoesData);
       
       // Carregar resultados importados do Firebase
@@ -572,7 +561,11 @@ const CompeticoesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.idEquipe, user?.tipo]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -826,7 +819,6 @@ const CompeticoesPage: React.FC = () => {
     try {
              const inscricoesParaCriar = atletasSelecionados.map(atletaId => {
          const categorizacao = categorizacaoAtletas.get(atletaId);
-         const atleta = atletas.find(a => a.id === atletaId);
          
          // Calcular valor individual (inscrição + dobra se aplicável)
          const valorBase = selectedCompeticao!.valorInscricao;
@@ -915,58 +907,6 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
-  const handleExportCSV = () => {
-    try {
-      // Verificar se é admin
-      if (user?.tipo !== 'admin') {
-        toast.error('Apenas administradores podem exportar dados');
-        return;
-      }
-
-      // Preparar dados para CSV
-      const csvContent = [
-        ['Nome', 'Data', 'Local', 'Valor Inscrição', 'Valor Dobra', 'Status', 'Início Inscrições', 'Fim Inscrições', 'Descrição'],
-        ...competicoes.map(competicao => [
-          competicao.nomeCompeticao,
-          formatarData(competicao.dataCompeticao),
-          competicao.local || '',
-          `R$ ${competicao.valorInscricao.toFixed(2)}`,
-          competicao.valorDobra ? `R$ ${competicao.valorDobra.toFixed(2)}` : '',
-          competicao.status,
-          formatarData(competicao.dataInicioInscricao),
-          formatarData(competicao.dataFimInscricao),
-          competicao.descricao || ''
-        ])
-      ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
-
-      // Criar e baixar arquivo
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `competicoes_export_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Registrar log
-      logService.create({
-        dataHora: new Date(),
-        usuario: user?.nome || 'Sistema',
-        acao: 'Exportou lista de competições',
-        detalhes: `Exportou ${competicoes.length} competições em CSV`,
-        tipoUsuario: user?.tipo || 'usuario'
-      }).catch(error => {
-        console.warn('Erro ao registrar log de exportação:', error);
-      });
-      
-      toast.success(`Lista de ${competicoes.length} competições exportada com sucesso!`);
-    } catch (error) {
-      toast.error('Erro ao exportar dados');
-      console.error(error);
-    }
-  };
 
   const handleEditarInscricao = (inscricao: InscricaoCompeticao) => {
     setInscricaoEmEdicao(inscricao);
@@ -1319,6 +1259,12 @@ const CompeticoesPage: React.FC = () => {
     }
   };
 
+  // Função para ver resultados no formato CBLB
+  const handleVerResultadosCBLB = (resultado: ResultadoImportado) => {
+    setCblbResultado(resultado);
+    setShowCBLBModal(true);
+  };
+
   // Função para exportar resultado para PDF
   const handleExportarResultadoPDF = async (resultado: ResultadoImportado) => {
     try {
@@ -1472,10 +1418,10 @@ const CompeticoesPage: React.FC = () => {
 
   const filteredCompeticoes = competicoes.filter(competicao =>
     competicao && competicao.nomeCompeticao && 
-    competicao.nomeCompeticao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (competicao.nomeCompeticao.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (competicao.local && competicao.local.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (competicao.status && competicao.status.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (competicao.tipoCompeticao && competicao.tipoCompeticao.toLowerCase().includes(searchTerm.toLowerCase()))
+    (competicao.tipoCompeticao && competicao.tipoCompeticao.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   const getStatusBadge = (status: string) => {
@@ -1780,6 +1726,16 @@ const CompeticoesPage: React.FC = () => {
                                >
                                  <FaFileExport className="me-1" />
                                  PDF
+                               </Button>
+                               <Button
+                                 variant="outline-info"
+                                 size="sm"
+                                 onClick={() => handleVerResultadosCBLB(resultado)}
+                                 title="Ver resultados no formato CBLB"
+                                 disabled={!resultado.results}
+                               >
+                                 <FaTrophy className="me-1" />
+                                 CBLB
                                </Button>
                                {isAdmin && (
                                  <Button
@@ -3247,6 +3203,26 @@ const CompeticoesPage: React.FC = () => {
              disabled={editandoTipos.length === 0}
            >
              Salvar Alterações
+           </Button>
+         </Modal.Footer>
+       </Modal>
+
+       {/* Modal de Resultados CBLB */}
+       <Modal show={showCBLBModal} onHide={() => setShowCBLBModal(false)} size="xl" fullscreen>
+         <Modal.Header closeButton>
+           <Modal.Title>
+             <FaTrophy className="me-2" />
+             Resultados no Formato CBLB - {cblbResultado?.competitionName}
+           </Modal.Title>
+         </Modal.Header>
+         <Modal.Body style={{ padding: 0, backgroundColor: 'white' }}>
+           {cblbResultado && (
+             <CBLBResultsDisplay resultado={cblbResultado} />
+           )}
+         </Modal.Body>
+         <Modal.Footer>
+           <Button variant="secondary" onClick={() => setShowCBLBModal(false)}>
+             Fechar
            </Button>
          </Modal.Footer>
        </Modal>
