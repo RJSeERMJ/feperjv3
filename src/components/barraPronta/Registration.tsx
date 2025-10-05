@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Container, 
   Row, 
@@ -37,14 +37,6 @@ const Registration: React.FC = () => {
     tipoAtleta: 'NORMAL' as 'NORMAL' | 'CONVIDADO'
   });
 
-  // Função para obter o nome da divisão de peso
-  const getWeightClassName = (weightClass: number, sex: 'M' | 'F') => {
-    if (sex === 'M') {
-      return meet.weightClassesKgMen.find(w => w === weightClass) ? `${weightClass}kg` : `${weightClass}kg`;
-    } else {
-      return meet.weightClassesKgWomen.find(w => w === weightClass) ? `${weightClass}kg` : `${weightClass}kg`;
-    }
-  };
 
   // Função para obter o nome do equipamento
   const getEquipmentName = (equipment: string) => {
@@ -163,6 +155,145 @@ const Registration: React.FC = () => {
     return `${weight} kg`;
   };
 
+  // Função para detectar atletas com múltiplas divisões E dobra de categoria FEPERJ
+  const detectMultipleDivisions = useMemo(() => {
+    const athleteDivisions = new Map<string, { 
+      name: string, 
+      divisions: string[], 
+      entries: Entry[], 
+      hasDobraCategoria: boolean,
+      dobraCategoriaInfo?: string,
+      hasValidDobra: boolean // Nova propriedade para validar dobra real
+    }>();
+    
+    // Agrupar atletas por CPF ou nome
+    registration.entries.forEach(entry => {
+      const key = entry.cpf || entry.name; // Usar CPF se disponível, senão nome
+      
+      if (!athleteDivisions.has(key)) {
+        athleteDivisions.set(key, {
+          name: entry.name,
+          divisions: [],
+          entries: [],
+          hasDobraCategoria: false,
+          hasValidDobra: false
+        });
+      }
+      
+      const athlete = athleteDivisions.get(key)!;
+      const division = entry.division || '';
+      if (!athlete.divisions.includes(division)) {
+        athlete.divisions.push(division);
+      }
+      athlete.entries.push(entry);
+      
+      // DETECÇÃO DE DOBRA DE CATEGORIA FEPERJ
+      // Verificar se tem dados de dobraCategoria nos notes (estrutura do banco FEPERJ)
+      if (entry.notes) {
+        // Procurar por padrões de dobraCategoria nos notes
+        if (entry.notes.includes('dobraCategoria') || 
+            entry.notes.includes('categoriaIdade') ||
+            entry.notes.includes('categoriaPeso') ||
+            entry.notes.includes('dobra')) {
+          athlete.hasDobraCategoria = true;
+          
+          // Tentar extrair informações específicas da dobra
+          const dobraMatch = entry.notes.match(/dobraCategoria[:\s]*([^,]+)/i);
+          if (dobraMatch) {
+            athlete.dobraCategoriaInfo = dobraMatch[1].trim();
+          }
+        }
+      }
+    });
+    
+    // CORREÇÃO: Validar dobra real - só considera dobrando se tem múltiplas categorias de idade
+    athleteDivisions.forEach(athlete => {
+      // Critério 1: Tem múltiplas divisões de idade (dobra tradicional)
+      if (athlete.divisions.length > 1) {
+        athlete.hasValidDobra = true;
+      }
+      
+      // Critério 2: Tem dobraCategoria com informação específica (não apenas "Dobra FEPERJ" genérica)
+      if (athlete.hasDobraCategoria && athlete.dobraCategoriaInfo && 
+          athlete.dobraCategoriaInfo.toLowerCase() !== 'dobra feperj' &&
+          athlete.dobraCategoriaInfo.trim() !== '') {
+        athlete.hasValidDobra = true;
+      }
+    });
+    
+    // Retornar apenas atletas que REALMENTE estão dobrando
+    return Array.from(athleteDivisions.entries())
+      .filter(([_, athlete]) => athlete.hasValidDobra)
+      .map(([key, athlete]) => ({
+        key,
+        name: athlete.name,
+        divisions: athlete.divisions,
+        entries: athlete.entries,
+        hasDobraCategoria: athlete.hasDobraCategoria,
+        dobraCategoriaInfo: athlete.dobraCategoriaInfo
+      }));
+  }, [registration.entries]);
+
+  // Função para verificar se um atleta está dobrando
+  const isAthleteDobra = (entry: Entry) => {
+    const athleteKey = entry.cpf || entry.name;
+    const athleteData = detectMultipleDivisions.find(athlete => athlete.key === athleteKey);
+    
+    // CORREÇÃO: Se está na lista detectMultipleDivisions, significa que passou pela validação hasValidDobra
+    // Então pode retornar true diretamente
+    return athleteData !== undefined;
+  };
+
+  // Função para obter a categoria de dobra de um atleta baseada nos dados FEPERJ
+  const getAthleteDobraCategory = (entry: Entry) => {
+    const athleteKey = entry.cpf || entry.name;
+    const athleteData = detectMultipleDivisions.find(athlete => athlete.key === athleteKey);
+    
+    // CORREÇÃO: Se está na lista detectMultipleDivisions, significa que passou pela validação hasValidDobra
+    if (athleteData) {
+      // PRIORIDADE 1: Se tem dobraCategoria com informação específica (não genérica)
+      if (athleteData.hasDobraCategoria && athleteData.dobraCategoriaInfo && 
+          athleteData.dobraCategoriaInfo.toLowerCase() !== 'dobra feperj') {
+        return athleteData.dobraCategoriaInfo;
+      }
+      
+      // PRIORIDADE 2: Se tem múltiplas divisões (dobra tradicional)
+      if (athleteData.divisions.length > 1) {
+        const currentDivision = entry.division || '';
+        const otherDivision = athleteData.divisions.find(div => div !== currentDivision);
+        return otherDivision || '';
+      }
+      
+      // PRIORIDADE 3: Se tem dobraCategoria mas não conseguiu extrair info específica válida
+      if (athleteData.hasDobraCategoria) {
+        return 'Dobra FEPERJ';
+      }
+    }
+    
+    return '';
+  };
+
+
+  // Verificar se a competição permite dobra (baseado nos dados salvos da competição)
+  const allowsDobra = useMemo(() => {
+    // Verificar se há configuração específica de dobra na competição
+    // Se há mais de uma divisão configurada, permite dobra
+    const hasMultipleDivisions = meet.divisions && meet.divisions.length > 1;
+    
+    // Verificar se há atletas dobrando (como indicador de que a competição permite)
+    const hasAthletesDobra = detectMultipleDivisions.length > 0;
+    
+    // Verificar se a competição foi carregada do sistema FEPERJ
+    // (indicado pela presença de atletas com CPF)
+    const hasFEPERJData = registration.entries.some(entry => entry.cpf);
+    
+    // Permitir dobra se:
+    // 1. Há múltiplas divisões configuradas OU
+    // 2. Há atletas dobrando OU  
+    // 3. A competição foi carregada do FEPERJ (que pode ter regras de dobra)
+    return hasMultipleDivisions || hasAthletesDobra || hasFEPERJData;
+  }, [meet.divisions, detectMultipleDivisions.length, registration.entries]);
+
   return (
     <Container fluid>
       <Row className="mb-4">
@@ -182,7 +313,7 @@ const Registration: React.FC = () => {
 
       {/* Estatísticas */}
       <Row className="mb-4">
-        <Col md={3}>
+        <Col md={2}>
           <Card className="text-center">
             <Card.Body>
               <h3 className="text-primary">{registration.entries.length}</h3>
@@ -190,7 +321,7 @@ const Registration: React.FC = () => {
             </Card.Body>
           </Card>
         </Col>
-        <Col md={3}>
+        <Col md={2}>
           <Card className="text-center">
             <Card.Body>
               <h3 className="text-success">{registration.entries.filter(e => e.sex === 'M').length}</h3>
@@ -198,7 +329,7 @@ const Registration: React.FC = () => {
             </Card.Body>
           </Card>
         </Col>
-        <Col md={3}>
+        <Col md={2}>
           <Card className="text-center">
             <Card.Body>
               <h3 className="text-info">{registration.entries.filter(e => e.sex === 'F').length}</h3>
@@ -206,11 +337,46 @@ const Registration: React.FC = () => {
             </Card.Body>
           </Card>
         </Col>
-        <Col md={3}>
+        <Col md={2}>
           <Card className="text-center">
             <Card.Body>
               <h3 className="text-warning">{new Set(registration.entries.map(e => e.team).filter(t => t)).size}</h3>
               <p className="mb-0">Equipes</p>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={2}>
+          <Card className="text-center">
+            <Card.Body>
+              <h3 className="text-warning">{detectMultipleDivisions.length}</h3>
+              <p className="mb-0">Dobrando</p>
+              {detectMultipleDivisions.length > 0 && (
+                <small className="text-muted">
+                  {detectMultipleDivisions.reduce((acc, athlete) => acc + athlete.divisions.length, 0)} total
+                </small>
+              )}
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={2}>
+          <Card className="text-center">
+            <Card.Body>
+              <h3 className={allowsDobra ? "text-warning" : "text-secondary"}>
+                {allowsDobra ? "Sim" : "Não"}
+              </h3>
+              <p className="mb-0">Permite Dobra</p>
+              {allowsDobra && (
+                <small className="text-warning">
+                  <strong>
+                    {(() => {
+                      if (meet.divisions && meet.divisions.length > 1) return "Configurado";
+                      if (registration.entries.some(entry => entry.cpf)) return "FEPERJ";
+                      if (detectMultipleDivisions.length > 0) return "Detectado";
+                      return "Ativo";
+                    })()}
+                  </strong>
+                </small>
+              )}
             </Card.Body>
           </Card>
         </Col>
@@ -229,6 +395,7 @@ const Registration: React.FC = () => {
           </p>
         </Alert>
       )}
+
 
       {registration.entries.length === 0 ? (
         <Alert variant="info">
@@ -249,6 +416,7 @@ const Registration: React.FC = () => {
                   <th>Sexo</th>
                   <th>Idade</th>
                   <th>Divisão de Idade</th>
+                  {allowsDobra && <th>Dobra</th>}
                   <th>Categoria de Peso</th>
                   <th>Modalidade</th>
                   <th>Equipe</th>
@@ -257,15 +425,42 @@ const Registration: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {registration.entries.map((entry, index) => (
-                  <tr key={entry.id}>
-                    <td>{index + 1}</td>
-                    <td>
-                      <strong>{entry.name}</strong>
-                      {entry.notes && (
-                        <div className="text-muted small">{entry.notes}</div>
-                      )}
-                    </td>
+                 {registration.entries.map((entry, index) => {
+                   const isDobra = isAthleteDobra(entry);
+                   
+                   return (
+                     <tr 
+                       key={entry.id}
+                       className={isDobra ? 'table-warning' : ''}
+                     >
+                       <td>
+                         {index + 1}
+                         {isDobra && (
+                           <div className="d-flex align-items-center mt-1">
+                             <span className="badge bg-warning text-dark me-1" style={{ fontSize: '0.7em' }}>
+                               DOBRA
+                             </span>
+                           </div>
+                         )}
+                       </td>
+                       <td>
+                         <div className="d-flex align-items-center">
+                           <strong>{entry.name}</strong>
+                           {isDobra && (
+                             <Badge 
+                               bg="warning" 
+                               text="dark"
+                               className="ms-2"
+                               style={{ fontSize: '0.7em' }}
+                             >
+                               DOBRA
+                             </Badge>
+                           )}
+                         </div>
+                         {entry.notes && (
+                           <div className="text-muted small">{entry.notes}</div>
+                         )}
+                       </td>
                     <td>
                       <Badge bg={entry.sex === 'M' ? 'primary' : 'info'}>
                         {entry.sex === 'M' ? 'Masculino' : 'Feminino'}
@@ -275,6 +470,22 @@ const Registration: React.FC = () => {
                     <td>
                       <Badge bg="secondary">{entry.division}</Badge>
                     </td>
+                    {allowsDobra && (
+                      <td>
+                        {(() => {
+                          const isDobra = isAthleteDobra(entry);
+                          const dobraCategory = getAthleteDobraCategory(entry);
+                          
+                          if (isDobra && dobraCategory) {
+                            return <Badge bg="info">{dobraCategory}</Badge>;
+                          } else if (isDobra) {
+                            return <Badge bg="warning" text="dark">Dobra</Badge>;
+                          } else {
+                            return <span className="text-muted">-</span>;
+                          }
+                        })()}
+                      </td>
+                    )}
                     <td>
                       <Badge bg="success">
                         <FaWeightHanging className="me-1" />
@@ -310,7 +521,8 @@ const Registration: React.FC = () => {
                       </Button>
                     </td>
                   </tr>
-                ))}
+                   );
+                 })}
               </tbody>
             </Table>
           </Card.Body>

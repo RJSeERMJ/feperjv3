@@ -298,6 +298,15 @@ const BarraProntaContent: React.FC = () => {
           const categoriaIdade = inscricao.categoriaIdade.nome;
           const modalidade = inscricao.modalidade === 'CLASSICA' ? 'Raw' : 'Equipped';
           
+          console.log('🔍 Processando inscrição:', {
+            atleta: inscricao.atleta.nome,
+            cpf: cpf,
+            categoriaIdade: categoriaIdade,
+            categoriaPeso: categoriaPeso,
+            dobraCategoria: inscricao.dobraCategoria,
+            observacoes: inscricao.observacoes
+          });
+          
           // Criar chave única para unificação
           const chaveUnificacao = `${cpf}-${categoriaPeso}-${categoriaIdade}-${modalidade}`;
           
@@ -305,7 +314,7 @@ const BarraProntaContent: React.FC = () => {
           const atletaExistente = atletasUnificados.get(chaveUnificacao);
           
           if (atletaExistente) {
-            // Atleta já existe - unificar movimentos
+            // Atleta já existe - unificar movimentos e informações de dobra
             const movimentosExistentes = atletaExistente.movements || '';
             const tipoCompeticao = competicao.tipoCompeticao || 'AST';
             
@@ -316,11 +325,73 @@ const BarraProntaContent: React.FC = () => {
                 ? `${movimentosExistentes}, ${tipoCompeticao}`
                 : tipoCompeticao;
               
-              // Atualizar o atleta existente com os novos movimentos
-              dispatch(updateEntry(atletaExistente.id, { movements: novosMovimentos }));
+              // Construir notes atualizadas com informações de dobra
+              let notesAtualizadas = atletaExistente.notes || '';
+              
+              // Adicionar informações de dobra de categoria se existir
+              if (inscricao.dobraCategoria) {
+                const dobraInfo = [];
+                
+                if (inscricao.dobraCategoria.categoriaIdade) {
+                  dobraInfo.push(`dobraCategoria: ${inscricao.dobraCategoria.categoriaIdade.nome}`);
+                }
+                
+                if (inscricao.dobraCategoria.categoriaPeso) {
+                  dobraInfo.push(`categoriaPeso: ${inscricao.dobraCategoria.categoriaPeso.nome}`);
+                }
+                
+                if (dobraInfo.length > 0) {
+                  const dobraText = dobraInfo.join(', ');
+                  notesAtualizadas = notesAtualizadas ? `${notesAtualizadas} | ${dobraText}` : dobraText;
+                }
+              }
+              
+              // Atualizar o atleta existente com os novos movimentos e notes
+              dispatch(updateEntry(atletaExistente.id, { 
+                movements: novosMovimentos,
+                notes: notesAtualizadas
+              }));
             }
           } else {
             // Novo atleta - criar nova entrada
+            // Construir notes com informações de dobra de categoria
+            let notes = inscricao.observacoes || '';
+            
+            // Adicionar informações de dobra de categoria se existir
+            if (inscricao.dobraCategoria) {
+              console.log('🔍 Detectou dobraCategoria para atleta:', inscricao.atleta.nome, inscricao.dobraCategoria);
+              
+              const dobraInfo = [];
+              
+              if (inscricao.dobraCategoria.categoriaIdade) {
+                dobraInfo.push(`dobraCategoria: ${inscricao.dobraCategoria.categoriaIdade.nome}`);
+              }
+              
+              if (inscricao.dobraCategoria.categoriaPeso) {
+                dobraInfo.push(`categoriaPeso: ${inscricao.dobraCategoria.categoriaPeso.nome}`);
+              }
+              
+              if (dobraInfo.length > 0) {
+                const dobraText = dobraInfo.join(', ');
+                notes = notes ? `${notes} | ${dobraText}` : dobraText;
+                console.log('🔍 Notes com dobraCategoria:', notes);
+              }
+            }
+            
+            // Adicionar informações básicas de categoria
+            const categoriaInfo = [];
+            if (inscricao.categoriaIdade) {
+              categoriaInfo.push(`categoriaIdade: ${inscricao.categoriaIdade.nome}`);
+            }
+            if (inscricao.categoriaPeso) {
+              categoriaInfo.push(`categoriaPeso: ${inscricao.categoriaPeso.nome}`);
+            }
+            
+            if (categoriaInfo.length > 0) {
+              const categoriaText = categoriaInfo.join(', ');
+              notes = notes ? `${notes} | ${categoriaText}` : categoriaText;
+            }
+
             const entry = {
               id: entryId++,
               name: inscricao.atleta.nome,
@@ -332,7 +403,7 @@ const BarraProntaContent: React.FC = () => {
               team: inscricao.atleta.equipe?.nomeEquipe || '',
               country: 'Brasil',
               state: inscricao.atleta.equipe?.cidade || 'RJ',
-              notes: inscricao.observacoes || '',
+              notes: notes, // Notes com informações de dobra de categoria
               cpf: inscricao.atleta.cpf, // Adicionar CPF para unificação
               // Campos obrigatórios
               birthDate: inscricao.atleta.dataNascimento ? new Date(inscricao.atleta.dataNascimento).toISOString() : new Date().toISOString(),
