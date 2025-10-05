@@ -275,23 +275,12 @@ const Registration: React.FC = () => {
 
   // Verificar se a competição permite dobra (baseado nos dados salvos da competição)
   const allowsDobra = useMemo(() => {
-    // Verificar se há configuração específica de dobra na competição
-    // Se há mais de uma divisão configurada, permite dobra
-    const hasMultipleDivisions = meet.divisions && meet.divisions.length > 1;
-    
-    // Verificar se há atletas dobrando (como indicador de que a competição permite)
+    // NOVA LÓGICA: Só permite dobra se há atletas dobrando
+    // Se não há atletas dobrando, significa que a competição não permite dobra
     const hasAthletesDobra = detectMultipleDivisions.length > 0;
     
-    // Verificar se a competição foi carregada do sistema FEPERJ
-    // (indicado pela presença de atletas com CPF)
-    const hasFEPERJData = registration.entries.some(entry => entry.cpf);
-    
-    // Permitir dobra se:
-    // 1. Há múltiplas divisões configuradas OU
-    // 2. Há atletas dobrando OU  
-    // 3. A competição foi carregada do FEPERJ (que pode ter regras de dobra)
-    return hasMultipleDivisions || hasAthletesDobra || hasFEPERJData;
-  }, [meet.divisions, detectMultipleDivisions.length, registration.entries]);
+    return hasAthletesDobra;
+  }, [detectMultipleDivisions.length]);
 
   return (
     <Container fluid>
