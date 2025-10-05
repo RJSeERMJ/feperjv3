@@ -22,6 +22,8 @@ const BarraProntaContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [competicoes, setCompeticoes] = useState<Competicao[]>([]);
+
+
   const [loading, setLoading] = useState(false);
   const [fileError, setFileError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -484,6 +486,7 @@ const BarraProntaContent: React.FC = () => {
 
   return (
     <Container fluid>
+      
       <Row className="mb-4">
         <Col>
           <div className="d-flex align-items-center justify-content-between">
@@ -495,6 +498,7 @@ const BarraProntaContent: React.FC = () => {
               </div>
             </div>
             
+
             {/* Indicador de competição ativa e controles de espelhamento */}
             <div className="d-flex align-items-center justify-content-between w-100">
               {barraProntaStateService.hasActiveMeet() && (

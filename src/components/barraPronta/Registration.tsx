@@ -273,7 +273,6 @@ const Registration: React.FC = () => {
     return '';
   };
 
-
   // Verificar se a competição permite dobra (baseado nos dados salvos da competição)
   const allowsDobra = useMemo(() => {
     // Verificar se há configuração específica de dobra na competição
@@ -426,36 +425,14 @@ const Registration: React.FC = () => {
               </thead>
               <tbody>
                  {registration.entries.map((entry, index) => {
-                   const isDobra = isAthleteDobra(entry);
-                   
                    return (
-                     <tr 
-                       key={entry.id}
-                       className={isDobra ? 'table-warning' : ''}
-                     >
+                     <tr key={entry.id}>
                        <td>
                          {index + 1}
-                         {isDobra && (
-                           <div className="d-flex align-items-center mt-1">
-                             <span className="badge bg-warning text-dark me-1" style={{ fontSize: '0.7em' }}>
-                               DOBRA
-                             </span>
-                           </div>
-                         )}
                        </td>
                        <td>
                          <div className="d-flex align-items-center">
                            <strong>{entry.name}</strong>
-                           {isDobra && (
-                             <Badge 
-                               bg="warning" 
-                               text="dark"
-                               className="ms-2"
-                               style={{ fontSize: '0.7em' }}
-                             >
-                               DOBRA
-                             </Badge>
-                           )}
                          </div>
                          {entry.notes && (
                            <div className="text-muted small">{entry.notes}</div>
