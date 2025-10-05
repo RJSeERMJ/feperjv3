@@ -167,8 +167,8 @@ const LiftingPage: React.FC = () => {
               <div className="right-panel">
                 <LiftingTableMirror
                   orderedEntries={liftingOrder.orderedEntries}
-                  currentEntryId={liftingOrder.currentEntryId}
-                  attemptOneIndexed={attemptOneIndexed}
+                  currentEntryId={selectedEntryId || liftingOrder.currentEntryId}
+                  attemptOneIndexed={selectedAttempt || attemptOneIndexed}
                   onOpenPopup={openPopupDirectly}
                 />
               </div>

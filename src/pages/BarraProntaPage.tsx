@@ -15,6 +15,7 @@ import Registration from '../components/barraPronta/Registration';
 import WeighIns from '../components/barraPronta/WeighIns';
 import FlightOrder from '../components/barraPronta/FlightOrder';
 import ResultsMirror from '../components/barraPronta/ResultsMirror';
+import MirrorControls from '../components/barraPronta/MirrorControls';
 import LiftingPage from './LiftingPage';
 
 const BarraProntaContent: React.FC = () => {
@@ -494,18 +495,25 @@ const BarraProntaContent: React.FC = () => {
               </div>
             </div>
             
-            {/* Indicador de competição ativa */}
-            {barraProntaStateService.hasActiveMeet() && (
-              <div className="d-flex align-items-center">
-                <Badge bg="success" className="me-2">
-                  <FaTrophy className="me-1" />
-                  Competição Ativa
-                </Badge>
-                <small className="text-muted">
-                  {meet.name} - {meet.date}
-                </small>
-              </div>
-            )}
+            {/* Indicador de competição ativa e controles de espelhamento */}
+            <div className="d-flex align-items-center justify-content-between w-100">
+              {barraProntaStateService.hasActiveMeet() && (
+                <div className="d-flex align-items-center">
+                  <Badge bg="success" className="me-2">
+                    <FaTrophy className="me-1" />
+                    Competição Ativa
+                  </Badge>
+                  <small className="text-muted">
+                    {meet.name} - {meet.date}
+                  </small>
+                </div>
+              )}
+              
+              {/* Controles de espelhamento */}
+              {barraProntaStateService.hasActiveMeet() && (
+                <MirrorControls />
+              )}
+            </div>
           </div>
         </Col>
       </Row>

@@ -1,9 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Badge, Alert } from 'react-bootstrap';
-import { FaExternalLinkAlt, FaTimes, FaSync } from 'react-icons/fa';
+import { Badge, Alert } from 'react-bootstrap';
+import { FaSync } from 'react-icons/fa';
 import { useWindowMirror } from '../../hooks/useWindowMirror';
 import LiftingTable from './LiftingTable';
 import './LiftingTableMirror.css';
+
+// Função para detectar se atleta está dobrando e obter todas as categorias (MESMA LÓGICA DO LEFTCARD)
+const getAthleteCategories = (entry: any) => {
+  const categories = [entry.division];
+  
+  // Verificar se tem dobraCategoria específica nas notas
+  if (entry.notes) {
+    const dobraMatch = entry.notes.match(/dobraCategoria[:\s]*([^,]+)/i);
+    if (dobraMatch) {
+      const dobraCategoria = dobraMatch[1].trim();
+      // Só adicionar se não for "Dobra FEPERJ" e for diferente da categoria atual
+      if (dobraCategoria.toLowerCase() !== 'dobra feperj' && 
+          dobraCategoria !== entry.division &&
+          dobraCategoria.trim() !== '') {
+        categories.push(dobraCategoria);
+      }
+    }
+  }
+  
+  return categories;
+};
+
+// Função para obter o tipo de competição (MESMA LÓGICA DO LEFTCARD)
+const getCompetitionType = (entry: any): string => {
+  if (!entry?.movements) return 'N/A';
+  
+  // Se há vírgula, pegar o primeiro tipo
+  if (entry.movements.includes(',')) {
+    return entry.movements.split(',')[0].trim();
+  }
+  
+  return entry.movements.trim();
+};
 
 interface LiftingTableMirrorProps {
   orderedEntries: any[];
@@ -14,14 +47,75 @@ interface LiftingTableMirrorProps {
 
 const LiftingTableMirror: React.FC<LiftingTableMirrorProps> = (props) => {
   const [mirrorState, setMirrorState] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [titleKey, setTitleKey] = useState(0); // Para forçar re-render do título
+
+  // Debug: mostrar quando o componente é re-renderizado
+  console.log('🔄 LiftingTableMirror - Componente re-renderizado:', {
+    currentEntryId: props.currentEntryId,
+    titleKey,
+    timestamp: new Date().toLocaleTimeString(),
+    source: 'LiftingTableMirror - Sincronizado com LeftCard'
+  });
+
+  // Função para gerar título com informações do atleta atual
+  const getAthleteTitle = () => {
+    const { orderedEntries, currentEntryId } = props;
+    const currentEntry = currentEntryId ? orderedEntries.find((e: any) => e.id === currentEntryId) : null;
+    
+    // Debug: verificar mudanças do atleta (MESMA LÓGICA DO LEFTCARD)
+    console.log('🔄 LiftingTableMirror - Atualizando título (SINCRONIZADO COM LEFTCARD):', {
+      currentEntryId,
+      currentEntry: currentEntry ? {
+        name: currentEntry.name,
+        weightClass: currentEntry.weightClass,
+        division: currentEntry.division,
+        team: currentEntry.team,
+        notes: currentEntry.notes,
+        isMarked: true // ← ATLETA MARCADO/SELECIONADO (MESMO DO LEFTCARD)
+      } : null,
+      syncStatus: '✅ SINCRONIZADO COM LEFTCARD'
+    });
+    
+    if (!currentEntry) {
+      return "🏋️ Tabela de Levantamentos";
+    }
+
+    // Usar MESMA LÓGICA DO LEFTCARD para detectar categorias
+    const categories = getAthleteCategories(currentEntry);
+    const categoriesText = categories.join(' + ');
+    const competitionType = getCompetitionType(currentEntry);
+    const sex = currentEntry.sex === 'M' ? 'M' : 'F';
+    
+    // Debug: mostrar categorias detectadas (MESMA LÓGICA DO LEFTCARD)
+    console.log('🔍 LiftingTableMirror - Categorias detectadas (LÓGICA LEFTCARD):', {
+      categories,
+      categoriesText,
+      competitionType,
+      sex
+    });
+    
+    // Remover casas decimais e "kg" da categoria de peso
+    const weightClass = currentEntry.weightClass ? 
+      currentEntry.weightClass.replace(/\.0+$/, '').replace(/kg/gi, '').trim() : 
+      'N/A';
+    
+    // Adicionar indicação de que é o atleta MARCADO/SELECIONADO
+    const markedIndicator = ""; // Indicador visual de atleta marcado
+    const title = `${markedIndicator}${currentEntry.name}, ${weightClass} - ${sex} - ${categoriesText} - ${currentEntry.team || 'Força Pura'} - ${competitionType}`;
+    
+    console.log('🏋️ LiftingTableMirror - Título gerado (ATLETA MARCADO):', {
+      title,
+      timestamp: new Date().toLocaleTimeString(),
+      titleKey
+    });
+    
+    return title;
+  };
 
   const {
     isMirrorWindow,
     isMainWindow,
     isConnected,
-    openMirrorWindow,
-    closeMirrorWindow,
     sendToMirror
   } = useWindowMirror({
     channelName: 'lifting-mirror-channel',
@@ -53,78 +147,52 @@ const LiftingTableMirror: React.FC<LiftingTableMirrorProps> = (props) => {
     }
   }, [isMirrorWindow, mirrorState]);
 
-  // Função para abrir janela espelhada
-  const handleOpenMirror = () => {
-    setIsLoading(true);
-    const currentUrl = window.location.href;
-    openMirrorWindow(currentUrl, 'lifting-mirror');
+  // Forçar re-render quando currentEntryId mudar (ATLETA MARCADO MUDOU)
+  useEffect(() => {
+    console.log('🎯 LiftingTableMirror - ATLETA MARCADO mudou:', {
+      newEntryId: props.currentEntryId,
+      isMarked: props.currentEntryId !== null,
+      timestamp: new Date().toLocaleTimeString()
+    });
     
-    // Simular loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-  };
+    // Encontrar o atleta para debug
+    const currentEntry = props.currentEntryId ? props.orderedEntries.find((e: any) => e.id === props.currentEntryId) : null;
+    if (currentEntry) {
+      console.log('🎯 LiftingTableMirror - Novo atleta marcado:', {
+        id: currentEntry.id,
+        name: currentEntry.name,
+        weightClass: currentEntry.weightClass,
+        division: currentEntry.division
+      });
+    }
+    
+    setTitleKey(prev => prev + 1); // Forçar re-render do título
+  }, [props.currentEntryId, props.orderedEntries]);
 
-  // Função para fechar janela espelhada
-  const handleCloseMirror = () => {
-    closeMirrorWindow();
-  };
+  // Funções de controle de espelhamento removidas - agora controladas pelo MirrorControls central
 
-  // Renderizar botão de controle apenas na janela principal
+  // Renderizar apenas o conteúdo na janela principal (sem botões de controle)
   if (isMainWindow) {
     return (
       <div className="lifting-mirror-container">
-        <div className="mirror-controls">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h5 className="mb-0">
-              🏋️ Tabela de Levantamentos
-              {isConnected && (
-                <Badge bg="success" className="ms-2">
-                  <FaSync className="me-1" />
-                  Espelhado
-                </Badge>
-              )}
-            </h5>
-            <div className="mirror-actions">
-              {!isConnected ? (
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={handleOpenMirror}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      Abrindo...
-                    </>
-                  ) : (
-                    <>
-                      <FaExternalLinkAlt className="me-1" />
-                      Abrir em Janela Separada
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={handleCloseMirror}
-                >
-                  <FaTimes className="me-1" />
-                  Fechar Janela Espelhada
-                </Button>
-              )}
-            </div>
-          </div>
-          
-          {isConnected && (
-            <Alert variant="info" className="mb-3">
-              <FaSync className="me-2" />
-              <strong>Janela espelhada ativa!</strong> As mudanças nesta tela aparecerão automaticamente na janela separada.
-            </Alert>
-          )}
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h5 className="mb-0" key={titleKey}>
+            {getAthleteTitle()}
+            {isConnected && (
+              <Badge bg="success" className="ms-2">
+                <FaSync className="me-1" />
+                Espelhado
+              </Badge>
+            )}
+          </h5>
         </div>
+        
+        {isConnected && (
+          <Alert variant="info" className="mb-3">
+            <FaSync className="me-2" />
+            <strong>Janela espelhada ativa!</strong> As mudanças nesta tela aparecerão automaticamente na janela separada.
+          </Alert>
+        )}
         
         <LiftingTable {...props} />
       </div>
@@ -137,11 +205,32 @@ const LiftingTableMirror: React.FC<LiftingTableMirrorProps> = (props) => {
       <div className="lifting-mirror-container mirror-window">
         <div className="mirror-header">
           <div className="text-center mb-3">
-            <h4 className="mb-0 text-primary">
-              🏋️ Tabela de Levantamentos - Monitor Externo
-              <Badge bg="info" className="ms-2">
-                Espelhado
-              </Badge>
+            <h4 className="mb-0 text-primary" key={titleKey}>
+              {mirrorState ? 
+                (() => {
+                  const currentEntry = mirrorState.props.currentEntryId ? 
+                    mirrorState.props.orderedEntries.find((e: any) => e.id === mirrorState.props.currentEntryId) : null;
+                  
+                  if (!currentEntry) {
+                    return "🏋️ Tabela de Levantamentos - Monitor Externo";
+                  }
+
+                  const categories = getAthleteCategories(currentEntry);
+                  const categoriesText = categories.join(' + ');
+                  const competitionType = getCompetitionType(currentEntry);
+                  const sex = currentEntry.sex === 'M' ? 'M' : 'F';
+                  
+                  // Remover casas decimais e "kg" da categoria de peso
+                  const weightClass = currentEntry.weightClass ? 
+                    currentEntry.weightClass.replace(/\.0+$/, '').replace(/kg/gi, '').trim() : 
+                    'N/A';
+                  
+                  // Adicionar indicação de que é o atleta MARCADO/SELECIONADO
+                  const markedIndicator = ""; // Indicador visual de atleta marcado
+                  return `${markedIndicator}${currentEntry.name}, ${weightClass} - ${sex} - ${categoriesText} - ${currentEntry.team || 'Força Pura'} - ${competitionType}`;
+                })() :
+                "🏋️ Tabela de Levantamentos - Monitor Externo"
+              }
             </h4>
           </div>
           

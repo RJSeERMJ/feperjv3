@@ -7,6 +7,27 @@ import { recordsService } from '../../services/recordsService';
 import BarLoad from './BarLoad';
 import './LeftCard.css';
 
+// Função para detectar se atleta está dobrando e obter todas as categorias
+const getAthleteCategories = (entry: any) => {
+  const categories = [entry.division];
+  
+  // Verificar se tem dobraCategoria específica nas notas
+  if (entry.notes) {
+    const dobraMatch = entry.notes.match(/dobraCategoria[:\s]*([^,]+)/i);
+    if (dobraMatch) {
+      const dobraCategoria = dobraMatch[1].trim();
+      // Só adicionar se não for "Dobra FEPERJ" e for diferente da categoria atual
+      if (dobraCategoria.toLowerCase() !== 'dobra feperj' && 
+          dobraCategoria !== entry.division &&
+          dobraCategoria.trim() !== '') {
+        categories.push(dobraCategoria);
+      }
+    }
+  }
+  
+  return categories;
+};
+
 interface LeftCardProps {
   currentEntryId: number | null;
   nextEntryId: number | null;
@@ -99,6 +120,22 @@ const LeftCard: React.FC<LeftCardProps> = ({
 
     setIsCheckingRecord(true);
     try {
+      // Debug: verificar dados do atleta
+      console.log('🔍 LeftCard - Debug atleta:', {
+        name: entry.name,
+        currentDivision: entry.division,
+        cpf: entry.cpf,
+        notes: entry.notes
+      });
+
+      // Obter todas as categorias do atleta (incluindo dobra se houver)
+      const athleteCategories = getAthleteCategories(entry);
+      const divisionsToCheck = athleteCategories;
+      
+      // Debug: verificar categorias detectadas
+      console.log('🔍 LeftCard - Categorias do atleta:', athleteCategories);
+      console.log('🔍 LeftCard - Divisões para verificar:', divisionsToCheck);
+
       // Mapear movimento para o formato do recordsService
       const movementMap: { [key in Lift]: 'squat' | 'bench' | 'deadlift' } = {
         'S': 'squat',
@@ -111,21 +148,71 @@ const LeftCard: React.FC<LeftCardProps> = ({
       // Obter tipo de competição (assumindo que está no meet ou pode ser inferido)
       const competitionType = meet.allowedMovements?.join('') || 'AST';
 
-      const result = await recordsService.checkRecordAttempt(
-        weight,
-        movement,
-        {
-          sex: entry.sex,
-          age: entry.age,
-          weightClass: entry.weightClass,
-          division: entry.division,
-          equipment: entry.equipment,
-          movements: entry.movements // Adicionar tipos de competição do atleta
-        },
-        competitionType
+      // Armazenar informações de record para todas as divisões
+      let allRecordDivisions: string[] = [];
+      let isAnyRecord = false;
+      let allRecordDetails: Array<{
+        division: string;
+        currentRecord: number;
+        isNewRecord: boolean;
+      }> = [];
+      
+      // Verificar record para cada divisão
+      for (const division of divisionsToCheck) {
+        try {
+          const result = await recordsService.checkRecordAttempt(
+            weight,
+            movement,
+            {
+              sex: entry.sex,
+              age: entry.age,
+              weightClass: entry.weightClass,
+              division: division, // Usar a divisão específica
+              equipment: entry.equipment,
+              movements: entry.movements
+            },
+            competitionType
+          );
+
+          // Se é record nesta divisão, adicionar às informações
+          if (result.isRecord) {
+            isAnyRecord = true;
+            allRecordDivisions.push(...result.recordDivisions);
+            allRecordDetails.push(...result.recordDetails);
+          }
+          
+        } catch (error) {
+          console.error(`❌ Erro ao verificar record para ${entry.name} - ${division}:`, error);
+        }
+      }
+
+      // Função para remover duplicatas
+      const removeDuplicates = (arr: string[]) => {
+        return arr.filter((item, index) => arr.indexOf(item) === index);
+      };
+
+      // Remover duplicatas dos recordDetails também
+      const uniqueRecordDetails = allRecordDetails.filter((detail, index, self) => 
+        index === self.findIndex(d => d.division === detail.division)
       );
 
-      setRecordInfo(result);
+      // Debug: verificar resultado final
+      console.log('🔍 LeftCard - Debug resultado final:', {
+        allRecordDivisions,
+        uniqueRecordDivisions: removeDuplicates(allRecordDivisions),
+        allRecordDetails,
+        uniqueRecordDetails
+      });
+
+      // Consolidar resultado final
+      const finalResult = {
+        isRecord: isAnyRecord,
+        recordDivisions: removeDuplicates(allRecordDivisions),
+        currentRecords: [], // Não usado no LeftCard
+        recordDetails: uniqueRecordDetails
+      };
+
+      setRecordInfo(finalResult);
     } catch (error) {
       console.error('❌ Erro ao verificar record:', error);
       setRecordInfo(null);
@@ -175,6 +262,11 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 <Badge bg="info" className="me-1">
                   {currentEntry.weightClass}
                 </Badge>
+                {getAthleteCategories(currentEntry).map((category, index) => (
+                  <Badge key={index} bg="success" className="me-1">
+                    {category}
+                  </Badge>
+                ))}
                 <Badge bg="warning" text="dark" className="me-1">
                   {currentEntry.team || 'Sem equipe'}
                 </Badge>
@@ -251,6 +343,11 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 <Badge bg="info" className="me-1">
                   {nextEntry.weightClass}
                 </Badge>
+                {getAthleteCategories(nextEntry).map((category, index) => (
+                  <Badge key={index} bg="success" className="me-1">
+                    {category}
+                  </Badge>
+                ))}
                 <Badge bg="warning" text="dark" className="me-1">
                   {nextEntry.team || 'Sem equipe'}
                 </Badge>

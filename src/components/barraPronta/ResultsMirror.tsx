@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Badge, Alert } from 'react-bootstrap';
-import { FaExternalLinkAlt, FaTimes, FaSync } from 'react-icons/fa';
+import { Badge, Alert } from 'react-bootstrap';
+import { FaSync } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import { useWindowMirror } from '../../hooks/useWindowMirror';
 import { RootState } from '../../store/barraProntaStore';
@@ -26,7 +26,6 @@ const ResultsWithMirrorState: React.FC<{ mirrorState: any; [key: string]: any }>
 
 const ResultsMirror: React.FC<ResultsMirrorProps> = (props) => {
   const [mirrorState, setMirrorState] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Obter dados do Redux para sincronização
   const { meet, registration } = useSelector((state: RootState) => state);
@@ -35,8 +34,6 @@ const ResultsMirror: React.FC<ResultsMirrorProps> = (props) => {
     isMirrorWindow,
     isMainWindow,
     isConnected,
-    openMirrorWindow,
-    closeMirrorWindow,
     sendToMirror
   } = useWindowMirror({
     channelName: 'results-mirror-channel',
@@ -75,78 +72,30 @@ const ResultsMirror: React.FC<ResultsMirrorProps> = (props) => {
     }
   }, [isMirrorWindow, mirrorState]);
 
-  // Função para abrir janela espelhada
-  const handleOpenMirror = () => {
-    setIsLoading(true);
-    const currentUrl = window.location.href;
-    openMirrorWindow(currentUrl, 'results-mirror');
-    
-    // Simular loading
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-  };
+  // Funções de controle de espelhamento removidas - agora controladas pelo MirrorControls central
 
-  // Função para fechar janela espelhada
-  const handleCloseMirror = () => {
-    closeMirrorWindow();
-  };
-
-  // Renderizar botão de controle apenas na janela principal
+  // Renderizar apenas o conteúdo na janela principal (sem botões de controle)
   if (isMainWindow) {
     return (
       <div className="results-mirror-container">
-        <div className="mirror-controls">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h5 className="mb-0">
-              📊 Resultados da Competição
-              {isConnected && (
-                <Badge bg="success" className="ms-2">
-                  <FaSync className="me-1" />
-                  Espelhado
-                </Badge>
-              )}
-            </h5>
-            <div className="mirror-actions">
-              {!isConnected ? (
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={handleOpenMirror}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      Abrindo...
-                    </>
-                  ) : (
-                    <>
-                      <FaExternalLinkAlt className="me-1" />
-                      Abrir em Janela Separada
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={handleCloseMirror}
-                >
-                  <FaTimes className="me-1" />
-                  Fechar Janela Espelhada
-                </Button>
-              )}
-            </div>
-          </div>
-          
-          {isConnected && (
-            <Alert variant="info" className="mb-3">
-              <FaSync className="me-2" />
-              <strong>Janela espelhada ativa!</strong> As mudanças nesta tela aparecerão automaticamente na janela separada.
-            </Alert>
-          )}
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h5 className="mb-0">
+            📊 Resultados da Competição
+            {isConnected && (
+              <Badge bg="success" className="ms-2">
+                <FaSync className="me-1" />
+                Espelhado
+              </Badge>
+            )}
+          </h5>
         </div>
+        
+        {isConnected && (
+          <Alert variant="info" className="mb-3">
+            <FaSync className="me-2" />
+            <strong>Janela espelhada ativa!</strong> As mudanças nesta tela aparecerão automaticamente na janela separada.
+          </Alert>
+        )}
         
         <Results {...props} />
       </div>

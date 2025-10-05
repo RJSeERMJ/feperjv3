@@ -99,6 +99,108 @@ const getEquipmentDisplayName = (equipment: string): string => {
   }
 };
 
+// Funções para detectar atletas dobrando (importadas da lógica do Registration.tsx)
+const detectAthletesDobra = (entries: Entry[]) => {
+  const athleteDivisions = new Map<string, { 
+    name: string, 
+    divisions: string[], 
+    entries: Entry[], 
+    hasDobraCategoria: boolean,
+    dobraCategoriaInfo?: string,
+    hasValidDobra: boolean
+  }>();
+  
+  // Agrupar atletas por CPF ou nome
+  entries.forEach(entry => {
+    const key = entry.cpf || entry.name;
+    
+    if (!athleteDivisions.has(key)) {
+      athleteDivisions.set(key, {
+        name: entry.name,
+        divisions: [],
+        entries: [],
+        hasDobraCategoria: false,
+        hasValidDobra: false
+      });
+    }
+    
+    const athlete = athleteDivisions.get(key)!;
+    const division = entry.division || '';
+    if (!athlete.divisions.includes(division)) {
+      athlete.divisions.push(division);
+    }
+    athlete.entries.push(entry);
+    
+    // DETECÇÃO DE DOBRA DE CATEGORIA FEPERJ
+    if (entry.notes) {
+      if (entry.notes.includes('dobraCategoria') || 
+          entry.notes.includes('categoriaIdade') ||
+          entry.notes.includes('categoriaPeso') ||
+          entry.notes.includes('dobra')) {
+        athlete.hasDobraCategoria = true;
+        
+        const dobraMatch = entry.notes.match(/dobraCategoria[:\s]*([^,]+)/i);
+        if (dobraMatch) {
+          athlete.dobraCategoriaInfo = dobraMatch[1].trim();
+        }
+      }
+    }
+  });
+  
+  // Validar dobra real
+  athleteDivisions.forEach(athlete => {
+    if (athlete.divisions.length > 1) {
+      athlete.hasValidDobra = true;
+    }
+    
+    if (athlete.hasDobraCategoria && athlete.dobraCategoriaInfo && 
+        athlete.dobraCategoriaInfo.toLowerCase() !== 'dobra feperj' &&
+        athlete.dobraCategoriaInfo.trim() !== '') {
+      athlete.hasValidDobra = true;
+    }
+  });
+  
+  return Array.from(athleteDivisions.entries())
+    .filter(([_, athlete]) => athlete.hasValidDobra)
+    .map(([key, athlete]) => ({
+      key,
+      name: athlete.name,
+      divisions: athlete.divisions,
+      entries: athlete.entries,
+      hasDobraCategoria: athlete.hasDobraCategoria,
+      dobraCategoriaInfo: athlete.dobraCategoriaInfo
+    }));
+};
+
+const isAthleteDobra = (entry: Entry, athletesDobra: any[]) => {
+  const athleteKey = entry.cpf || entry.name;
+  return athletesDobra.some(athlete => athlete.key === athleteKey);
+};
+
+const getAthleteDobraCategory = (entry: Entry, athletesDobra: any[]) => {
+  const athleteKey = entry.cpf || entry.name;
+  const athleteData = athletesDobra.find(athlete => athlete.key === athleteKey);
+  
+  if (athleteData) {
+    if (athleteData.hasDobraCategoria && athleteData.dobraCategoriaInfo && 
+        athleteData.dobraCategoriaInfo.toLowerCase() !== 'dobra feperj') {
+      return athleteData.dobraCategoriaInfo;
+    }
+    
+    if (athleteData.divisions.length > 1) {
+      const currentDivision = entry.division || '';
+      const otherDivision = athleteData.divisions.find((division: string) => division !== currentDivision);
+      return otherDivision || '';
+    }
+    
+    if (athleteData.hasDobraCategoria) {
+      return 'Dobra FEPERJ';
+    }
+  }
+  
+  return '';
+};
+
 // Função para obter categoria de idade (definida fora do componente)
 const getAgeCategory = (birthDate: string, sex: string): string => {
   if (!birthDate) return 'OP';
@@ -678,6 +780,9 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
   const resultsByCategory = useMemo((): ResultsByCategory[] => {
     const grouped: { [key: string]: CalculatedResult[] } = {};
     
+    // Detectar atletas dobrando
+    const athletesDobra = detectAthletesDobra(registration.entries);
+    
     // Função para obter todas as modalidades únicas da competição
     const getUniqueMovementCategories = () => {
       const categoriesSet = new Set<string>();
@@ -737,12 +842,43 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
         const equipmentName = getEquipmentDisplayName(result.entry.equipment || 'Raw');
         const ageCategory = getAgeCategory(result.entry.birthDate || '', result.entry.sex);
         const categoryName = getMovementCategoryName(movementCategory);
-        const category = `${result.entry.division} - ${result.entry.weightClass} - ${equipmentName} - ${categoryName}`;
         
-        if (!grouped[category]) {
-          grouped[category] = [];
+        // CORREÇÃO: Para atletas dobrando, criar resultados para ambas categorias
+        if (isAthleteDobra(result.entry, athletesDobra)) {
+          const dobraCategory = getAthleteDobraCategory(result.entry, athletesDobra);
+          
+          // Resultado na categoria principal
+          const mainCategory = `${result.entry.division} - ${result.entry.weightClass} - ${equipmentName} - ${categoryName}`;
+          if (!grouped[mainCategory]) {
+            grouped[mainCategory] = [];
+          }
+          grouped[mainCategory].push(result);
+          
+          // Resultado na categoria de dobra (se houver)
+          if (dobraCategory && dobraCategory !== 'Dobra FEPERJ') {
+            const dobraCategoryName = `${dobraCategory} - ${result.entry.weightClass} - ${equipmentName} - ${categoryName}`;
+            if (!grouped[dobraCategoryName]) {
+              grouped[dobraCategoryName] = [];
+            }
+            
+            // Criar uma cópia do resultado para a categoria de dobra
+            const dobraResult = {
+              ...result,
+              entry: {
+                ...result.entry,
+                division: dobraCategory // Usar a categoria de dobra
+              }
+            };
+            grouped[dobraCategoryName].push(dobraResult);
+          }
+        } else {
+          // Atleta normal - apenas uma categoria
+          const category = `${result.entry.division} - ${result.entry.weightClass} - ${equipmentName} - ${categoryName}`;
+          if (!grouped[category]) {
+            grouped[category] = [];
+          }
+          grouped[category].push(result);
         }
-        grouped[category].push(result);
       });
     });
 
