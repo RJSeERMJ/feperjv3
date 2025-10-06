@@ -223,16 +223,6 @@
   background-color: rgba(40, 167, 69, 0.05);
 }
 
-.mirror-window .status-visual {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2rem;
-}
-
-.mirror-window .status-icon {
-  font-size: 1.2rem;
-}
 
 /* Estilos para indicadores de status */
 .mirror-window .status-1 {

@@ -643,17 +643,6 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                       />
                       <span className="ms-1">kg</span>
                     </div>
-                    <div className="attempt-status-indicator">
-                      <div className={`status-visual status-${getAttemptStatus(entry, 1)}`}>
-                        {getAttemptStatus(entry, 1) === 1 && <span className="status-icon">✅</span>}
-                        {getAttemptStatus(entry, 1) === 2 && <span className="status-icon">❌</span>}
-                        {getAttemptStatus(entry, 1) === 3 && <span className="status-icon">⏸️</span>}
-                        {getAttemptStatus(entry, 1) === 0 && (
-                          <span className="status-icon">⏳</span>
-                        )}
-                      </div>
-
-                    </div>
 
                   </div>
                 </td>
@@ -684,17 +673,6 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         onClick={(e) => e.stopPropagation()} // Evitar conflito com clique da célula
                       />
                       <span className="ms-1">kg</span>
-                    </div>
-                    <div className="attempt-status-indicator">
-                      <div className={`status-visual status-${getAttemptStatus(entry, 2)}`}>
-                        {getAttemptStatus(entry, 2) === 1 && <span className="status-icon">✅</span>}
-                        {getAttemptStatus(entry, 2) === 2 && <span className="status-icon">❌</span>}
-                        {getAttemptStatus(entry, 2) === 3 && <span className="status-icon">⏸️</span>}
-                        {getAttemptStatus(entry, 2) === 0 && (
-                          <span className="status-icon">⏳</span>
-                        )}
-                      </div>
-
                     </div>
                     {shouldMarkAsNoAttempt(entry, 2) && (
                       <div className="no-attempt-indicator">
@@ -731,17 +709,6 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                         onClick={(e) => e.stopPropagation()} // Evitar conflito com clique da célula
                       />
                       <span className="ms-1">kg</span>
-                    </div>
-                    <div className="attempt-status-indicator">
-                      <div className={`status-visual status-${getAttemptStatus(entry, 3)}`}>
-                        {getAttemptStatus(entry, 3) === 1 && <span className="status-icon">✅</span>}
-                        {getAttemptStatus(entry, 3) === 2 && <span className="status-icon">❌</span>}
-                        {getAttemptStatus(entry, 3) === 3 && <span className="status-icon">⏸️</span>}
-                        {getAttemptStatus(entry, 3) === 0 && (
-                          <span className="status-icon">⏳</span>
-                        )}
-                      </div>
-
                     </div>
                     {shouldMarkAsNoAttempt(entry, 3) && (
                       <div className="no-attempt-indicator">

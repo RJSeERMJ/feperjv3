@@ -21,20 +21,22 @@
   color: white;
   border: 1px solid #dee2e6;
   font-weight: 600;
-  padding: 15px 10px;
+  padding: 6px 8px;
   vertical-align: middle;
+  height: 35px;
 }
 
 .lifting-table td {
   border: 1px solid #dee2e6;
-  padding: 12px 10px;
+  padding: 4px 8px;
   vertical-align: middle;
+  height: 30px;
 }
 
 .table-header-row th {
-  font-size: 14px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .table-row {
@@ -63,14 +65,10 @@
 .athlete-name {
   font-weight: 600;
   color: #2c3e50;
-  margin-bottom: 5px;
-  font-size: 16px;
+  margin-bottom: 2px;
+  font-size: 14px;
 }
 
-.athlete-details .badge {
-  font-size: 10px;
-  padding: 4px 8px;
-}
 
 .attempt-cell {
   min-width: 120px;
@@ -91,8 +89,8 @@
 }
 
 .attempt-status .badge {
-  font-size: 11px;
-  padding: 6px 10px;
+  font-size: 9px;
+  padding: 2px 6px;
   font-weight: 500;
 }
 
@@ -159,11 +157,11 @@
 
 /* Novos estilos para campos de entrada direta */
 .attempt-input-container {
-  min-height: 80px;
+  min-height: 50px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: 4px;
+  padding: 4px;
 }
 
 .attempt-weight-input {
@@ -178,8 +176,22 @@
   text-align: center;
   font-weight: 600;
   border: 2px solid #e9ecef;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
+  padding: 4px 2px;
+  font-size: 12px;
+  height: 28px;
+  overflow: hidden !important;
+}
+
+.attempt-weight-input .weight-input::-webkit-outer-spin-button,
+.attempt-weight-input .weight-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.attempt-weight-input .weight-input[type=number] {
+  -moz-appearance: textfield;
 }
 
 .attempt-weight-input .weight-input:focus {
@@ -330,117 +342,141 @@
   cursor: not-allowed;
 }
 
-/* Status específicos */
-.badge-success {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+
+/* Tabela sem barra de rolagem - se ajusta à tela */
+.table-responsive {
+  overflow-x: visible !important;
 }
 
-.badge-danger {
-  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+.lifting-table {
+  width: 100% !important;
+  table-layout: fixed !important;
+  margin: 0 !important;
 }
 
-.badge-warning {
-  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
-  color: #212529 !important;
+.lifting-table th,
+.lifting-table td {
+  padding: 2px 4px !important;
+  height: 25px !important;
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
-.badge-secondary {
-  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+.lifting-table th {
+  height: 30px !important;
+  padding: 4px 2px !important;
+  font-size: 9px !important;
 }
 
-/* Responsividade */
-@media (max-width: 1200px) {
-  .lifting-table-container {
-    padding: 15px;
-  }
-  
-  .table-header h5 {
-    font-size: 18px;
-  }
-  
-  .lifting-table th,
-  .lifting-table td {
-    padding: 10px 8px;
-  }
-  
-  .athlete-name {
-    font-size: 14px;
-  }
-  
-  .attempt-weight {
-    font-size: 14px;
-  }
-  
-  .action-buttons .btn {
-    font-size: 10px;
-    padding: 3px 6px;
-    min-width: 45px;
-  }
+/* Larguras das colunas - distribuição uniforme */
+.lifting-table th:nth-child(1),
+.lifting-table td:nth-child(1) {
+  width: 5% !important; /* # */
 }
 
-@media (max-width: 768px) {
-  .lifting-table-container {
-    padding: 10px;
-  }
-  
-  .table-header h5 {
-    font-size: 16px;
-  }
-  
-  .lifting-table th,
-  .lifting-table td {
-    padding: 8px 6px;
-    font-size: 12px;
-  }
-  
-  .athlete-name {
-    font-size: 12px;
-  }
-  
-  .attempt-weight {
-    font-size: 12px;
-  }
-  
-  .attempt-status .badge {
-    font-size: 10px;
-    padding: 4px 8px;
-  }
-  
-  .action-buttons {
-    flex-direction: column;
-    gap: 1px;
-  }
-  
-  .action-buttons .btn {
-    font-size: 9px;
-    padding: 2px 4px;
-    min-width: 40px;
-    margin: 1px 0;
-  }
+.lifting-table th:nth-child(2),
+.lifting-table td:nth-child(2) {
+  width: 25% !important; /* Atleta */
 }
 
-@media (max-width: 576px) {
-  .lifting-table-container {
-    padding: 8px;
-  }
-  
-  .table-header h5 {
-    font-size: 14px;
-  }
-  
-  .lifting-table th,
-  .lifting-table td {
-    padding: 6px 4px;
-    font-size: 11px;
-  }
-  
-  .athlete-info {
-    min-width: 150px;
-  }
-  
-  .attempt-cell {
-    min-width: 80px;
-  }
+.lifting-table th:nth-child(3),
+.lifting-table td:nth-child(3) {
+  width: 8% !important; /* Categoria */
+}
+
+.lifting-table th:nth-child(4),
+.lifting-table td:nth-child(4) {
+  width: 6% !important; /* Peso */
+}
+
+.lifting-table th:nth-child(5),
+.lifting-table td:nth-child(5) {
+  width: 4% !important; /* Nº Lote */
+}
+
+.lifting-table th:nth-child(6),
+.lifting-table td:nth-child(6) {
+  width: 12% !important; /* Equipe */
+}
+
+.lifting-table th:nth-child(7),
+.lifting-table td:nth-child(7) {
+  width: 8% !important; /* 1ª Tentativa */
+}
+
+.lifting-table th:nth-child(8),
+.lifting-table td:nth-child(8) {
+  width: 8% !important; /* 2ª Tentativa */
+}
+
+.lifting-table th:nth-child(9),
+.lifting-table td:nth-child(9) {
+  width: 8% !important; /* 3ª Tentativa */
+}
+
+.lifting-table th:nth-child(10),
+.lifting-table td:nth-child(10) {
+  width: 8% !important; /* Tot. Parc. */
+}
+
+/* Remover barras de rolagem de todos os inputs */
+.weight-input {
+  overflow: hidden !important;
+}
+
+.weight-input::-webkit-outer-spin-button,
+.weight-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.weight-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Estilos específicos para reduzir altura */
+.athlete-info {
+  padding: 1px !important;
+}
+
+.athlete-name {
+  margin-bottom: 1px !important;
+  font-size: 11px !important;
+}
+
+.athlete-details {
+  margin-top: 1px !important;
+}
+
+.athlete-details .badge {
+  font-size: 9px !important;
+  padding: 2px 4px !important;
+  margin: 1px !important;
+}
+
+.attempt-input-container {
+  min-height: 25px !important;
+  padding: 1px !important;
+  gap: 1px !important;
+}
+
+.attempt-weight-input {
+  gap: 2px !important;
+}
+
+.attempt-weight-input span {
+  font-size: 9px !important;
+}
+
+.no-attempt-indicator {
+  margin-top: 1px !important;
+}
+
+.no-attempt-indicator small {
+  font-size: 8px !important;
 }
 
 /* Novos estilos para indicadores visuais de status */
@@ -450,73 +486,6 @@
   margin-top: 8px;
 }
 
-.status-visual {
-  width: 100%;
-  height: 32px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-}
-
-.status-visual.status-0 {
-  background-color: #f8f9fa;
-  border-color: #dee2e6;
-  color: #6c757d;
-}
-
-.status-visual.status-1 {
-  background-color: #d4edda;
-  border-color: #28a745;
-  color: #155724;
-}
-
-.status-visual.status-2 {
-  background-color: #f8d7da;
-  border-color: #dc3545;
-  color: #721c24;
-}
-
-.status-visual.status-3 {
-  background-color: #fff3cd;
-  border-color: #ffc107;
-  color: #856404;
-}
-
-.status-icon {
-  font-size: 16px;
-  font-weight: bold;
-}
-
-/* Hover effects para os indicadores */
-.status-visual:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* Estilos específicos para cada status */
-.status-visual.status-1:hover {
-  background-color: #c3e6cb;
-  border-color: #1e7e34;
-}
-
-.status-visual.status-2:hover {
-  background-color: #f5c6cb;
-  border-color: #c82333;
-}
-
-.status-visual.status-3:hover {
-  background-color: #ffeaa7;
-  border-color: #e0a800;
-}
-
-.status-visual.status-0:hover {
-  background-color: #e9ecef;
-  border-color: #adb5bd;
-}
 
 /* Estilos para tentativas bloqueadas */
 .blocked-attempt {
@@ -548,12 +517,6 @@
   cursor: not-allowed;
 }
 
-.blocked-attempt .attempt-status-indicator .status-visual {
-  background-color: #e9ecef;
-  border-color: #ced4da;
-  color: #6c757d;
-  opacity: 0.7;
-}
 
 .blocked-attempt .attempt-weight-input span {
   color: #6c757d;
@@ -896,16 +859,17 @@
 }
 
 .partial-total-display {
-  padding: 8px 4px;
-  border-radius: 6px;
+  padding: 4px 2px;
+  border-radius: 4px;
   background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
   border: 1px solid #90caf9;
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 123, 255, 0.1);
 }
 
 .partial-total-display .fw-bold {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  font-size: 12px;
 }
 
 /* Responsividade para a coluna de total parcial */
@@ -927,4 +891,26 @@
   .partial-total-display .fw-bold {
     font-size: 0.8rem !important;
   }
+}
+
+/* Status específicos dos badges */
+.badge-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+}
+
+.badge-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+}
+
+.badge-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;
+  color: #212529 !important;
+}
+
+.badge-secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+}
+
+.badge-info {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
 }
