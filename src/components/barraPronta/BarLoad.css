@@ -1,3 +1,26 @@
+/* Fundo branco unificado - sem containers */
+.bar-load-section {
+  background: white !important;
+  padding: 15px;
+  margin: 10px 0;
+}
+
+.attempt-text {
+  background: white !important;
+  padding: 5px 10px;
+  font-weight: bold;
+  font-size: 16px;
+  color: #333;
+}
+
+.loading-bar {
+  background: white !important;
+}
+
+.bar-area {
+  background: white !important;
+}
+
 .bar-load-container {
   position: relative;
   display: flex;
@@ -5,11 +28,10 @@
   justify-content: center;
   gap: 2px;
   padding: 10px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
+  background: white !important;
   min-height: 80px;
   position: relative;
+  border: none !important;
 }
 
 .bar {
@@ -40,6 +62,7 @@
   align-items: center;
   gap: 1px;
   min-height: 40px;
+  background: white !important;
 }
 
 .plate {
@@ -101,7 +124,8 @@
   font-weight: 500;
   white-space: nowrap;
   z-index: 10;
-  box-shadow: 0 4px 2px rgba(0, 0, 0, 0.2);
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Estilos específicos para diferentes pesos de anilhas */

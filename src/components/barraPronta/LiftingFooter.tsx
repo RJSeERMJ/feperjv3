@@ -244,19 +244,11 @@ const LiftingFooter: React.FC = () => {
 
   // NOVA FUNÇÃO: Aplicar peso automático quando timer expira
   const applyAutoWeight = (entryId: number, attempt: number) => {
-    const autoWeight = calculateAutoWeight(entryId, attempt);
+    // DESABILITADO: Preenchimento automático removido
+    console.log(`⏰ Timer expirado: Preenchimento automático desabilitado para atleta ${entryId}, tentativa ${attempt}`);
     
-    if (autoWeight > 0) {
-      const weightField = getWeightField(attempt);
-      const previousStatus = getPreviousAttemptStatus(entryId, attempt);
-      const statusText = previousStatus === 1 ? 'válida' : 'inválida';
-      
-      console.log(`⏰ Timer expirado: Aplicando peso automático ${autoWeight}kg (tentativa anterior foi ${statusText})`);
-      
-      dispatch(updateEntry(entryId, { [weightField]: autoWeight }));
-    } else {
-      console.log('⏰ Timer expirado: Não foi possível aplicar peso automático');
-    }
+    // Não aplicar nenhum peso automaticamente
+    // O usuário deve preencher manualmente
   };
 
   // Função para navegar automaticamente para o próximo atleta/tentativa/lift
