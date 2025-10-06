@@ -589,7 +589,7 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
             {orderedEntriesByWeight.map((entry, index) => (
               <tr
                 key={entry.id}
-                className={`table-row ${isCurrentAthlete(entry.id) ? 'current-athlete-row' : ''}`}
+                className={`table-row ${isCurrentAthlete(entry.id) ? 'current-athlete-row table-warning' : ''}`}
               >
                 <td className="text-center fw-bold">
                   {index + 1}

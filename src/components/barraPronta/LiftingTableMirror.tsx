@@ -174,17 +174,19 @@ const LiftingTableMirror: React.FC<LiftingTableMirrorProps> = (props) => {
   // Renderizar apenas o conteúdo na janela principal (sem botões de controle)
   if (isMainWindow) {
     return (
-      <div className="lifting-mirror-container">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h5 className="mb-0" key={titleKey}>
-            {getAthleteTitle()}
-            {isConnected && (
-              <Badge bg="success" className="ms-2">
-                <FaSync className="me-1" />
-                Espelhado
-              </Badge>
-            )}
-          </h5>
+      <div className="lifting-mirror-container mirror-window">
+        <div className="mirror-header">
+          <div className="text-center mb-3">
+            <h5 className="mb-0 text-white fw-bold" key={titleKey}>
+              {getAthleteTitle()}
+              {isConnected && (
+                <Badge bg="success" className="ms-2">
+                  <FaSync className="me-1" />
+                  Espelhado
+                </Badge>
+              )}
+            </h5>
+          </div>
         </div>
         
         {isConnected && (
@@ -205,7 +207,7 @@ const LiftingTableMirror: React.FC<LiftingTableMirrorProps> = (props) => {
       <div className="lifting-mirror-container mirror-window">
         <div className="mirror-header">
           <div className="text-center mb-3">
-            <h4 className="mb-0 text-primary" key={titleKey}>
+            <h4 className="mb-0 text-white fw-bold" key={titleKey}>
               {mirrorState ? 
                 (() => {
                   const currentEntry = mirrorState.props.currentEntryId ? 
