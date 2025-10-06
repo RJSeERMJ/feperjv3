@@ -310,7 +310,7 @@
 }
 
 .attempt-cell.selected-attempt::before {
-  content: "🎯";
+  content: "";
   position: absolute;
   top: 5px;
   right: 5px;

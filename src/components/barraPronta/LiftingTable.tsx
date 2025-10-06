@@ -320,34 +320,52 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
     }
   };
 
-  // Função para calcular o total parcial baseado no movimento atual
+  // Função para calcular o total parcial baseado nas tentativas VÁLIDAS (Good Lifts)
   const getPartialTotal = (entry: any): number => {
     let total = 0;
     
-    // Agachamento (melhor tentativa)
+    // Agachamento - apenas tentativas válidas (Good Lift = status 1)
     if (entry.squat1 || entry.squat2 || entry.squat3) {
-      const squatAttempts = [entry.squat1, entry.squat2, entry.squat3].filter(w => w !== null && w > 0) as number[];
-      if (squatAttempts.length > 0) {
-        total += Math.max(...squatAttempts);
+      const squatAttempts = [entry.squat1, entry.squat2, entry.squat3];
+      const squatStatus = entry.squatStatus || [0, 0, 0];
+      const validSquatAttempts = squatAttempts
+        .map((weight, index) => ({ weight, status: squatStatus[index] }))
+        .filter(item => item.weight && item.weight > 0 && item.status === 1)
+        .map(item => item.weight as number);
+      
+      if (validSquatAttempts.length > 0) {
+        total += Math.max(...validSquatAttempts);
       }
     }
     
-    // Supino (melhor tentativa) - incluir apenas se estamos no supino ou terra
+    // Supino - apenas tentativas válidas (Good Lift = status 1) - incluir apenas se estamos no supino ou terra
     if (lift === 'B' || lift === 'D') {
       if (entry.bench1 || entry.bench2 || entry.bench3) {
-        const benchAttempts = [entry.bench1, entry.bench2, entry.bench3].filter(w => w !== null && w > 0) as number[];
-        if (benchAttempts.length > 0) {
-          total += Math.max(...benchAttempts);
+        const benchAttempts = [entry.bench1, entry.bench2, entry.bench3];
+        const benchStatus = entry.benchStatus || [0, 0, 0];
+        const validBenchAttempts = benchAttempts
+          .map((weight, index) => ({ weight, status: benchStatus[index] }))
+          .filter(item => item.weight && item.weight > 0 && item.status === 1)
+          .map(item => item.weight as number);
+        
+        if (validBenchAttempts.length > 0) {
+          total += Math.max(...validBenchAttempts);
         }
       }
     }
     
-    // Terra (melhor tentativa) - incluir apenas se estamos no terra
+    // Terra - apenas tentativas válidas (Good Lift = status 1) - incluir apenas se estamos no terra
     if (lift === 'D') {
       if (entry.deadlift1 || entry.deadlift2 || entry.deadlift3) {
-        const deadliftAttempts = [entry.deadlift1, entry.deadlift2, entry.deadlift3].filter(w => w !== null && w > 0) as number[];
-        if (deadliftAttempts.length > 0) {
-          total += Math.max(...deadliftAttempts);
+        const deadliftAttempts = [entry.deadlift1, entry.deadlift2, entry.deadlift3];
+        const deadliftStatus = entry.deadliftStatus || [0, 0, 0];
+        const validDeadliftAttempts = deadliftAttempts
+          .map((weight, index) => ({ weight, status: deadliftStatus[index] }))
+          .filter(item => item.weight && item.weight > 0 && item.status === 1)
+          .map(item => item.weight as number);
+        
+        if (validDeadliftAttempts.length > 0) {
+          total += Math.max(...validDeadliftAttempts);
         }
       }
     }
