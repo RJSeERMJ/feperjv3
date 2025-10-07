@@ -592,13 +592,13 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
           </>
         )}
         <td align="center">&nbsp;{(atleta.ipfPoints || atleta.points || 0).toFixed(2)}&nbsp;</td>
-        <td align="center"><b>{categoriaIdade === 'SJ' ? (atleta._totalPosCategoria || 1) : ''}</b></td>
-        <td align="center"><b>{categoriaIdade === 'JR' ? (atleta._totalPosCategoria || 1) : ''}</b></td>
-        <td align="center"><b>{categoriaIdade === 'OP' ? (atleta._totalPosCategoria || 1) : ''}</b></td>
-        <td align="center"><b>{categoriaIdade === 'M1' ? (atleta._totalPosCategoria || 1) : ''}</b></td>
-        <td align="center"><b>{categoriaIdade === 'M2' ? (atleta._totalPosCategoria || 1) : ''}</b></td>
-        <td align="center"><b>{categoriaIdade === 'M3' ? (atleta._totalPosCategoria || 1) : ''}</b></td>
-        <td align="center"><b>{categoriaIdade === 'M4' ? (atleta._totalPosCategoria || 1) : ''}</b></td>
+        <td align="center"><b>{atleta._posicoesCategoria?.['SJ']?.total || ''}</b></td>
+        <td align="center"><b>{atleta._posicoesCategoria?.['JR']?.total || ''}</b></td>
+        <td align="center"><b>{atleta._posicoesCategoria?.['OP']?.total || ''}</b></td>
+        <td align="center"><b>{atleta._posicoesCategoria?.['M1']?.total || ''}</b></td>
+        <td align="center"><b>{atleta._posicoesCategoria?.['M2']?.total || ''}</b></td>
+        <td align="center"><b>{atleta._posicoesCategoria?.['M3']?.total || ''}</b></td>
+        <td align="center"><b>{atleta._posicoesCategoria?.['M4']?.total || ''}</b></td>
       </tr>
     );
   };
@@ -608,10 +608,14 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
     // Agrupar atletas por modalidade e categoria de idade
     const atletasPorModalidadeCategoria: { [key: string]: any[] } = {};
     
+    // Mapa para rastrear atletas únicos e suas categorias
+    const atletasUnicos = new Map<string, any>();
+    
     atletas.forEach(atleta => {
       // Usar a categoria de inscrição do atleta
       const categoriaInscricao = atleta.entry?.division || atleta.division || '';
       const modalidade = atleta.entry?.equipment || 'Raw'; // Raw = Clássico, Equipped = Equipado
+      const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
       
       // Função para mapear categoria de inscrição para categoria de idade
       const mapearCategoria = (categoria: string): string => {
@@ -647,11 +651,26 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
         atletasPorModalidadeCategoria[chave] = [];
       }
       atletasPorModalidadeCategoria[chave].push(atleta);
+      
+      // Rastrear atletas únicos e suas categorias
+      if (!atletasUnicos.has(atletaId)) {
+        atletasUnicos.set(atletaId, {
+          ...atleta,
+          _categoriasCompetidas: [categoriaIdade],
+          _posicoesCategoria: {}
+        });
+      } else {
+        const atletaExistente = atletasUnicos.get(atletaId);
+        if (!atletaExistente._categoriasCompetidas.includes(categoriaIdade)) {
+          atletaExistente._categoriasCompetidas.push(categoriaIdade);
+        }
+      }
     });
 
     // Calcular posições para cada grupo (modalidade + categoria de idade)
     Object.keys(atletasPorModalidadeCategoria).forEach(chave => {
       const atletasGrupo = atletasPorModalidadeCategoria[chave];
+      const categoriaIdade = chave.split('-')[1];
       
       // Ordenar por agachamento (descendente)
       atletasGrupo.sort((a, b) => {
@@ -661,6 +680,14 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
       });
       atletasGrupo.forEach((atleta, index) => {
         atleta._squatPosCategoria = index + 1;
+        const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
+        const atletaUnico = atletasUnicos.get(atletaId);
+        if (atletaUnico) {
+          if (!atletaUnico._posicoesCategoria[categoriaIdade]) {
+            atletaUnico._posicoesCategoria[categoriaIdade] = {};
+          }
+          atletaUnico._posicoesCategoria[categoriaIdade].squat = index + 1;
+        }
       });
 
       // Ordenar por supino (descendente)
@@ -671,6 +698,14 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
       });
       atletasGrupo.forEach((atleta, index) => {
         atleta._benchPosCategoria = index + 1;
+        const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
+        const atletaUnico = atletasUnicos.get(atletaId);
+        if (atletaUnico) {
+          if (!atletaUnico._posicoesCategoria[categoriaIdade]) {
+            atletaUnico._posicoesCategoria[categoriaIdade] = {};
+          }
+          atletaUnico._posicoesCategoria[categoriaIdade].bench = index + 1;
+        }
       });
 
       // Ordenar por levantamento terra (descendente)
@@ -681,6 +716,14 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
       });
       atletasGrupo.forEach((atleta, index) => {
         atleta._deadliftPosCategoria = index + 1;
+        const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
+        const atletaUnico = atletasUnicos.get(atletaId);
+        if (atletaUnico) {
+          if (!atletaUnico._posicoesCategoria[categoriaIdade]) {
+            atletaUnico._posicoesCategoria[categoriaIdade] = {};
+          }
+          atletaUnico._posicoesCategoria[categoriaIdade].deadlift = index + 1;
+        }
       });
 
       // Ordenar por total (descendente)
@@ -691,7 +734,25 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
       });
       atletasGrupo.forEach((atleta, index) => {
         atleta._totalPosCategoria = index + 1;
+        const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
+        const atletaUnico = atletasUnicos.get(atletaId);
+        if (atletaUnico) {
+          if (!atletaUnico._posicoesCategoria[categoriaIdade]) {
+            atletaUnico._posicoesCategoria[categoriaIdade] = {};
+          }
+          atletaUnico._posicoesCategoria[categoriaIdade].total = index + 1;
+        }
       });
+    });
+    
+    // Atualizar atletas originais com informações consolidadas
+    atletas.forEach(atleta => {
+      const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
+      const atletaUnico = atletasUnicos.get(atletaId);
+      if (atletaUnico) {
+        atleta._categoriasCompetidas = atletaUnico._categoriasCompetidas;
+        atleta._posicoesCategoria = atletaUnico._posicoesCategoria;
+      }
     });
   };
 
@@ -703,6 +764,22 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
     
     // Calcular posições antes de renderizar
     calcularPosicoes(atletas);
+    
+    // Desduplicar atletas (manter apenas uma ocorrência de cada atleta único)
+    const atletasUnicos = new Map<string, any>();
+    atletas.forEach(atleta => {
+      const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
+      if (!atletasUnicos.has(atletaId)) {
+        atletasUnicos.set(atletaId, atleta);
+      }
+    });
+    
+    // Converter de volta para array e ordenar por total
+    const atletasDeduplicados = Array.from(atletasUnicos.values()).sort((a, b) => {
+      const totalA = a.total || 0;
+      const totalB = b.total || 0;
+      return totalB - totalA;
+    });
 
     return (
       <React.Fragment key={categoriaPeso}>
@@ -773,7 +850,7 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
           <td>M3</td>
           <td>M4</td>
         </tr>
-        {atletas.map((atleta, index) => {
+        {atletasDeduplicados.map((atleta, index) => {
           return renderizarLinhaAtleta(atleta, index);
         })}
         <tr>
