@@ -235,6 +235,43 @@ const getAgeCategory = (birthDate: string, sex: string): string => {
   }
 };
 
+// Função para obter todas as categorias de idade que um atleta pode competir
+const getAllAgeCategories = (birthDate: string, sex: string): string[] => {
+  if (!birthDate) return ['OP'];
+  
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+
+  const categories: string[] = [];
+
+  if (sex === 'M') {
+    if (age >= 18) categories.push('SJ'); // Sub-Junior
+    if (age >= 18 && age < 23) categories.push('JR'); // Junior
+    if (age >= 18 && age < 40) categories.push('OP'); // Open
+    if (age >= 40 && age < 50) categories.push('M1'); // Master 1
+    if (age >= 50 && age < 60) categories.push('M2'); // Master 2
+    if (age >= 60 && age < 70) categories.push('M3'); // Master 3
+    if (age >= 70) categories.push('M4'); // Master 4
+  } else { // Feminino
+    if (age >= 18) categories.push('SJ'); // Sub-Junior
+    if (age >= 18 && age < 23) categories.push('JR'); // Junior
+    if (age >= 18 && age < 40) categories.push('OP'); // Open
+    if (age >= 40 && age < 50) categories.push('M1'); // Master 1
+    if (age >= 50 && age < 60) categories.push('M2'); // Master 2
+    if (age >= 60 && age < 70) categories.push('M3'); // Master 3
+    if (age >= 70) categories.push('M4'); // Master 4
+  }
+
+  // Se não há categorias (idade < 18), retornar apenas Open
+  return categories.length > 0 ? categories : ['OP'];
+};
+
 // Função para obter classe CSS baseada no status da tentativa
 const getAttemptClass = (
   attemptWeight: number | null, 
@@ -3123,6 +3160,17 @@ const AttemptDisplay: React.FC<{
                 entriesByDivisionAndWeight[key].push(entry);
               });
 
+              // Agrupar também por categoria de idade para calcular posições separadas
+              const entriesByAgeCategory: { [key: string]: Entry[] } = {};
+              entries.forEach(entry => {
+                const ageCategory = getAgeCategory(entry.birthDate || '', entry.sex);
+                const key = ageCategory;
+                if (!entriesByAgeCategory[key]) {
+                  entriesByAgeCategory[key] = [];
+                }
+                entriesByAgeCategory[key].push(entry);
+              });
+
               // Ordenar cada grupo (divisão + categoria) por Total Parcial
               Object.keys(entriesByDivisionAndWeight).forEach(key => {
                 entriesByDivisionAndWeight[key].sort((a: Entry, b: Entry) => {
@@ -3132,15 +3180,38 @@ const AttemptDisplay: React.FC<{
                 });
               });
 
+              // Ordenar também por categoria de idade
+              Object.keys(entriesByAgeCategory).forEach(key => {
+                entriesByAgeCategory[key].sort((a: Entry, b: Entry) => {
+                  const partialA = calculatePartialTotal(a);
+                  const partialB = calculatePartialTotal(b);
+                  return partialB.totalValid - partialA.totalValid; // Decrescente
+                });
+              });
+
               // Calcular colocações dentro de cada grupo (divisão + categoria)
-              const entriesWithPosition: { entry: Entry; position: number; partial: any; division: string; weightClass: string }[] = [];
+              const entriesWithPosition: { 
+                entry: Entry; 
+                position: number; 
+                positionAgeCategory: number;
+                partial: any; 
+                division: string; 
+                weightClass: string;
+              }[] = [];
+              
               Object.keys(entriesByDivisionAndWeight).forEach(key => {
                 const [division, weightClass] = key.split('-');
                 entriesByDivisionAndWeight[key].forEach((entry, index) => {
                   const partial = calculatePartialTotal(entry);
+                  
+                  // Encontrar posição na categoria de idade
+                  const ageCategory = getAgeCategory(entry.birthDate || '', entry.sex);
+                  const positionAgeCategory = entriesByAgeCategory[ageCategory].findIndex(e => e.id === entry.id) + 1;
+                  
                   entriesWithPosition.push({
                     entry,
                     position: index + 1,
+                    positionAgeCategory,
                     partial,
                     division,
                     weightClass
@@ -3174,7 +3245,6 @@ const AttemptDisplay: React.FC<{
                           <Table striped bordered hover className="mb-0">
                             <thead className="table-dark">
                               <tr>
-                                <th className="text-center">POS</th>
                                 <th className="text-center">Atleta</th>
                                 <th className="text-center">Equipe</th>
                                 <th className="text-center">Peso </th>
@@ -3186,7 +3256,6 @@ const AttemptDisplay: React.FC<{
                                 <th className="text-center">Total Pretendido</th>
                               </tr>
                               <tr>
-                                <th></th>
                                 <th></th>
                                 <th></th>
                                 <th></th>
@@ -3205,26 +3274,53 @@ const AttemptDisplay: React.FC<{
                               </tr>
                             </thead>
                             <tbody>
-                              {entriesWithPosition.map(({ entry, position, partial, division, weightClass }, index: number) => {
+                              {entriesWithPosition.map(({ entry, position, positionAgeCategory, partial, division, weightClass }, index: number) => {
                                 return (
                                   <tr key={entry.id}>
-                                    <td className="text-center fw-bold">
-                                      <div>
-                                        <span className={`badge ${position === 1 ? 'bg-warning' : position === 2 ? 'bg-secondary' : position === 3 ? 'bg-danger' : 'bg-primary'}`}>
-                                          {position}º
-                                        </span>
-                                        <br />
-                                        <small className="text-muted">{division}</small>
-                                        <br />
-                                        <small className="text-info fw-bold">{weightClass}</small>
-                                      </div>
-                                    </td>
                                     <td>
                                       <div>
-                                        <strong>{entry.name}</strong>
-                                        <br />
-                                        <small className="text-muted">
-                                          {entry.sex === 'M' ? 'M' : 'F'}
+                                        {/* Linha 1: Nome + Sexo (esquerda) + Categoria de peso (direita) */}
+                                        <div className="d-flex justify-content-between align-items-center mb-1">
+                                          <div>
+                                            <strong className="fs-6">{entry.name}</strong>
+                                            <small className="text-muted ms-2 fs-6">{entry.sex === 'M' ? 'M' : 'F'}</small>
+                                          </div>
+                                          <small className="text-info fw-bold fs-6">{weightClass}</small>
+                                        </div>
+                                        
+                                        {/* Linha 2: Divisão - Dobra - Modalidade(s) */}
+                                        <small className="text-muted fs-6">
+                                          {(() => {
+                                            // Detectar se o atleta está dobrando
+                                            const athletesDobra = detectAthletesDobra(registration.entries);
+                                            const isDobra = isAthleteDobra(entry, athletesDobra);
+                                            const dobraCategory = getAthleteDobraCategory(entry, athletesDobra);
+                                            
+                                            // Detectar se o atleta está inscrito em duas modalidades
+                                            const athleteEntries = registration.entries.filter((e: Entry) => 
+                                              (e.cpf && entry.cpf && e.cpf === entry.cpf) || 
+                                              (!e.cpf && !entry.cpf && e.name === entry.name)
+                                            );
+                                            const hasRaw = athleteEntries.some((e: Entry) => e.equipment === 'Raw');
+                                            const hasEquipped = athleteEntries.some((e: Entry) => e.equipment === 'Equipped');
+                                            
+                                            // Construir string de informações
+                                            let infoString = division;
+                                            
+                                            // Adicionar dobra se aplicável
+                                            if (isDobra && dobraCategory && dobraCategory !== 'Dobra FEPERJ') {
+                                              infoString += ` - ${dobraCategory}`;
+                                            }
+                                            
+                                            // Adicionar modalidade(s)
+                                            if (hasRaw && hasEquipped) {
+                                              infoString += ` - Clássico/Equipado`;
+                                            } else {
+                                              infoString += ` - ${entry.equipment === 'Raw' ? 'Clássico' : 'Equipado'}`;
+                                            }
+                                            
+                                            return infoString;
+                                          })()}
                                         </small>
                                       </div>
                                     </td>
@@ -3817,21 +3913,6 @@ const AttemptDisplay: React.FC<{
         </div>
       )}
 
-      {/* Mensagem quando não há resultados */}
-      {calculatedResults.length === 0 && (
-        <Row>
-          <Col>
-            <Alert variant="info" className="text-center">
-              <FaTrophy size={48} className="mb-3" />
-              <h4>Nenhum resultado encontrado</h4>
-              <p>
-                Não há resultados para os filtros selecionados. 
-                Verifique se os atletas completaram suas tentativas.
-              </p>
-            </Alert>
-          </Col>
-        </Row>
-      )}
     </Container>
   );
 };

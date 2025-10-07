@@ -614,12 +614,12 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
                 </td>
                 <td>
                   <div className="athlete-info">
-                    <div className="athlete-name">{entry.name}</div>
+                    <div className="athlete-name fs-6">{entry.name}</div>
                     <div className="athlete-details">
-                      <Badge bg="secondary" className="me-1">
+                      <Badge bg="secondary" className="me-1 fs-6">
                         {entry.sex === 'M' ? 'M' : 'F'}
                       </Badge>
-                      <Badge bg="info">
+                      <Badge bg="info fs-6">
                         {entry.weightClass}
                       </Badge>
                     </div>
@@ -739,11 +739,9 @@ const LiftingTable: React.FC<LiftingTableProps> = ({
 
                 {/* Total Parcial */}
                 <td className="text-center partial-total-cell">
-                  <div className="partial-total-display">
-                    <span className="fw-bold text-primary fs-6">
-                      {getPartialTotal(entry)}kg
-                    </span>
-                  </div>
+                  <span className="fw-bold text-primary fs-6">
+                    {getPartialTotal(entry)}kg
+                  </span>
                 </td>
 
               </tr>
