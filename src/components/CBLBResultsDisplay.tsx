@@ -667,66 +667,45 @@ const CBLBResultsDisplay: React.FC<CBLBResultsDisplayProps> = ({ resultado }) =>
       }
     });
 
-    // Calcular posições para cada grupo (modalidade + categoria de idade)
+    // NOVA LÓGICA: Calcular posições dos levantamentos individuais por CATEGORIA DE PESO
+    // (todos os atletas da mesma categoria de peso competem entre si nos levantamentos)
+    
+    // Ordenar TODOS os atletas por agachamento (independente de categoria de idade)
+    const todosAtletasSquat = [...atletas].sort((a, b) => {
+      const squatA = a.bestAttempts?.squat || a.squat || 0;
+      const squatB = b.bestAttempts?.squat || b.squat || 0;
+      return squatB - squatA;
+    });
+    todosAtletasSquat.forEach((atleta, index) => {
+      atleta._squatPosCategoria = index + 1;
+    });
+
+    // Ordenar TODOS os atletas por supino (independente de categoria de idade)
+    const todosAtletasBench = [...atletas].sort((a, b) => {
+      const benchA = a.bestAttempts?.bench || a.bench || 0;
+      const benchB = b.bestAttempts?.bench || b.bench || 0;
+      return benchB - benchA;
+    });
+    todosAtletasBench.forEach((atleta, index) => {
+      atleta._benchPosCategoria = index + 1;
+    });
+
+    // Ordenar TODOS os atletas por levantamento terra (independente de categoria de idade)
+    const todosAtletasDeadlift = [...atletas].sort((a, b) => {
+      const deadliftA = a.bestAttempts?.deadlift || a.deadlift || 0;
+      const deadliftB = b.bestAttempts?.deadlift || b.deadlift || 0;
+      return deadliftB - deadliftA;
+    });
+    todosAtletasDeadlift.forEach((atleta, index) => {
+      atleta._deadliftPosCategoria = index + 1;
+    });
+
+    // Calcular posições do TOTAL por modalidade + categoria de idade
     Object.keys(atletasPorModalidadeCategoria).forEach(chave => {
       const atletasGrupo = atletasPorModalidadeCategoria[chave];
       const categoriaIdade = chave.split('-')[1];
       
-      // Ordenar por agachamento (descendente)
-      atletasGrupo.sort((a, b) => {
-        const squatA = a.bestAttempts?.squat || a.squat || 0;
-        const squatB = b.bestAttempts?.squat || b.squat || 0;
-        return squatB - squatA;
-      });
-      atletasGrupo.forEach((atleta, index) => {
-        atleta._squatPosCategoria = index + 1;
-        const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
-        const atletaUnico = atletasUnicos.get(atletaId);
-        if (atletaUnico) {
-          if (!atletaUnico._posicoesCategoria[categoriaIdade]) {
-            atletaUnico._posicoesCategoria[categoriaIdade] = {};
-          }
-          atletaUnico._posicoesCategoria[categoriaIdade].squat = index + 1;
-        }
-      });
-
-      // Ordenar por supino (descendente)
-      atletasGrupo.sort((a, b) => {
-        const benchA = a.bestAttempts?.bench || a.bench || 0;
-        const benchB = b.bestAttempts?.bench || b.bench || 0;
-        return benchB - benchA;
-      });
-      atletasGrupo.forEach((atleta, index) => {
-        atleta._benchPosCategoria = index + 1;
-        const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
-        const atletaUnico = atletasUnicos.get(atletaId);
-        if (atletaUnico) {
-          if (!atletaUnico._posicoesCategoria[categoriaIdade]) {
-            atletaUnico._posicoesCategoria[categoriaIdade] = {};
-          }
-          atletaUnico._posicoesCategoria[categoriaIdade].bench = index + 1;
-        }
-      });
-
-      // Ordenar por levantamento terra (descendente)
-      atletasGrupo.sort((a, b) => {
-        const deadliftA = a.bestAttempts?.deadlift || a.deadlift || 0;
-        const deadliftB = b.bestAttempts?.deadlift || b.deadlift || 0;
-        return deadliftB - deadliftA;
-      });
-      atletasGrupo.forEach((atleta, index) => {
-        atleta._deadliftPosCategoria = index + 1;
-        const atletaId = atleta.entry?.cpf || atleta.entry?.name || atleta.name || '';
-        const atletaUnico = atletasUnicos.get(atletaId);
-        if (atletaUnico) {
-          if (!atletaUnico._posicoesCategoria[categoriaIdade]) {
-            atletaUnico._posicoesCategoria[categoriaIdade] = {};
-          }
-          atletaUnico._posicoesCategoria[categoriaIdade].deadlift = index + 1;
-        }
-      });
-
-      // Ordenar por total (descendente)
+      // Ordenar por total (descendente) - APENAS PARA CATEGORIA DE IDADE
       atletasGrupo.sort((a, b) => {
         const totalA = a.total || 0;
         const totalB = b.total || 0;
