@@ -41,7 +41,8 @@ const initialState: GlobalState = {
       { weightKg: 0.5, pairCount: 10, color: '#808080' },
       { weightKg: 0.25, pairCount: 10, color: '#000000' }
     ],
-    showAlternateUnits: false
+    showAlternateUnits: false,
+    recognizeRecords: true
   },
   registration: {
     nextEntryId: 1,

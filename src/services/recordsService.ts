@@ -414,15 +414,20 @@ export const recordsService = {
       // Determinar categorias de idade baseadas na idade do atleta
       const ageDivisions = this.getAgeDivisions(athleteData.age);
       
-      // Se o atleta tem uma divisão específica inscrita, incluir também
-      const allDivisions = athleteData.division 
-        ? [...ageDivisions, athleteData.division]
-        : ageDivisions;
+      // Se o atleta tem divisões específicas inscritas (podem ser múltiplas separadas por vírgula)
+      const athleteDivisions = athleteData.division 
+        ? athleteData.division.split(',').map(d => d.trim()).filter(Boolean)
+        : [];
+      
+      // Combinar categorias de idade com divisões do atleta
+      const allDivisions = [...ageDivisions, ...athleteDivisions];
 
       // Remover duplicatas
       const uniqueDivisions = Array.from(new Set(allDivisions));
 
-      console.log('📋 Divisões a verificar:', uniqueDivisions);
+      console.log('📋 Categorias de idade baseadas na idade:', ageDivisions);
+      console.log('📋 Divisões do atleta:', athleteDivisions);
+      console.log('📋 Todas as divisões a verificar:', uniqueDivisions);
 
       const recordDivisions: string[] = [];
       const currentRecords: Record[] = [];
@@ -434,7 +439,9 @@ export const recordsService = {
 
       // Verificar cada divisão
       for (const division of uniqueDivisions) {
-        console.log(`🔍 Verificando divisão: ${division}`);
+        // Normalizar divisão antes de verificar
+        const normalizedDivision = this.normalizeDivision(division);
+        console.log(`🔍 Verificando divisão: "${division}" → "${normalizedDivision}"`);
         
         // Normalizar equipamento
         const normalizedEquipment = this.normalizeEquipment(athleteData.equipment || 'CLASSICA');
@@ -442,7 +449,7 @@ export const recordsService = {
         
         const records = await this.getRecordsByFilters(
           movementToCheck,
-          division,
+          normalizedDivision, // Usar divisão normalizada
           athleteData.sex,
           normalizedEquipment
         );
@@ -487,17 +494,17 @@ export const recordsService = {
 
           // Se o peso da tentativa é maior que o record atual
           if (weight > bestRecord.weight) {
-            recordDivisions.push(division);
+            recordDivisions.push(normalizedDivision); // Salvar divisão normalizada
             currentRecords.push(bestRecord);
             recordDetails.push({
-              division,
+              division: normalizedDivision, // Salvar divisão normalizada
               currentRecord: bestRecord.weight,
               isNewRecord: true
             });
-            console.log(`🏆 NOVO RECORD! ${division}: ${bestRecord.weight}kg → ${weight}kg`);
+            console.log(`🏆 NOVO RECORD! ${normalizedDivision}: ${bestRecord.weight}kg → ${weight}kg`);
           } else {
             recordDetails.push({
-              division,
+              division: normalizedDivision, // Salvar divisão normalizada
               currentRecord: bestRecord.weight,
               isNewRecord: false
             });
@@ -539,7 +546,7 @@ export const recordsService = {
       divisions.push('SUBJR');
     }
     if (age <= 23) {
-      divisions.push('JUNIOR');
+      divisions.push('JR'); // ABREVIADO
     }
     if (age >= 18) {
       divisions.push('OPEN');
@@ -558,6 +565,42 @@ export const recordsService = {
     }
 
     return divisions;
+  },
+
+  // Função para normalizar nome de divisão
+  normalizeDivision(division: string): string {
+    if (!division) return 'OPEN';
+    
+    const normalized = division.toUpperCase().trim();
+    
+    // Mapear variações para o formato padrão Firebase (ABREVIADO)
+    const divisionMap: { [key: string]: string } = {
+      'SUB-JUNIOR': 'SUBJR',
+      'SUBJUNIOR': 'SUBJR',
+      'SUB JUNIOR': 'SUBJR',
+      'SUBJR': 'SUBJR',
+      'JR': 'JR',
+      'JÚNIOR': 'JR',
+      'JUNIOR': 'JR',
+      'MASTER 1': 'MASTER1',
+      'MASTER1': 'MASTER1',
+      'M1': 'MASTER1',
+      'MASTER 2': 'MASTER2',
+      'MASTER2': 'MASTER2',
+      'M2': 'MASTER2',
+      'MASTER 3': 'MASTER3',
+      'MASTER3': 'MASTER3',
+      'M3': 'MASTER3',
+      'MASTER 4': 'MASTER4',
+      'MASTER4': 'MASTER4',
+      'M4': 'MASTER4',
+      'OPEN': 'OPEN',
+      'ABERTO': 'OPEN'
+    };
+    
+    const result = divisionMap[normalized] || normalized;
+    console.log(`🔄 Normalização de divisão: "${division}" → "${result}"`);
+    return result;
   },
 
   // Função para normalizar equipamento

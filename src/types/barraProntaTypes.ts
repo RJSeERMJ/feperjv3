@@ -129,6 +129,7 @@ export type MeetState = {
   readonly deadliftBarAndCollarsWeightKg: number;
   readonly plates: ReadonlyArray<Readonly<Plate>>;
   readonly showAlternateUnits: boolean;
+  readonly recognizeRecords: boolean;
 };
 
 export type RegistrationState = {

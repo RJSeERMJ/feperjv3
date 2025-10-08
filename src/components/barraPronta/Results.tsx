@@ -969,6 +969,13 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
   // useEffect para verificar records após o cálculo dos resultados
   useEffect(() => {
     const checkRecordsForResults = async () => {
+      // Verificar se o reconhecimento de record está habilitado
+      if (!meet.recognizeRecords) {
+        setRecordInfo(new Map());
+        setResultsWithRecords(calculatedResults);
+        return;
+      }
+
       const newRecordInfo = new Map<string, { 
         isRecord: boolean; 
         recordDivisions: string[];
@@ -1040,7 +1047,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
     if (calculatedResults.length > 0) {
       checkRecordsForResults();
     }
-  }, [calculatedResults, meet.allowedMovements]);
+  }, [calculatedResults, meet.allowedMovements, meet.recognizeRecords]);
 
 
 

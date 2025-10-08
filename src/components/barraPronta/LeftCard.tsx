@@ -8,18 +8,48 @@ import BarLoad from './BarLoad';
 import './LeftCard.css';
 
 // Função para detectar se atleta está dobrando e obter todas as categorias
-const getAthleteCategories = (entry: any) => {
-  const categories = [entry.division];
+// IMPORTANTE: Esta função recebe o array de entries como segundo parâmetro
+const getAthleteCategories = (entry: any, allEntries: any[] = []) => {
+  const categories: string[] = [];
   
-  // Verificar se tem dobraCategoria específica nas notas
+  // Sempre adicionar a categoria principal
+  if (entry.division) {
+    categories.push(entry.division);
+  }
+  
+  // PRIORIDADE 1: Verificar múltiplas inscrições (dados reais)
+  if (allEntries.length > 0) {
+    const athleteKey = entry.cpf || entry.name;
+    const athleteEntries = allEntries.filter((e: any) => {
+      const key = e.cpf || e.name;
+      return key === athleteKey;
+    });
+    
+    // Se tem múltiplas divisões, é dobra
+    const divisionsSet = new Set(athleteEntries.map((e: any) => e.division).filter(Boolean));
+    const divisions = Array.from(divisionsSet);
+    
+    if (divisions.length > 1) {
+      // Adicionar todas as divisões únicas
+      divisions.forEach(div => {
+        if (!categories.includes(div)) {
+          categories.push(div);
+        }
+      });
+      return categories;
+    }
+  }
+  
+  // PRIORIDADE 2: Verificar dobraCategoria nos notes (dados FEPERJ)
   if (entry.notes) {
     const dobraMatch = entry.notes.match(/dobraCategoria[:\s]*([^,]+)/i);
     if (dobraMatch) {
       const dobraCategoria = dobraMatch[1].trim();
-      // Só adicionar se não for "Dobra FEPERJ" e for diferente da categoria atual
+      // Só adicionar se não for "Dobra FEPERJ" genérica e for diferente da categoria atual
       if (dobraCategoria.toLowerCase() !== 'dobra feperj' && 
           dobraCategoria !== entry.division &&
-          dobraCategoria.trim() !== '') {
+          dobraCategoria.trim() !== '' &&
+          !categories.includes(dobraCategoria)) {
         categories.push(dobraCategoria);
       }
     }
@@ -113,6 +143,12 @@ const LeftCard: React.FC<LeftCardProps> = ({
 
   // Função para verificar se o peso atual é record
   const checkRecord = useCallback(async (weight: number, entry: any) => {
+    // Verificar se o reconhecimento de record está habilitado
+    if (!meet.recognizeRecords) {
+      setRecordInfo(null);
+      return;
+    }
+
     if (!weight || weight <= 0 || !entry) {
       setRecordInfo(null);
       return;
@@ -129,7 +165,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
       });
 
       // Obter todas as categorias do atleta (incluindo dobra se houver)
-      const athleteCategories = getAthleteCategories(entry);
+      const athleteCategories = getAthleteCategories(entry, entries);
       const divisionsToCheck = athleteCategories;
       
       // Debug: verificar categorias detectadas
@@ -157,7 +193,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
         isNewRecord: boolean;
       }> = [];
       
-      // Verificar record para cada divisão
+      // Verificar record para cada divisão específica
       for (const division of divisionsToCheck) {
         try {
           const result = await recordsService.checkRecordAttempt(
@@ -174,11 +210,32 @@ const LeftCard: React.FC<LeftCardProps> = ({
             competitionType
           );
 
-          // Se é record nesta divisão, adicionar às informações
-          if (result.isRecord) {
+          // CORREÇÃO: Adicionar APENAS as divisões que realmente são record (do retorno do checkRecordAttempt)
+          if (result.isRecord && result.recordDivisions.length > 0) {
             isAnyRecord = true;
-            allRecordDivisions.push(...result.recordDivisions);
-            allRecordDetails.push(...result.recordDetails);
+            
+            // Adicionar cada divisão retornada onde É record
+            result.recordDivisions.forEach(recordDiv => {
+              // Evitar duplicatas
+              if (!allRecordDivisions.includes(recordDiv)) {
+                allRecordDivisions.push(recordDiv);
+              }
+            });
+            
+            // Adicionar detalhes apenas das divisões que são record
+            result.recordDetails
+              .filter(detail => detail.isNewRecord)
+              .forEach(detail => {
+                // Evitar duplicatas
+                const exists = allRecordDetails.some(d => d.division === detail.division);
+                if (!exists) {
+                  allRecordDetails.push({
+                    division: detail.division,
+                    currentRecord: detail.currentRecord,
+                    isNewRecord: true
+                  });
+                }
+              });
           }
           
         } catch (error) {
@@ -219,7 +276,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
     } finally {
       setIsCheckingRecord(false);
     }
-  }, [lift, meet.allowedMovements]);
+  }, [lift, meet.allowedMovements, meet.recognizeRecords, entries]);
 
   // Monitorar mudanças no estado para sincronização automática
   useEffect(() => {
@@ -262,7 +319,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 <Badge bg="info" className="me-1">
                   {currentEntry.weightClass}
                 </Badge>
-                {getAthleteCategories(currentEntry).map((category, index) => (
+                {getAthleteCategories(currentEntry, entries).map((category, index) => (
                   <Badge key={index} bg="success" className="me-1">
                     {category}
                   </Badge>
@@ -315,7 +372,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
                         .filter(detail => detail.isNewRecord)
                         .map((detail, index) => (
                           <span key={index} className="record-division">
-                            {detail.division}
+                            {recordsService.normalizeDivision(detail.division)}
                           </span>
                         ))}
                     </div>
@@ -343,7 +400,7 @@ const LeftCard: React.FC<LeftCardProps> = ({
                 <Badge bg="info" className="me-1">
                   {nextEntry.weightClass}
                 </Badge>
-                {getAthleteCategories(nextEntry).map((category, index) => (
+                {getAthleteCategories(nextEntry, entries).map((category, index) => (
                   <Badge key={index} bg="success" className="me-1">
                     {category}
                   </Badge>

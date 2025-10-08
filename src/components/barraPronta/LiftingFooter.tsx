@@ -6,6 +6,7 @@ import { updateEntry } from '../../actions/barraProntaActions';
 import { Lift, LiftStatus, LiftingState } from '../../types/barraProntaTypes';
 import { getLiftingOrder, getStableOrderByWeight } from '../../logic/liftingOrder';
 import { useTimer } from '../../hooks/useTimer';
+import { recordsService } from '../../services/recordsService';
 import './LiftingFooter.css';
 
 const LiftingFooter: React.FC = () => {
@@ -34,6 +35,66 @@ const LiftingFooter: React.FC = () => {
   });
   console.log('🔍 LiftingFooter - Atletas disponíveis:', entriesInFlight.length);
   console.log('🔍 LiftingFooter - Ordem de levantamentos:', liftingOrder);
+
+  // 🆕 Função para obter TODAS as categorias aplicáveis do atleta (incluindo dobra)
+  // Baseado na lógica do Registration.tsx - usa dados REAIS importados
+  const getAthleteAllCategories = (entry: any): string[] => {
+    const categories: string[] = [];
+    
+    // Sempre adicionar a categoria principal
+    if (entry.division) {
+      categories.push(entry.division);
+    }
+    
+    // PRIORIDADE 1: Verificar múltiplas inscrições (dados reais)
+    const athleteKey = entry.cpf || entry.name;
+    const athleteEntries = entries.filter((e: any) => {
+      const key = e.cpf || e.name;
+      return key === athleteKey;
+    });
+    
+    // Se tem múltiplas divisões, é dobra
+    const divisionsSet = new Set(athleteEntries.map((e: any) => e.division).filter(Boolean));
+    const divisions = Array.from(divisionsSet);
+    
+    if (divisions.length > 1) {
+      console.log(`🔍 LiftingFooter - Dobra detectada por múltiplas inscrições:`, divisions);
+      console.log(`🔍 LiftingFooter - Atleta ${entry.name} inscrito em:`, divisions);
+      // Adicionar todas as divisões únicas
+      divisions.forEach(div => {
+        if (!categories.includes(div)) {
+          categories.push(div);
+        }
+      });
+      return categories;
+    }
+    
+    // PRIORIDADE 2: Verificar dobraCategoria nos notes (dados FEPERJ)
+    if (entry.notes) {
+      const dobraMatch = entry.notes.match(/dobraCategoria[:\s]*([^,]+)/i);
+      if (dobraMatch) {
+        const dobraCategoria = dobraMatch[1].trim();
+        // Só adicionar se não for "Dobra FEPERJ" genérica e for diferente da categoria atual
+        if (dobraCategoria.toLowerCase() !== 'dobra feperj' && 
+            dobraCategoria !== entry.division &&
+            dobraCategoria.trim() !== '' &&
+            !categories.includes(dobraCategoria)) {
+          categories.push(dobraCategoria);
+          console.log(`🔍 LiftingFooter - Dobra detectada por dobraCategoria (FEPERJ): ${entry.division} + ${dobraCategoria}`);
+        }
+      }
+    }
+    
+    console.log(`📋 LiftingFooter - Todas as categorias de ${entry.name}:`, categories);
+    return categories;
+  };
+
+  // 🆕 Função para verificar se um atleta está dobrando
+  const isAthleteDobra = (entry: any): boolean => {
+    const allCategories = getAthleteAllCategories(entry);
+    // Está dobrando se tem mais de uma categoria
+    return allCategories.length > 1;
+  };
 
   // Função para sincronizar o estado da tentativa atual
   const syncAttemptState = () => {
@@ -774,6 +835,264 @@ const LiftingFooter: React.FC = () => {
     }
   };
 
+  // Função para salvar record automaticamente no Firebase
+  const saveRecordAutomatically = async (
+    entryId: number,
+    weight: number,
+    movement: 'squat' | 'bench' | 'deadlift',
+    recordInfo: {
+      isRecord: boolean;
+      recordDivisions: string[];
+      recordDetails: Array<{
+        division: string;
+        currentRecord: number;
+        isNewRecord: boolean;
+      }>;
+    }
+  ) => {
+    try {
+      // Verificar se o reconhecimento de record está ativo
+      if (!meet.recognizeRecords) {
+        console.log('⚠️ Reconhecimento de record desativado. Não salvando record.');
+        return;
+      }
+
+      // Verificar se é realmente um record
+      if (!recordInfo.isRecord || recordInfo.recordDivisions.length === 0) {
+        console.log('⚠️ Não é um record. Não salvando.');
+        return;
+      }
+
+      // Buscar dados do atleta
+      const entry = entries.find(e => e.id === entryId);
+      if (!entry) {
+        console.error('❌ Atleta não encontrado:', entryId);
+        return;
+      }
+
+      console.log('💾 Salvando record automaticamente:', {
+        athleteName: entry.name,
+        weight,
+        movement,
+        divisions: recordInfo.recordDivisions
+      });
+
+      // Normalizar equipamento
+      const normalizedEquipment = recordsService.normalizeEquipment(entry.equipment || 'CLASSICA');
+
+      // Verificar se é apenas supino
+      const isOnlyBenchPress = recordsService.isAthleteOnlyBenchPress(entry.movements);
+      let movementToSave: string = movement;
+      if (isOnlyBenchPress && movement === 'bench') {
+        movementToSave = 'bench_solo';
+        console.log('🏋️ Atleta apenas em S - salvando como bench_solo');
+      }
+
+      // 🆕 NOVO: Se o atleta compete em AST e o movimento é supino, também verificar/salvar em bench_solo
+      const isCompetingInAST = entry.movements && (
+        entry.movements.includes('AST') || 
+        entry.movements.includes('A') && entry.movements.includes('S') && entry.movements.includes('T')
+      );
+      const shouldAlsoSaveBenchSolo = movement === 'bench' && isCompetingInAST && !isOnlyBenchPress;
+      
+      if (shouldAlsoSaveBenchSolo) {
+        console.log('🏋️ Atleta compete em AST - também verificando record em "Apenas Supino" (bench_solo)');
+      }
+
+      // Salvar record para cada divisão identificada (JÁ NORMALIZADAS)
+      for (const division of recordInfo.recordDivisions) {
+        try {
+          console.log(`💾 Preparando para salvar record na divisão: "${division}" (normalizada)`);
+          
+          // Buscar se já existe um record para esta combinação
+          const existingRecords = await recordsService.getRecordsByFilters(
+            movementToSave,
+            division,
+            entry.sex,
+            normalizedEquipment as 'CLASSICA' | 'EQUIPADO'
+          );
+
+          // Filtrar pelo weightClass
+          const existingRecord = existingRecords.find(r => r.weightClass === entry.weightClass);
+
+          const recordData = {
+            movement: movementToSave as any,
+            division: division, // Divisão já normalizada (SUBJR, JR, OPEN, MASTER1, etc)
+            sex: entry.sex,
+            equipment: normalizedEquipment as 'CLASSICA' | 'EQUIPADO',
+            weightClass: entry.weightClass,
+            weight: weight,
+            athleteName: entry.name,
+            team: entry.team,
+            competition: meet.name || 'Competição',
+            date: new Date(meet.date || new Date())
+          };
+          
+          console.log(`📝 Dados do record a salvar no Firebase:`, recordData);
+
+          if (existingRecord) {
+            // Atualizar record existente
+            console.log(`🔄 Atualizando record existente para ${division}:`, {
+              anterior: `${existingRecord.athleteName} - ${existingRecord.weight}kg`,
+              novo: `${entry.name} - ${weight}kg`
+            });
+
+            await recordsService.update(existingRecord.id!, recordData);
+            console.log(`✅ Record atualizado com sucesso para ${division}`);
+          } else {
+            // Criar novo record
+            console.log(`➕ Criando novo record para ${division}:`, {
+              atleta: entry.name,
+              peso: weight
+            });
+
+            await recordsService.create(recordData);
+            console.log(`✅ Novo record criado com sucesso para ${division}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao salvar record para ${division}:`, error);
+        }
+      }
+
+      // 🆕 NOVO: Se o atleta compete em AST e fez supino, verificar e salvar também em bench_solo
+      if (shouldAlsoSaveBenchSolo) {
+        console.log('🏋️ Verificando se o supino também é record na categoria "Apenas Supino"...');
+        
+        for (const division of recordInfo.recordDivisions) {
+          try {
+            // Verificar record em bench_solo
+            const benchSoloRecords = await recordsService.getRecordsByFilters(
+              'bench_solo',
+              division,
+              entry.sex,
+              normalizedEquipment as 'CLASSICA' | 'EQUIPADO'
+            );
+
+            // Filtrar pelo weightClass
+            const existingBenchSoloRecord = benchSoloRecords.find(r => r.weightClass === entry.weightClass);
+
+            // Verificar se o peso atual é maior que o record de bench_solo
+            const isBenchSoloRecord = !existingBenchSoloRecord || weight > existingBenchSoloRecord.weight;
+
+            if (isBenchSoloRecord) {
+              const benchSoloRecordData = {
+                movement: 'bench_solo' as any,
+                division: division,
+                sex: entry.sex,
+                equipment: normalizedEquipment as 'CLASSICA' | 'EQUIPADO',
+                weightClass: entry.weightClass,
+                weight: weight,
+                athleteName: entry.name,
+                team: entry.team,
+                competition: meet.name || 'Competição',
+                date: new Date(meet.date || new Date())
+              };
+
+              if (existingBenchSoloRecord) {
+                // Atualizar record existente
+                console.log(`🔄 Atualizando record de "Apenas Supino" para ${division}:`, {
+                  anterior: `${existingBenchSoloRecord.athleteName} - ${existingBenchSoloRecord.weight}kg`,
+                  novo: `${entry.name} - ${weight}kg`
+                });
+
+                await recordsService.update(existingBenchSoloRecord.id!, benchSoloRecordData);
+                console.log(`✅ Record de "Apenas Supino" atualizado com sucesso para ${division}`);
+              } else {
+                // Criar novo record
+                console.log(`➕ Criando novo record de "Apenas Supino" para ${division}:`, {
+                  atleta: entry.name,
+                  peso: weight
+                });
+
+                await recordsService.create(benchSoloRecordData);
+                console.log(`✅ Novo record de "Apenas Supino" criado com sucesso para ${division}`);
+              }
+            } else {
+              console.log(`⚠️ Peso ${weight}kg não é record em "Apenas Supino" para ${division} (record atual: ${existingBenchSoloRecord.weight}kg)`);
+            }
+          } catch (error) {
+            console.error(`❌ Erro ao salvar record de "Apenas Supino" para ${division}:`, error);
+          }
+        }
+      }
+
+      // 🆕 NOVO: Verificar e salvar records em TODAS as categorias de DOBRA
+      if (isAthleteDobra(entry)) {
+        const allCategories = getAthleteAllCategories(entry);
+        
+        // Filtrar categorias de dobra (excluir a categoria atual já salva)
+        const dobraCategories = allCategories.filter(cat => cat !== entry.division);
+        
+        console.log(`🏋️ Atleta ${entry.name} tem ${dobraCategories.length} categoria(s) de dobra:`, dobraCategories);
+        
+        for (const dobraCategory of dobraCategories) {
+          if (dobraCategory && dobraCategory.toLowerCase() !== 'dobra feperj') {
+            console.log(`🔍 Verificando se também é record na categoria de dobra: ${dobraCategory}...`);
+            
+            try {
+              // Verificar record na categoria de dobra
+              const dobraRecords = await recordsService.getRecordsByFilters(
+                movementToSave,
+                dobraCategory,
+                entry.sex,
+                normalizedEquipment as 'CLASSICA' | 'EQUIPADO'
+              );
+
+              // Filtrar pelo weightClass
+              const existingDobraRecord = dobraRecords.find(r => r.weightClass === entry.weightClass);
+
+              // Verificar se o peso atual é maior que o record de dobra
+              const isDobraRecord = !existingDobraRecord || weight > existingDobraRecord.weight;
+
+              if (isDobraRecord) {
+                const dobraRecordData = {
+                  movement: movementToSave as any,
+                  division: dobraCategory,
+                  sex: entry.sex,
+                  equipment: normalizedEquipment as 'CLASSICA' | 'EQUIPADO',
+                  weightClass: entry.weightClass,
+                  weight: weight,
+                  athleteName: entry.name,
+                  team: entry.team,
+                  competition: meet.name || 'Competição',
+                  date: new Date(meet.date || new Date())
+                };
+
+                if (existingDobraRecord) {
+                  // Atualizar record existente na dobra
+                  console.log(`🔄 Atualizando record de dobra para ${dobraCategory}:`, {
+                    anterior: `${existingDobraRecord.athleteName} - ${existingDobraRecord.weight}kg`,
+                    novo: `${entry.name} - ${weight}kg`
+                  });
+
+                  await recordsService.update(existingDobraRecord.id!, dobraRecordData);
+                  console.log(`✅ Record de dobra atualizado com sucesso para ${dobraCategory}`);
+                } else {
+                  // Criar novo record na dobra
+                  console.log(`➕ Criando novo record de dobra para ${dobraCategory}:`, {
+                    atleta: entry.name,
+                    peso: weight
+                  });
+
+                  await recordsService.create(dobraRecordData);
+                  console.log(`✅ Novo record de dobra criado com sucesso para ${dobraCategory}`);
+                }
+              } else {
+                console.log(`⚠️ Peso ${weight}kg não é record na categoria de dobra ${dobraCategory} (record atual: ${existingDobraRecord.weight}kg)`);
+              }
+            } catch (error) {
+              console.error(`❌ Erro ao salvar record de dobra para ${dobraCategory}:`, error);
+            }
+          }
+        }
+      }
+
+      console.log('🎉 Todos os records foram salvos com sucesso!');
+    } catch (error) {
+      console.error('❌ Erro ao salvar record automaticamente:', error);
+    }
+  };
+
   // Handlers para as ações - AGORA SINCRONIZADOS COM A TABELA
   const handleGoodLift = () => {
     console.log('🎯 handleGoodLift chamado:', { selectedEntryId, isAttemptActive, lift, selectedAttempt });
@@ -811,6 +1130,55 @@ const LiftingFooter: React.FC = () => {
           dispatch(updateEntry(selectedEntryId, { [statusField]: newStatusArray }));
           
           console.log(`✅ Status ${isEditing ? 'alterado' : 'atualizado'} para Good Lift`);
+          
+          // 🏆 NOVO: Verificar e salvar record automaticamente se habilitado
+          if (meet.recognizeRecords && !isEditing) {
+            // Apenas verificar record em novas marcações (não em edições)
+            const checkAndSaveRecord = async () => {
+              try {
+                // Mapear movimento para o formato do recordsService
+                const movementMap: { [key in Lift]: 'squat' | 'bench' | 'deadlift' } = {
+                  'S': 'squat',
+                  'B': 'bench',
+                  'D': 'deadlift'
+                };
+                const movement = movementMap[lift];
+                
+                // Obter tipo de competição
+                const competitionType = meet.allowedMovements?.join('') || 'AST';
+                
+                // 🆕 Obter TODAS as categorias do atleta (incluindo dobra)
+                const allAthleteCategories = getAthleteAllCategories(currentEntry);
+                console.log(`📋 Categorias para verificar record de ${currentEntry.name}:`, allAthleteCategories);
+                
+                // Verificar se é record - passar TODAS as categorias
+                const recordResult = await recordsService.checkRecordAttempt(
+                  currentWeight,
+                  movement,
+                  {
+                    sex: currentEntry.sex,
+                    age: currentEntry.age,
+                    weightClass: currentEntry.weightClass,
+                    division: allAthleteCategories.join(','), // Passar todas as categorias separadas por vírgula
+                    equipment: currentEntry.equipment,
+                    movements: currentEntry.movements
+                  },
+                  competitionType
+                );
+                
+                // Se é record, salvar automaticamente
+                if (recordResult.isRecord) {
+                  console.log('🏆 RECORD DETECTADO! Salvando automaticamente...', recordResult);
+                  await saveRecordAutomatically(selectedEntryId, currentWeight, movement, recordResult);
+                }
+              } catch (error) {
+                console.error('❌ Erro ao verificar/salvar record:', error);
+              }
+            };
+            
+            // Executar verificação em background (não bloquear a UI)
+            checkAndSaveRecord();
+          }
           
           // ✅ NOVO: Verificar se é uma correção e restaurar estado anterior
           if (isMakingCorrection.current) {

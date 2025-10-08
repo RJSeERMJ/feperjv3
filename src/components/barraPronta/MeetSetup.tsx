@@ -39,7 +39,8 @@ const MeetSetup: React.FC = () => {
      squatBarAndCollarsWeightKg: meet.squatBarAndCollarsWeightKg,
      benchBarAndCollarsWeightKg: meet.benchBarAndCollarsWeightKg,
      deadliftBarAndCollarsWeightKg: meet.deadliftBarAndCollarsWeightKg,
-     showAlternateUnits: meet.showAlternateUnits
+     showAlternateUnits: meet.showAlternateUnits,
+     recognizeRecords: meet.recognizeRecords
    });
 
      // Atualizar formData quando o estado do Redux mudar
@@ -62,7 +63,8 @@ const MeetSetup: React.FC = () => {
        squatBarAndCollarsWeightKg: meet.squatBarAndCollarsWeightKg,
        benchBarAndCollarsWeightKg: meet.benchBarAndCollarsWeightKg,
        deadliftBarAndCollarsWeightKg: meet.deadliftBarAndCollarsWeightKg,
-       showAlternateUnits: meet.showAlternateUnits
+       showAlternateUnits: meet.showAlternateUnits,
+       recognizeRecords: meet.recognizeRecords
      });
    }, [meet]);
 
@@ -361,6 +363,14 @@ const MeetSetup: React.FC = () => {
                     checked={formData.roundTotalsDown}
                     onChange={handleInputChange}
                     label="Arredondar Totais para Baixo"
+                    className="mb-2"
+                  />
+                  <Form.Check
+                    type="checkbox"
+                    name="recognizeRecords"
+                    checked={formData.recognizeRecords}
+                    onChange={handleInputChange}
+                    label="Reconhecer Record"
                     className="mb-2"
                   />
                 </Col>
