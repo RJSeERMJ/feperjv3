@@ -1166,10 +1166,32 @@ const LiftingFooter: React.FC = () => {
                   competitionType
                 );
                 
-                // Se é record, salvar automaticamente
+                // Se é record, salvar automaticamente E marcar a tentativa
                 if (recordResult.isRecord) {
                   console.log('🏆 RECORD DETECTADO! Salvando automaticamente...', recordResult);
+                  
+                  // Salvar no Firebase
                   await saveRecordAutomatically(selectedEntryId, currentWeight, movement, recordResult);
+                  
+                  // Marcar a tentativa como record no Entry
+                  const recordInfoField = lift === 'S' ? 'squatRecordInfo' : 
+                                         lift === 'B' ? 'benchRecordInfo' : 
+                                         'deadliftRecordInfo';
+                  
+                  const currentRecordInfo = (currentEntry as any)[recordInfoField] || [];
+                  const updatedRecordInfo = [
+                    ...currentRecordInfo.filter((info: any) => info.attempt !== selectedAttempt),
+                    {
+                      attempt: selectedAttempt,
+                      divisions: recordResult.recordDivisions
+                    }
+                  ];
+                  
+                  dispatch(updateEntry(selectedEntryId, {
+                    [recordInfoField]: updatedRecordInfo
+                  }));
+                  
+                  console.log(`✅ Tentativa ${selectedAttempt} marcada como record em:`, recordResult.recordDivisions);
                 }
               } catch (error) {
                 console.error('❌ Erro ao verificar/salvar record:', error);

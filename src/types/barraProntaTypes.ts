@@ -93,6 +93,12 @@ export interface Entry {
   benchStatus: LiftStatus[];
   deadliftStatus: LiftStatus[];
   
+  // Informações de record por tentativa
+  squatRecordInfo?: Array<{ attempt: number; divisions: string[] }>;
+  benchRecordInfo?: Array<{ attempt: number; divisions: string[] }>;
+  deadliftRecordInfo?: Array<{ attempt: number; divisions: string[] }>;
+  totalRecordInfo?: { divisions: string[] }; // NOVO: Record de total
+  
   tested: boolean;
   sessionNumber: number | null;
 }

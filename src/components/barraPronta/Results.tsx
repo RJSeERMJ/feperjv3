@@ -1034,6 +1034,90 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
             }
           }
         }
+        
+        // 🆕 NOVO: Verificar record de TOTAL
+        const total = result.total;
+        if (total > 0) {
+          try {
+            console.log(`🔍 Verificando record de TOTAL para ${entry.name}: ${total}kg`);
+            
+            // Obter todas as categorias do atleta (incluindo dobra)
+            const athletesDobra = detectAthletesDobra(registration.entries);
+            const athleteCategories: string[] = [];
+            
+            // Adicionar categoria principal
+            if (entry.division) {
+              athleteCategories.push(entry.division);
+            }
+            
+            // Verificar se está dobrando
+            if (isAthleteDobra(entry, athletesDobra)) {
+              const dobraCategory = getAthleteDobraCategory(entry, athletesDobra);
+              if (dobraCategory && dobraCategory !== 'Dobra FEPERJ' && dobraCategory !== entry.division) {
+                athleteCategories.push(dobraCategory);
+              }
+            }
+            
+            // Se não tem categorias, pular
+            if (athleteCategories.length === 0) {
+              continue;
+            }
+            
+            const normalizedEquipment = recordsService.normalizeEquipment(entry.equipment || 'CLASSICA');
+            const recordDivisions: string[] = [];
+            
+            // Verificar em cada categoria
+            for (const category of athleteCategories) {
+              const normalizedCategory = recordsService.normalizeDivision(category);
+              
+              const existingRecords = await recordsService.getRecordsByFilters(
+                'total',
+                normalizedCategory,
+                entry.sex,
+                normalizedEquipment as 'CLASSICA' | 'EQUIPADO'
+              );
+              
+              const existingRecord = existingRecords.find(r => r.weightClass === entry.weightClass);
+              
+              if (!existingRecord || total > existingRecord.weight) {
+                recordDivisions.push(normalizedCategory);
+                console.log(`🏆 TOTAL é record em ${normalizedCategory}: ${existingRecord?.weight || 0}kg → ${total}kg`);
+                
+                // Salvar no Firebase
+                const recordData = {
+                  movement: 'total' as any,
+                  division: normalizedCategory,
+                  sex: entry.sex,
+                  equipment: normalizedEquipment as 'CLASSICA' | 'EQUIPADO',
+                  weightClass: entry.weightClass,
+                  weight: total,
+                  athleteName: entry.name,
+                  team: entry.team,
+                  competition: meet.name || 'Competição',
+                  date: new Date(meet.date || new Date())
+                };
+                
+                if (existingRecord) {
+                  await recordsService.update(existingRecord.id!, recordData);
+                  console.log(`✅ Record de TOTAL atualizado para ${normalizedCategory}`);
+                } else {
+                  await recordsService.create(recordData);
+                  console.log(`✅ Novo record de TOTAL criado para ${normalizedCategory}`);
+                }
+              }
+            }
+            
+            // Marcar no resultado se é record de total
+            if (recordDivisions.length > 0) {
+              updatedResults[i].entry.totalRecordInfo = {
+                divisions: recordDivisions
+              };
+              console.log(`✅ Total ${total}kg marcado como record em:`, recordDivisions);
+            }
+          } catch (error) {
+            console.error(`❌ Erro ao verificar record de total para ${entry.name}:`, error);
+          }
+        }
       }
       
       setRecordInfo(newRecordInfo);
@@ -1047,7 +1131,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
     if (calculatedResults.length > 0) {
       checkRecordsForResults();
     }
-  }, [calculatedResults, meet.allowedMovements, meet.recognizeRecords]);
+  }, [calculatedResults, meet.allowedMovements, meet.recognizeRecords, meet.name, meet.date, registration.entries]);
 
 
 
@@ -3778,18 +3862,24 @@ const AttemptDisplay: React.FC<{
                                       status={result.squatStatus[0]} 
                                       isRecord={result.records.squat.isRecord}
                                       isBestAttempt={result.entry.squat1 === result.squat}
+                                      recordDivisions={result.entry.squatRecordInfo?.find(info => info.attempt === 1)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <AttemptCell 
                                       weight={result.entry.squat2} 
                                       status={result.squatStatus[1]} 
                                       isRecord={result.records.squat.isRecord}
                                       isBestAttempt={result.entry.squat2 === result.squat}
+                                      recordDivisions={result.entry.squatRecordInfo?.find(info => info.attempt === 2)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <AttemptCell 
                                       weight={result.entry.squat3} 
                                       status={result.squatStatus[2]} 
                                       isRecord={result.records.squat.isRecord}
                                       isBestAttempt={result.entry.squat3 === result.squat}
+                                      recordDivisions={result.entry.squatRecordInfo?.find(info => info.attempt === 3)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <td className="fw-bold text-success">{result.squat > 0 ? `${result.squat}kg` : '-'}</td>
                                     <td className="text-center">{result.positions.squat > 0 ? `${result.positions.squat}º` : '-'}</td>
@@ -3804,18 +3894,24 @@ const AttemptDisplay: React.FC<{
                                       status={result.benchStatus[0]} 
                                       isRecord={result.records.bench.isRecord}
                                       isBestAttempt={result.entry.bench1 === result.bench}
+                                      recordDivisions={result.entry.benchRecordInfo?.find(info => info.attempt === 1)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <AttemptCell 
                                       weight={result.entry.bench2} 
                                       status={result.benchStatus[1]} 
                                       isRecord={result.records.bench.isRecord}
                                       isBestAttempt={result.entry.bench2 === result.bench}
+                                      recordDivisions={result.entry.benchRecordInfo?.find(info => info.attempt === 2)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <AttemptCell 
                                       weight={result.entry.bench3} 
                                       status={result.benchStatus[2]} 
                                       isRecord={result.records.bench.isRecord}
                                       isBestAttempt={result.entry.bench3 === result.bench}
+                                      recordDivisions={result.entry.benchRecordInfo?.find(info => info.attempt === 3)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <td className="fw-bold text-success">{result.bench > 0 ? `${result.bench}kg` : '-'}</td>
                                     <td className="text-center">{result.positions.bench > 0 ? `${result.positions.bench}º` : '-'}</td>
@@ -3830,18 +3926,24 @@ const AttemptDisplay: React.FC<{
                                       status={result.deadliftStatus[0]} 
                                       isRecord={result.records.deadlift.isRecord}
                                       isBestAttempt={result.entry.deadlift1 === result.deadlift}
+                                      recordDivisions={result.entry.deadliftRecordInfo?.find(info => info.attempt === 1)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <AttemptCell 
                                       weight={result.entry.deadlift2} 
                                       status={result.deadliftStatus[1]} 
                                       isRecord={result.records.deadlift.isRecord}
                                       isBestAttempt={result.entry.deadlift2 === result.deadlift}
+                                      recordDivisions={result.entry.deadliftRecordInfo?.find(info => info.attempt === 2)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <AttemptCell 
                                       weight={result.entry.deadlift3} 
                                       status={result.deadliftStatus[2]} 
                                       isRecord={result.records.deadlift.isRecord}
                                       isBestAttempt={result.entry.deadlift3 === result.deadlift}
+                                      recordDivisions={result.entry.deadliftRecordInfo?.find(info => info.attempt === 3)?.divisions}
+                                      currentCategory={result.entry.division}
                                     />
                                     <td className="fw-bold text-success">{result.deadlift > 0 ? `${result.deadlift}kg` : '-'}</td>
                                     <td className="text-center">{result.positions.deadlift > 0 ? `${result.positions.deadlift}º` : '-'}</td>
@@ -3850,9 +3952,31 @@ const AttemptDisplay: React.FC<{
                                 
                                 {/* Resultado */}
                                 <td className="total text-center">
-                                  <span className="fw-bold text-primary fs-5">
-                                    {result.total}kg
-                                  </span>
+                                  {(() => {
+                                    // Verificar se o total é record NA CATEGORIA ATUAL
+                                    const totalRecordDivisions = result.entry.totalRecordInfo?.divisions || [];
+                                    let isRecordInCurrentCategory = false;
+                                    
+                                    if (totalRecordDivisions.length > 0 && result.entry.division) {
+                                      const normalizedCurrentCategory = recordsService.normalizeDivision(result.entry.division);
+                                      const normalizedRecordDivisions = totalRecordDivisions.map(div => recordsService.normalizeDivision(div));
+                                      isRecordInCurrentCategory = normalizedRecordDivisions.includes(normalizedCurrentCategory);
+                                    }
+                                    
+                                    return (
+                                      <>
+                                        <span className={`fw-bold fs-5 ${isRecordInCurrentCategory ? 'text-success' : 'text-primary'}`}>
+                                          {result.total}kg
+                                          {isRecordInCurrentCategory && ' 🏆'}
+                                        </span>
+                                        {isRecordInCurrentCategory && (
+                                          <div className="record-division-info">
+                                            <small>{Array.from(new Set(totalRecordDivisions)).join(', ')}</small>
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="indice text-center">
                                   <span className="fw-bold text-success">
@@ -3930,17 +4054,39 @@ interface AttemptCellProps {
   status: number;
   isRecord: boolean;
   isBestAttempt: boolean;
+  recordDivisions?: string[]; // Divisões onde a tentativa foi record
+  currentCategory?: string; // NOVO: Categoria atual da tabela
 }
 
-const AttemptCell: React.FC<AttemptCellProps> = ({ weight, status, isRecord, isBestAttempt }) => {
-  const className = getAttemptClass(weight, status, isRecord && isBestAttempt);
+const AttemptCell: React.FC<AttemptCellProps> = ({ weight, status, isRecord, isBestAttempt, recordDivisions, currentCategory }) => {
+  // NOVO: Verificar se é record NA CATEGORIA ATUAL da tabela
+  let isRecordInCurrentCategory = false;
+  let divisionsToShow: string[] = [];
+  
+  if (recordDivisions && recordDivisions.length > 0 && currentCategory) {
+    // Normalizar categoria atual
+    const normalizedCurrentCategory = recordsService.normalizeDivision(currentCategory);
+    
+    // Normalizar e filtrar divisões de record
+    const normalizedRecordDivisions = recordDivisions.map(div => recordsService.normalizeDivision(div));
+    
+    // Verificar se a categoria atual está na lista de recordes
+    isRecordInCurrentCategory = normalizedRecordDivisions.includes(normalizedCurrentCategory);
+    
+    // Se for record nesta categoria, mostrar TODAS as divisões onde foi record
+    if (isRecordInCurrentCategory) {
+      divisionsToShow = Array.from(new Set(recordDivisions));
+    }
+  }
+  
+  const className = getAttemptClass(weight, status, isRecordInCurrentCategory);
   
   return (
     <td className={`text-center ${className}`}>
       {weight || '-'}
-      {isRecord && isBestAttempt && (
+      {isRecordInCurrentCategory && divisionsToShow.length > 0 && (
         <div className="record-division-info">
-          <small>RECORD</small>
+          <small>{divisionsToShow.join(', ')}</small>
         </div>
       )}
     </td>
