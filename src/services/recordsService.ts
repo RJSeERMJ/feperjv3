@@ -411,23 +411,29 @@ export const recordsService = {
         console.log(`🏋️ Atleta apenas em S tentando supino - verificando records na aba "Apenas Supino" (bench_solo)`);
       }
 
-      // Determinar categorias de idade baseadas na idade do atleta
-      const ageDivisions = this.getAgeDivisions(athleteData.age);
+      // 🆕 NOVA LÓGICA: Verificar records em TODAS as categorias elegíveis por IDADE,
+      // mesmo que o atleta não esteja inscrito naquela categoria específica
       
-      // Se o atleta tem divisões específicas inscritas (podem ser múltiplas separadas por vírgula)
+      // Categorias baseadas na IDADE do atleta (verificação automática por idade)
+      const ageDivisions = this.getAgeDivisions(athleteData.age);
+      console.log(`📋 [VERIFICAÇÃO POR IDADE] Atleta com ${athleteData.age} anos pode bater record em: [${ageDivisions.join(', ')}]`);
+      
+      // Categorias onde o atleta está INSCRITO (verificação por inscrição)
       const athleteDivisions = athleteData.division 
         ? athleteData.division.split(',').map(d => d.trim()).filter(Boolean)
         : [];
+      console.log(`📋 [VERIFICAÇÃO POR INSCRIÇÃO] Atleta inscrito em: [${athleteDivisions.join(', ')}]`);
       
-      // Combinar categorias de idade com divisões do atleta
+      // Combinar TODAS as categorias (idade + inscrição)
       const allDivisions = [...ageDivisions, ...athleteDivisions];
 
       // Remover duplicatas
       const uniqueDivisions = Array.from(new Set(allDivisions));
 
-      console.log('📋 Categorias de idade baseadas na idade:', ageDivisions);
-      console.log('📋 Divisões do atleta:', athleteDivisions);
-      console.log('📋 Todas as divisões a verificar:', uniqueDivisions);
+      console.log(`📋 [VERIFICAÇÃO COMPLETA] Verificando records em TODAS as categorias elegíveis: [${uniqueDivisions.join(', ')}]`);
+      
+      // 🎯 EXEMPLO: Atleta Open (inscrito) com 40 anos (idade) → verifica Open (inscrição) + OPEN,MASTER1 (idade)
+      // Se bater record Master1 mas não Open, sistema detecta e salva como record Master1!
 
       const recordDivisions: string[] = [];
       const currentRecords: Record[] = [];
@@ -439,9 +445,22 @@ export const recordsService = {
 
       // Verificar cada divisão
       for (const division of uniqueDivisions) {
+        // 🆕 Identificar se esta categoria vem da IDADE ou da INSCRIÇÃO
+        const isPorIdade = ageDivisions.includes(division);
+        const isPorInscricao = athleteDivisions.includes(division);
+        
+        let origem = '';
+        if (isPorIdade && isPorInscricao) {
+          origem = '(por IDADE e INSCRIÇÃO)';
+        } else if (isPorIdade) {
+          origem = '(por IDADE - atleta NÃO inscrito nesta categoria)';
+        } else {
+          origem = '(por INSCRIÇÃO)';
+        }
+        
         // Normalizar divisão antes de verificar
         const normalizedDivision = this.normalizeDivision(division);
-        console.log(`🔍 Verificando divisão: "${division}" → "${normalizedDivision}"`);
+        console.log(`\n🔍 Verificando divisão: "${division}" → "${normalizedDivision}" ${origem}`);
         
         // Normalizar equipamento
         const normalizedEquipment = this.normalizeEquipment(athleteData.equipment || 'CLASSICA');
@@ -501,14 +520,23 @@ export const recordsService = {
               currentRecord: bestRecord.weight,
               isNewRecord: true
             });
-            console.log(`🏆 NOVO RECORD! ${normalizedDivision}: ${bestRecord.weight}kg → ${weight}kg`);
+            
+            // 🆕 Log especial mostrando se o record foi detectado por IDADE ou INSCRIÇÃO
+            if (isPorIdade && !isPorInscricao) {
+              console.log(`🏆🎯 NOVO RECORD DETECTADO POR IDADE! ${normalizedDivision}: ${bestRecord.weight}kg → ${weight}kg`);
+              console.log(`   ℹ️ Atleta NÃO inscrito em ${normalizedDivision}, mas TEM IDADE para esta categoria!`);
+            } else if (isPorIdade && isPorInscricao) {
+              console.log(`🏆 NOVO RECORD! ${normalizedDivision}: ${bestRecord.weight}kg → ${weight}kg (por idade E inscrição)`);
+            } else {
+              console.log(`🏆 NOVO RECORD! ${normalizedDivision}: ${bestRecord.weight}kg → ${weight}kg (por inscrição)`);
+            }
           } else {
             recordDetails.push({
               division: normalizedDivision, // Salvar divisão normalizada
               currentRecord: bestRecord.weight,
               isNewRecord: false
             });
-            console.log(`❌ Não é record. Record atual: ${bestRecord.weight}kg, Tentativa: ${weight}kg`);
+            console.log(`❌ Não é record em ${normalizedDivision}. Record atual: ${bestRecord.weight}kg, Tentativa: ${weight}kg`);
           }
         } else {
           // MODIFICAÇÃO: Não considerar como record se não há records existentes
@@ -539,31 +567,47 @@ export const recordsService = {
   },
 
   // Função auxiliar para determinar divisões baseadas na idade
+  // 🆕 ATUALIZADA: Agora retorna TODAS as categorias elegíveis por idade,
+  // permitindo verificar records mesmo quando o atleta não está inscrito naquela categoria
   getAgeDivisions(age: number): string[] {
     const divisions: string[] = [];
     
-    if (age <= 18) {
+    // Sub-Júnior: 14-18 anos
+    if (age >= 14 && age <= 18) {
       divisions.push('SUBJR');
     }
-    if (age <= 23) {
-      divisions.push('JR'); // ABREVIADO
+    
+    // Júnior: 19-23 anos
+    if (age >= 19 && age <= 23) {
+      divisions.push('JR');
     }
-    if (age >= 18) {
+    
+    // Open: 19+ anos, MAS Master3 (60-69) e Master4 (70+) NÃO podem usar Open
+    if (age >= 19 && age < 60) {
       divisions.push('OPEN');
     }
-    if (age >= 40) {
+    
+    // Master 1: 40-49 anos
+    if (age >= 40 && age <= 49) {
       divisions.push('MASTER1');
     }
-    if (age >= 50) {
+    
+    // Master 2: 50-59 anos
+    if (age >= 50 && age <= 59) {
       divisions.push('MASTER2');
     }
-    if (age >= 60) {
+    
+    // Master 3: 60-69 anos
+    if (age >= 60 && age <= 69) {
       divisions.push('MASTER3');
     }
+    
+    // Master 4: 70+ anos
     if (age >= 70) {
       divisions.push('MASTER4');
     }
 
+    console.log(`📋 [getAgeDivisions] Idade ${age} anos → Categorias elegíveis: [${divisions.join(', ')}]`);
     return divisions;
   },
 
