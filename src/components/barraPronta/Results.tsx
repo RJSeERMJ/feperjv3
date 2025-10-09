@@ -1039,7 +1039,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
         const total = result.total;
         if (total > 0) {
           try {
-            console.log(`🔍 Verificando record de TOTAL para ${entry.name}: ${total}kg`);
+            console.log(`🔍 [TOTAL RECORD CHECK] Iniciando verificação para ${entry.name}: ${total}kg`);
             
             // Obter todas as categorias do atleta (incluindo dobra)
             const athletesDobra = detectAthletesDobra(registration.entries);
@@ -1048,18 +1048,28 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
             // Adicionar categoria principal
             if (entry.division) {
               athleteCategories.push(entry.division);
+              console.log(`✅ [TOTAL RECORD CHECK] Categoria principal: ${entry.division}`);
             }
             
             // Verificar se está dobrando
-            if (isAthleteDobra(entry, athletesDobra)) {
+            const isDobra = isAthleteDobra(entry, athletesDobra);
+            console.log(`🔍 [TOTAL RECORD CHECK] Está dobrando? ${isDobra}`);
+            
+            if (isDobra) {
               const dobraCategory = getAthleteDobraCategory(entry, athletesDobra);
+              console.log(`🔍 [TOTAL RECORD CHECK] Categoria de dobra: ${dobraCategory}`);
+              
               if (dobraCategory && dobraCategory !== 'Dobra FEPERJ' && dobraCategory !== entry.division) {
                 athleteCategories.push(dobraCategory);
+                console.log(`✅ [TOTAL RECORD CHECK] Dobra adicionada: ${dobraCategory}`);
               }
             }
             
+            console.log(`📋 [TOTAL RECORD CHECK] Todas as categorias a verificar:`, athleteCategories);
+            
             // Se não tem categorias, pular
             if (athleteCategories.length === 0) {
+              console.log(`⚠️ [TOTAL RECORD CHECK] Nenhuma categoria encontrada, pulando`);
               continue;
             }
             
@@ -1069,6 +1079,7 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
             // Verificar em cada categoria
             for (const category of athleteCategories) {
               const normalizedCategory = recordsService.normalizeDivision(category);
+              console.log(`🔍 [TOTAL RECORD CHECK] Verificando categoria: ${category} → ${normalizedCategory}`);
               
               const existingRecords = await recordsService.getRecordsByFilters(
                 'total',
@@ -1077,11 +1088,14 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
                 normalizedEquipment as 'CLASSICA' | 'EQUIPADO'
               );
               
+              console.log(`📊 [TOTAL RECORD CHECK] Records existentes encontrados:`, existingRecords.length);
+              
               const existingRecord = existingRecords.find(r => r.weightClass === entry.weightClass);
+              console.log(`📊 [TOTAL RECORD CHECK] Record para ${entry.weightClass}:`, existingRecord);
               
               if (!existingRecord || total > existingRecord.weight) {
                 recordDivisions.push(normalizedCategory);
-                console.log(`🏆 TOTAL é record em ${normalizedCategory}: ${existingRecord?.weight || 0}kg → ${total}kg`);
+                console.log(`🏆 [TOTAL RECORD CHECK] TOTAL é record em ${normalizedCategory}: ${existingRecord?.weight || 0}kg → ${total}kg`);
                 
                 // Salvar no Firebase
                 const recordData = {
@@ -1112,7 +1126,10 @@ const Results: React.FC<ResultsProps> = ({ meet: propMeet, registration: propReg
               updatedResults[i].entry.totalRecordInfo = {
                 divisions: recordDivisions
               };
-              console.log(`✅ Total ${total}kg marcado como record em:`, recordDivisions);
+              console.log(`✅ [TOTAL RECORD CHECK] Total ${total}kg marcado como record em:`, recordDivisions);
+              console.log(`✅ [TOTAL RECORD CHECK] Entry atualizado:`, updatedResults[i].entry.totalRecordInfo);
+            } else {
+              console.log(`❌ [TOTAL RECORD CHECK] Total ${total}kg NÃO é record em nenhuma categoria`);
             }
           } catch (error) {
             console.error(`❌ Erro ao verificar record de total para ${entry.name}:`, error);
@@ -3957,10 +3974,18 @@ const AttemptDisplay: React.FC<{
                                     const totalRecordDivisions = result.entry.totalRecordInfo?.divisions || [];
                                     let isRecordInCurrentCategory = false;
                                     
+                                    console.log(`🔍 [RENDER TOTAL] ${result.entry.name}: totalRecordInfo =`, result.entry.totalRecordInfo);
+                                    console.log(`🔍 [RENDER TOTAL] Divisões de record:`, totalRecordDivisions);
+                                    console.log(`🔍 [RENDER TOTAL] Categoria atual:`, result.entry.division);
+                                    
                                     if (totalRecordDivisions.length > 0 && result.entry.division) {
                                       const normalizedCurrentCategory = recordsService.normalizeDivision(result.entry.division);
                                       const normalizedRecordDivisions = totalRecordDivisions.map(div => recordsService.normalizeDivision(div));
                                       isRecordInCurrentCategory = normalizedRecordDivisions.includes(normalizedCurrentCategory);
+                                      
+                                      console.log(`🔍 [RENDER TOTAL] Normalizada atual: ${normalizedCurrentCategory}`);
+                                      console.log(`🔍 [RENDER TOTAL] Normalizadas record:`, normalizedRecordDivisions);
+                                      console.log(`🔍 [RENDER TOTAL] É record nesta categoria? ${isRecordInCurrentCategory}`);
                                     }
                                     
                                     return (
